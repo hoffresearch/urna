@@ -527,7 +527,7 @@ dependencies = [
 
 [[package]]
 name = "nest-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -543,7 +543,7 @@ dependencies = [
 
 [[package]]
 name = "nest-format"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytemuck",
  "half",
@@ -559,7 +559,7 @@ dependencies = [
 
 [[package]]
 name = "nest-python"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "hex",
  "nest-format",
@@ -571,7 +571,7 @@ dependencies = [
 
 [[package]]
 name = "nest-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
  "half",

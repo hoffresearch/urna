@@ -79,7 +79,7 @@ nest doctor
 pip install "nestdb[embed]"     # python; offline embedding via the bundled potion table
 ```
 
-also windows (`install.ps1`), homebrew tap, `cargo binstall nest-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [doc/usage.md](doc/usage.md#reference). the release channels serve from the first `v*` tag cut after the pipeline landed; `v0.3.0` predates it and carries no artifacts, so the dev build below is the working path until then.
+also windows (`install.ps1`), homebrew tap, `cargo binstall nest-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [doc/usage.md](doc/usage.md#reference). the release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
 
 <details>
 <summary>dev build (rust edition 2024, python 3.12+)</summary>
@@ -542,6 +542,24 @@ int8 at 384 is the `tiny` preset, int4 at 384 is `nano`. int4 packs blocks of 64
 
 ---
 </details>
+
+</details>
+
+<details>
+<summary>image corpus: 38,627 magic cards in one file, five image models, and what came back into nest</summary>
+
+[brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark) (code, specs, twenty experiments) and the dataset on the hub, [brennercruvinel/mtg-nest-benchmark](https://huggingface.co/datasets/brennercruvinel/mtg-nest-benchmark) (ten `.nest` files, 11.7 GB, plus a parquet view). 4 GB of jpeg scans, one card per oracle id, packed by the forge into single files with the text, the vectors, the index and the media inside.
+
+| profile | media | file | ratio vs the jpeg source |
+|---------|-------|-----:|-------------------------:|
+| `archive` | jpeg xl byte-reversible repack | 3.61 GB | 1.10x, every jpeg back bit for bit |
+| `stills` | av1 all-intra crf35 tune still | 1.37 GB | 2.89x |
+| `retrieval` | av1 all-intra crf50 | 533 MB | 7.46x, no measurable search loss |
+| `stills-5models` | the stills media with potion, clip, siglip2, jina and wemm-2b | 1.44 GB | 2.75x |
+
+text-to-image search on the five-model file, every card as a query ("artwork of the card {name}"), hit@1 on 38,627 queries: siglip2 0.750, wemm-2b 0.744, jina 0.336, clip 0.098. siglip2 embeds the corpus in twelve minutes, wemm-2b in twenty-one hours. reading one card back from the av1 stream costs 27 ms on an m4, 23 of them ffmpeg starting.
+
+what the benchmark put into nest: `${VAR}` in spec paths and the `retrieval` / `retrieval-auto` profiles (#131, #135), a hit@k utility floor on the crf=auto gate because cosine drift never said where search breaks (#135), the embed cache under xdg (#133), the avif `source_bytes` fix (#132), avif as a stills recipe with floors a real corpus reaches (#137), a batched decode that raised on every real stream and png intermediates that cost 8x the decode (#138), the avif worker count pinned because libaom writes other bytes with one thread (#139), `tune = "still"` as the default (#140), and a manifest that is key + ordinal instead of 13 MB (#141). the full record, one hypothesis per row with its verdict, is `docs/hypotheses.md` in the benchmark repository.
 
 </details>
 
