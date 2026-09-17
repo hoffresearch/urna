@@ -448,7 +448,7 @@ nest media corpus.nest --export DIR    # write every inlined blob to DIR, verify
 
 every way to get `nest` onto a machine, what each channel lays down, how to verify what you got, and what a maintainer has to set up once before a release can feed these channels. each item is collapsed; open the one you need.
 
-status: the release pipeline (`.github/workflows/release.yml` via cargo-dist, `.github/workflows/pypi.yml`, `.github/workflows/install-test.yml`) landed after `v0.3.0`, and that tag carries no artifacts. the channels below serve from the first `v*` tag cut on `main` from here on; until then the dev build is the working path. the maintainer checklist is the list of what must exist before that tag is pushed.
+status: the release pipeline (`.github/workflows/release.yml` via cargo-dist, `.github/workflows/pypi.yml`, `.github/workflows/install-test.yml`) serves from `v0.4.0` (2026-09-17) on; `v0.3.0` predates it and carries no artifacts. the maintainer checklist below is what each channel needs on the account side; a channel whose prerequisite is missing fails its own job and leaves the github release intact.
 
 the product is offline by construction: the installers are the only thing that ever opens a socket. after install, `nest doctor` validates the surface without network.
 
