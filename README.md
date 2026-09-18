@@ -8,7 +8,7 @@ one `.urna` file carries chunks, embeddings, source spans, media, indices, and a
 
 python builds. rust serves. urna ships.
 
-> renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier does not open under `urna`; rebuild it from the same chunks. details in `doc/CHANGELOG`.
+> renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier still opens: the reader accepts the old `NEST` magic, the writer only emits `URNA`. details in `doc/CHANGELOG`.
 
 no server to run, no api call, no central index to audit. ship a curated knowledge base inside the application; every answer points at a chunk you can verify.
 

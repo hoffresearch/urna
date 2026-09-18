@@ -5,7 +5,7 @@ operating notes for ai agents and human contributors working in this repo. the p
 # build and test
 
 - `cargo build --workspace` / `cargo build --release --workspace`
-- `cargo test --workspace`: all rust tests (unit + integration + golden), 340/340 on the current unreleased state (`forge-core` adds 6 more on its own manifest)
+- `cargo test --workspace`: all rust tests (unit + integration + golden), 371/371 on the current unreleased state (`forge-core` adds 6 more on its own manifest)
 - `cargo fmt --all --check`: formatting check
 - `cargo clippy --workspace --all-targets -- -D warnings`: linting (warnings are errors)
 - `ruff check .` / `ruff format --check .`: python linting and formatting (config in `pyproject.toml`)
