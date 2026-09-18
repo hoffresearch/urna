@@ -25,6 +25,9 @@ pub use header::UrnaHeader;
 pub use section_entry::SectionEntry;
 
 pub const URNA_MAGIC: &[u8; 4] = b"URNA";
+/// magic written by releases up to 0.4.0, before the project was renamed.
+/// the reader accepts it (same layout, same hashes); the writer never emits it.
+pub const LEGACY_MAGIC: &[u8; 4] = b"NEST";
 pub const URNA_VERSION_MAJOR: u16 = 1;
 pub const URNA_VERSION_MINOR: u16 = 0;
 pub const URNA_HEADER_SIZE: usize = 128;
