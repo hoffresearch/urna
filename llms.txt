@@ -9,7 +9,7 @@ single-file sovereign vector database. the .urna file IS the database: chunks, e
 ## project snapshot
 
 - language stack: rust workspace (format, runtime, cli, pyo3 bindings) + python tooling (builder, embedders, measurement).
-- architecture docs: doc/arc/arc.yaml (human and machine reference), doc/arc/arc.mmd (visual mermaid). the pair is the source of truth.
+- architecture docs: doc/arc/arc.toml (human and machine reference, plus the visual mermaid diagram in `diagram.source`). the single source of truth.
 - .contracts/.agents/AGENTS.md is the agent and contributor operating contract and the single agent instruction source; use/update/init only .contracts/.agents/AGENTS.md, no per-tool instruction files.
 - forge-core/ is a SEPARATE cargo workspace (ingestion layer, frozen .fci schema); not in the sovereign --workspace set, build it via --manifest-path forge-core/Cargo.toml.
 
@@ -81,8 +81,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 - README.md
 - .contracts/.agents/AGENTS.md (the single agent instruction source)
 - doc/CONTRIBUTING.md
-- doc/arc/arc.yaml
-- doc/arc/arc.mmd
+- doc/arc/arc.toml
 - doc/usage.md
 - doc/benchmarks.md
 - doc/CHANGELOG

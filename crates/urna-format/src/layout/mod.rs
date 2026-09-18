@@ -74,7 +74,7 @@ pub const SECTION_ENCODING_FLOAT16: u32 = 2;
 pub const SECTION_ENCODING_INT8: u32 = 3;
 
 // reserved additive wire encodings. ids 4-255 are reserved within frozen
-// format v1 (see doc/arc/arc.yaml). claimed here as named
+// format v1 (see doc/arc/arc.toml). claimed here as named
 // constants so each future codec ships as a small additive diff. NOT yet
 // implemented: decode_payload rejects them with UnsupportedSectionEncoding
 // until their codec module lands, so old and new readers agree.
@@ -140,7 +140,7 @@ pub const SECTION_TOKENIZER_MODEL: u32 = 0x0E;
 pub const SECTION_EDIT_JOURNAL: u32 = 0x0F;
 pub const SECTION_REPRO_MANIFEST: u32 = 0x10;
 
-// additive optional sections past 0x10 (see doc/arc/arc.yaml), one disjoint
+// additive optional sections past 0x10 (see doc/arc/arc.toml), one disjoint
 // map so no two features claim the same id. ALL are EXCLUDED from
 // content_hash, so adding any of them never invalidates a urna:// citation.
 //   0x11-0x13 graph nodes / edge props / entity map: claimed names only.

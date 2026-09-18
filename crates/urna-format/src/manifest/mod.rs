@@ -53,7 +53,7 @@ impl Default for Capabilities {
 /// when `None`, and the whole struct rides the manifest as an `Option`
 /// skipped when `None`, so a file that sets none of these serializes
 /// byte-identically to a v1 manifest. The named flags match the reserved
-/// section work (see doc/arc/arc.yaml): a feature sets its
+/// section work (see doc/arc/arc.toml): a feature sets its
 /// flag only when it actually emits its sections.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CapabilitiesExt {

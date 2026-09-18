@@ -612,7 +612,7 @@ python builds a deterministic container; a rust runtime mmaps it and answers exa
 - `urna-python`: pyo3 bridge (`urna.open`, `urna.build`, `UrnaFile.retrieve`)
 - `python/`: writer pipeline, model registry, offline embedders, forge tooling
 
-the full map (flows, contracts, inventory) lives in [doc/arc/arc.yaml](doc/arc/arc.yaml) and the visual sequence in [doc/arc/arc.mmd](doc/arc/arc.mmd).
+the full map (flows, contracts, inventory, and the visual sequence diagram) lives in [doc/arc/arc.toml](doc/arc/arc.toml).
 
 </details>
 
