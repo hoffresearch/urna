@@ -3,7 +3,7 @@
 proves the one-gif demo path is sovereign and honest:
   - build_demo + retrieve open NO socket (block connect/getaddrinfo first)
   - the build is deterministic (two builds byte-identical)
-  - retrieve returns a nest:// citation that the runtime resolves back to the
+  - retrieve returns a urna:// citation that the runtime resolves back to the
     SAME stored canonical text (tier-1 round-trip), and the retrieve score IS
     the exact-cosine search score (the flagship-is-a-lie guard, again on the
     real corpus)
@@ -23,7 +23,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # python/
 
-import nest  # noqa: E402
+import urna  # noqa: E402
 
 from forge.embed_potion import potion_embedder  # noqa: E402
 from forge.retrieve import build_demo, retrieve  # noqa: E402
@@ -47,9 +47,9 @@ def test_no_socket_on_build_and_retrieve() -> None:
     socket.create_connection = _blocked  # type: ignore[assignment]
     try:
         with tempfile.TemporaryDirectory() as d:
-            path = os.path.join(d, "demo.nest")
+            path = os.path.join(d, "demo.urna")
             build_demo(path)
-            db = nest.open(path)
+            db = urna.open(path)
             hits = retrieve(db, "can I run this with no internet", k=2)
             assert hits, "retrieve must return cited spans fully offline"
     finally:
@@ -61,8 +61,8 @@ def test_no_socket_on_build_and_retrieve() -> None:
 
 def test_deterministic_build() -> None:
     with tempfile.TemporaryDirectory() as d:
-        a = os.path.join(d, "a.nest")
-        b = os.path.join(d, "b.nest")
+        a = os.path.join(d, "a.urna")
+        b = os.path.join(d, "b.urna")
         build_demo(a)
         build_demo(b)
         with open(a, "rb") as fa, open(b, "rb") as fb:
@@ -72,9 +72,9 @@ def test_deterministic_build() -> None:
 
 def test_citation_round_trips_and_score_is_exact() -> None:
     with tempfile.TemporaryDirectory() as d:
-        path = os.path.join(d, "demo.nest")
+        path = os.path.join(d, "demo.urna")
         build_demo(path)
-        db = nest.open(path)
+        db = urna.open(path)
         emb = potion_embedder()
         q = emb.embed_texts(["how do citations let an agent prove a source"])[0]
 
@@ -86,8 +86,8 @@ def test_citation_round_trips_and_score_is_exact() -> None:
             assert r.chunk_id == s.chunk_id
             # the flagship-is-a-lie guard on the real corpus: identical bits.
             assert r.score == s.score, (r.score, s.score)
-            assert r.citation_id == f"nest://{db.content_hash}/{r.chunk_id}"
-            assert r.citation_id.startswith("nest://sha256:")
+            assert r.citation_id == f"urna://{db.content_hash}/{r.chunk_id}"
+            assert r.citation_id.startswith("urna://sha256:")
             assert isinstance(r.text, str) and r.text
             assert r.rerank_source == "full_precision"  # exact preset is f32
 

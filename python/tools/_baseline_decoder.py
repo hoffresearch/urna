@@ -1,4 +1,4 @@
-"""Pull (chunks, manifest_meta) out of a baseline `.nest` so we can
+"""Pull (chunks, manifest_meta) out of a baseline `.urna` so we can
 rebuild it under a different preset without re-embedding.
 
 This decoder reaches inside the binary container directly (parses the
@@ -19,11 +19,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "python"))
-import nest  # noqa: E402  (sys.path inserted above)
+import urna  # noqa: E402  (sys.path inserted above)
 
 
 def decode_baseline(path: Path):
-    """Return `(chunks, meta)` ready to feed into `nest.build()`.
+    """Return `(chunks, meta)` ready to feed into `urna.build()`.
 
     `chunks` is a list of dicts with `canonical_text`, `source_uri`,
     `byte_start`, `byte_end`, `embedding`. `meta` is the manifest fields
@@ -31,7 +31,7 @@ def decode_baseline(path: Path):
 
     Raises `SystemExit` if the file is not raw-encoded.
     """
-    db = nest.open(str(path))
+    db = urna.open(str(path))
     info = db.inspect()
     n = db.n_embeddings
     dim = db.embedding_dim
@@ -128,7 +128,7 @@ def _decode_spans(buf: bytes, expected: int) -> list[tuple[str, int, int]]:
 
 
 # Re-export the path constant some callers want.
-DEFAULT_BASELINE = REPO / "dat" / "corpus_next.v1.nest"
+DEFAULT_BASELINE = REPO / "dat" / "corpus_next.v1.urna"
 OUT_DIR = REPO / "dat" / "measure"
 
 # Silence the "imported but unused" warning when this module is loaded

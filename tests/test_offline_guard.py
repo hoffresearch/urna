@@ -1,5 +1,5 @@
 """Guard test: the sentence-transformers entrypoints force HuggingFace
-OFFLINE by default, and honor NEST_ALLOW_DOWNLOAD=1 as the explicit opt-in
+OFFLINE by default, and honor URNA_ALLOW_DOWNLOAD=1 as the explicit opt-in
 (audit findings S5 / P1).
 
 Importing `embed_query` must set HF_HUB_OFFLINE=1 before any hub access, so a
@@ -27,7 +27,7 @@ def _run(extra_env: dict) -> str:
     env["PYDIR"] = PYDIR
     # clean slate: the guard uses setdefault, so a pre-set value would mask it.
     _forced = ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE")
-    for k in (*_forced, "NEST_ALLOW_DOWNLOAD"):
+    for k in (*_forced, "URNA_ALLOW_DOWNLOAD"):
         env.pop(k, None)
     env.update(extra_env)
     proc = subprocess.run([sys.executable, "-c", SNIPPET], capture_output=True, text=True, env=env)
@@ -41,10 +41,10 @@ def test_offline_forced_by_default() -> None:
 
 
 def test_opt_in_download_disables_force() -> None:
-    assert _run({"NEST_ALLOW_DOWNLOAD": "1"}) == "None", (
-        "NEST_ALLOW_DOWNLOAD=1 must NOT force offline (explicit opt-in)"
+    assert _run({"URNA_ALLOW_DOWNLOAD": "1"}) == "None", (
+        "URNA_ALLOW_DOWNLOAD=1 must NOT force offline (explicit opt-in)"
     )
-    print("NEST_ALLOW_DOWNLOAD opt-in respected: ok")
+    print("URNA_ALLOW_DOWNLOAD opt-in respected: ok")
 
 
 if __name__ == "__main__":

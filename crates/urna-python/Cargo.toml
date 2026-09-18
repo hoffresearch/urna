@@ -1,0 +1,23 @@
+[package]
+name = "urna-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[lib]
+name = "_urna"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["abi3-py312"] }
+urna-format = { workspace = true }
+urna-runtime = { workspace = true }
+serde_json = { workspace = true }
+hex = "0.4"
+
+[build-dependencies]
+pyo3-build-config = "0.29"

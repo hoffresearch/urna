@@ -55,18 +55,18 @@ def main() -> int:
             )
             return 4
 
-    # N11: the manifest of an untrusted .nest must never be enough to run
+    # N11: the manifest of an untrusted .urna must never be enough to run
     # remote model code. The opt-in is explicit and names presets, exactly
     # like [output] allow_remote_code at build time:
-    #   NEST_ALLOW_REMOTE_CODE="wemm-2b,jina-v5-omni-nano"
+    #   URNA_ALLOW_REMOTE_CODE="wemm-2b,jina-v5-omni-nano"
     # The pinned hash allowlist still applies inside create_embedder.
     allowed = frozenset(
-        p.strip() for p in os.environ.get("NEST_ALLOW_REMOTE_CODE", "").split(",") if p.strip()
+        p.strip() for p in os.environ.get("URNA_ALLOW_REMOTE_CODE", "").split(",") if p.strip()
     )
     if preset.trust_remote_code and preset.name not in allowed:
         print(
             f"error: preset '{preset.name}' runs remote model code; opt in with "
-            f'NEST_ALLOW_REMOTE_CODE="{preset.name}" (RFC-0 N11)',
+            f'URNA_ALLOW_REMOTE_CODE="{preset.name}" (RFC-0 N11)',
             file=sys.stderr,
         )
         return 4
@@ -75,7 +75,7 @@ def main() -> int:
             preset.name,
             model_path=args.model_path,
             allow_remote_code=allowed,
-            allow_heavy=os.environ.get("NEST_ALLOW_HEAVY", "") == "1" or preset.executable,
+            allow_heavy=os.environ.get("URNA_ALLOW_HEAVY", "") == "1" or preset.executable,
         )
         vec = emb.embed_texts([args.query], role="query")[0]
     except mr.RegistryError as e:

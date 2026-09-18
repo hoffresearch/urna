@@ -1,17 +1,17 @@
 """stage the maturin wheel project under packaging/staging/.
 
-the repo keeps a dev layout (python/nest.py + python/_nest.so side by side);
-the published wheel needs a package layout (nest/__init__.py + nest._nest).
+the repo keeps a dev layout (python/urna.py + python/_urna.so side by side);
+the published wheel needs a package layout (urna/__init__.py + urna._urna).
 this script copies the public surface into packaging/staging/ so
-`maturin build` there produces the official `nestdb` wheel without touching
+`maturin build` there produces the official `urna` wheel without touching
 the dev flow.
 
 contents staged:
   staging/pyproject.toml               <- packaging/pyproject.toml (verbatim;
                                           its paths resolve from staging/)
   staging/README.md                    <- README.md
-  staging/nest/__init__.py             <- python/nest.py
-  staging/nest/models/potion-base-8M/  <- python/forge/models/potion-base-8M/
+  staging/urna/__init__.py             <- python/urna.py
+  staging/urna/models/potion-base-8M/  <- python/forge/models/potion-base-8M/
 
 the potion table (~30 MB) is bundled on purpose: the installed package must
 embed offline by construction, so no lazy fetch path exists. git-lfs pointer
@@ -33,16 +33,16 @@ STAGING = ROOT / "packaging" / "staging"
 COPIES = [
     (ROOT / "packaging" / "pyproject.toml", STAGING / "pyproject.toml"),
     (ROOT / "README.md", STAGING / "README.md"),
-    (ROOT / "python" / "nest.py", STAGING / "nest" / "__init__.py"),
-    (ROOT / "python" / "nest_cli.py", STAGING / "nest" / "_cli.py"),
+    (ROOT / "python" / "urna.py", STAGING / "urna" / "__init__.py"),
+    (ROOT / "python" / "urna_cli.py", STAGING / "urna" / "_cli.py"),
     # the offline potion embedder is self-contained (stdlib + numpy +
     # tokenizers) and resolves its model dir relative to __file__, so it
     # drops into the package unchanged next to the bundled table.
-    (ROOT / "python" / "forge" / "embed_potion.py", STAGING / "nest" / "embed_potion.py"),
+    (ROOT / "python" / "forge" / "embed_potion.py", STAGING / "urna" / "embed_potion.py"),
 ]
 
 MODEL_SRC = ROOT / "python" / "forge" / "models" / "potion-base-8M"
-MODEL_DST = STAGING / "nest" / "models" / "potion-base-8M"
+MODEL_DST = STAGING / "urna" / "models" / "potion-base-8M"
 
 
 def fail(msg: str) -> None:

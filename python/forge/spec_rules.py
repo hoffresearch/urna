@@ -181,7 +181,10 @@ def _validate_utility(q, gate: str, need) -> None:
         0.0 <= q.utility_floor_hit1 <= 1.0,
         "media.quality.utility_floor_hit1: hit@1 floor must be within 0..1 (negative = off)",
     )
-    need(q.utility_queries >= 0, "media.quality.utility_queries: must be >= 0 (0 = every sampled item)")
+    need(
+        q.utility_queries >= 0,
+        "media.quality.utility_queries: must be >= 0 (0 = every sampled item)",
+    )
     need(
         "{label}" in q.utility_query_template,
         'media.quality.utility_query_template: must contain "{label}"',

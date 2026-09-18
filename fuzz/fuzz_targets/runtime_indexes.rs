@@ -3,9 +3,9 @@
 //! raw bytes with a small claimed corpus shape.
 
 use libfuzzer_sys::fuzz_target;
-use nest_runtime::ann::HnswIndex;
-use nest_runtime::bm25::Bm25Index;
-use nest_runtime::graph::CsrIndex;
+use urna_runtime::ann::HnswIndex;
+use urna_runtime::bm25::Bm25Index;
+use urna_runtime::graph::CsrIndex;
 
 fuzz_target!(|data: &[u8]| {
     let Some((&sel, rest)) = data.split_first() else {

@@ -241,46 +241,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nest-format"
-version = "0.3.0"
-dependencies = [
- "bytemuck",
- "half",
- "hex",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "zstd",
-]
-
-[[package]]
-name = "nest-fuzz"
-version = "0.0.0"
-dependencies = [
- "libfuzzer-sys",
- "nest-format",
- "nest-runtime",
- "sha2",
-]
-
-[[package]]
-name = "nest-runtime"
-version = "0.3.0"
-dependencies = [
- "half",
- "hex",
- "libc",
- "memmap2",
- "nest-format",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
-]
-
-[[package]]
 name = "pkg-config"
 version = "0.3.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -444,6 +404,46 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "urna-format"
+version = "0.4.0"
+dependencies = [
+ "bytemuck",
+ "half",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "zstd",
+]
+
+[[package]]
+name = "urna-fuzz"
+version = "0.0.0"
+dependencies = [
+ "libfuzzer-sys",
+ "sha2",
+ "urna-format",
+ "urna-runtime",
+]
+
+[[package]]
+name = "urna-runtime"
+version = "0.4.0"
+dependencies = [
+ "half",
+ "hex",
+ "libc",
+ "memmap2",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "urna-format",
+]
 
 [[package]]
 name = "zerocopy"

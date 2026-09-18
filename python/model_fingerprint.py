@@ -1,7 +1,7 @@
 """Reproducible model fingerprint for sentence-transformers / HF models.
 
 The corpus' `model_hash` must uniquely identify the model that produced
-the embeddings — otherwise `nest search-text` could feed a query
+the embeddings — otherwise `urna search-text` could feed a query
 embedded by a *different* model and return cosine-valid garbage.
 
 A naive `sha256(model_dir)` is unstable: it pulls in cache files,
@@ -34,8 +34,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Force HF/sentence-transformers OFFLINE by default before any (lazy) hub
-# access. Opt into a first-time model download with NEST_ALLOW_DOWNLOAD=1.
-if os.environ.get("NEST_ALLOW_DOWNLOAD") != "1":
+# access. Opt into a first-time model download with URNA_ALLOW_DOWNLOAD=1.
+if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
     for _k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
         os.environ.setdefault(_k, "1")
 

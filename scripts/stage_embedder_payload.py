@@ -1,23 +1,23 @@
 """stage the offline embedder payload for release archives and installers.
 
-the `nest` binary embeds queries OFFLINE by shelling out to the potion
+the `urna` binary embeds queries OFFLINE by shelling out to the potion
 embedder script (`forge/embed_query_potion.py`) with its vendored table.
 a released binary has no repo around it, so the release archives and the
 one-liner installer carry this payload and lay it down where the cli looks
-(`<exe>/../share/nest/forge/` or `$XDG_DATA_HOME/nest/forge/`; see
-crates/nest-cli/src/cmd/util.rs `default_potion_embedder_path`).
+(`<exe>/../share/urna/forge/` or `$XDG_DATA_HOME/urna/forge/`; see
+crates/urna-cli/src/cmd/util.rs `default_potion_embedder_path`).
 
 usage:  python scripts/stage_embedder_payload.py <dest> [--tar <out.tar.gz>]
-writes: <dest>/nest/forge/__init__.py
-        <dest>/nest/forge/embed_default.py
-        <dest>/nest/forge/embed_potion.py
-        <dest>/nest/forge/embed_query_potion.py
-        <dest>/nest/forge/models/potion-base-8M/...
+writes: <dest>/urna/forge/__init__.py
+        <dest>/urna/forge/embed_default.py
+        <dest>/urna/forge/embed_potion.py
+        <dest>/urna/forge/embed_query_potion.py
+        <dest>/urna/forge/models/potion-base-8M/...
 
-with --tar, also packs the staged `nest/` tree as a single gzipped tarball
+with --tar, also packs the staged `urna/` tree as a single gzipped tarball
 (the release artifact the one-liner installer downloads and extracts into
 the data dir). git-lfs pointer files are rejected; run `git lfs pull`
-first. `nest doctor` validates exactly this layout post-install.
+first. `urna doctor` validates exactly this layout post-install.
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ def main() -> None:
         del args[i : i + 2]
     if len(args) != 1:
         fail("usage: stage_embedder_payload.py <dest> [--tar <out.tar.gz>]")
-    dest = Path(args[0]).resolve() / "nest" / "forge"
+    dest = Path(args[0]).resolve() / "urna" / "forge"
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
@@ -75,7 +75,7 @@ def main() -> None:
     if tar_out is not None:
         tar_out.parent.mkdir(parents=True, exist_ok=True)
         with tarfile.open(tar_out, "w:gz") as tar:
-            tar.add(dest.parent, arcname="nest")
+            tar.add(dest.parent, arcname="urna")
         # the one-liner installer verifies this against the downloaded file,
         # in the same `<hex> *<name>` format sha256sum emits.
         import hashlib

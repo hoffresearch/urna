@@ -118,7 +118,7 @@ def choose_crf(
     sample = [paths[i] for i in idx]
     keys = [bucket_of(p, q.buckets) for p in sample]
 
-    with tempfile.TemporaryDirectory(prefix="nest-crf-auto-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="urna-crf-auto-") as tmp:
         tmp = Path(tmp)
         src_arrays: list[np.ndarray] = []
         src_pngs: list[Path] = []

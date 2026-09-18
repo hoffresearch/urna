@@ -26,12 +26,12 @@ import math
 import struct
 from collections.abc import Sequence
 
-MODEL_ID = "nest-forge-static"
+MODEL_ID = "urna-forge-static"
 STATIC_EMBEDDER_VERSION = "1"
 DEFAULT_DIM = 256
 # the seed is part of the fingerprint: changing it changes the model_hash, so
 # two corpora built with different seeds are never silently confused.
-DEFAULT_SEED = "nest-forge-static/v1"
+DEFAULT_SEED = "urna-forge-static/v1"
 
 
 def _tokenize(text: str) -> list[str]:
@@ -71,7 +71,7 @@ def _token_vector(token: str, dim: int, seed: str) -> list[float]:
 
 def _f32(x: float) -> float:
     """lRound to float32 precision so a fresh build and a cache-backed rebuild
-    (the builder caches embeddings as float32) produce byte-identical .nest."""
+    (the builder caches embeddings as float32) produce byte-identical .urna."""
     return struct.unpack("<f", struct.pack("<f", x))[0]
 
 

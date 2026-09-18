@@ -1,6 +1,6 @@
 //! `EmbeddingRequest`: the multimodal carrier. One chunk can request
 //! several named-space embeddings, each with its own model fingerprint,
-//! which is how one .nest comes to hold multiple embedding spaces.
+//! which is how one .urna comes to hold multiple embedding spaces.
 
 use serde::{Deserialize, Serialize};
 

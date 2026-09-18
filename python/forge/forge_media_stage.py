@@ -38,7 +38,7 @@ def media_stage(ctx: _Ctx, *, resume: bool) -> None:
 
     state_file = ctx.state_dir / "media.json"
     params = _media_params(ctx)
-    media_dir = image_media.media_dir_for(ctx.out_dir / f"{spec.name}.nest")
+    media_dir = image_media.media_dir_for(ctx.out_dir / f"{spec.name}.urna")
     if resume and state_file.is_file():
         st = json.loads(state_file.read_text())
         if st.get("params") == params and _media_files_ok(media_dir, st["media"], st["frame_uris"]):
@@ -122,7 +122,7 @@ def _encode_media(ctx: _Ctx, media_dir: Path) -> tuple[dict, list[str]]:
 
     built = image_backends.build_media(
         paths,
-        ctx.out_dir / f"{ctx.spec.name}.nest",
+        ctx.out_dir / f"{ctx.spec.name}.urna",
         ctx.spec.name,
         backend=m.backend,
         canvas=canvas,

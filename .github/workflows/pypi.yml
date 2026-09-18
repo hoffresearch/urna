@@ -1,4 +1,4 @@
-# pypi release for the `nestdb` wheel (issue #75).
+# pypi release for the `urna` wheel (issue #75).
 #
 # one abi3 wheel per platform (cp312, matching pyo3 abi3-py312), built by
 # maturin from the staged project (scripts/stage_wheel.py), published with
@@ -61,7 +61,7 @@ jobs:
           path: dist-wheels/*.whl
 
   publish:
-    name: publish nestdb to pypi
+    name: publish urna to pypi
     needs: [wheels]
     runs-on: ubuntu-latest
     environment: pypi

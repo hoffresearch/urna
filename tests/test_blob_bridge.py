@@ -1,7 +1,7 @@
 """bridge coverage for the media blob pair (0x14 blob_refs + 0x16 overlay).
 
-real artifacts only: builds two tiny .nest files through nest.build (one
-with the blob pair, one without), opens them through nest.open, and checks
+real artifacts only: builds two tiny .urna files through urna.build (one
+with the blob pair, one without), opens them through urna.open, and checks
 
 - content_hash is IDENTICAL with and without the blob pair (citations
   stable), while file_hash legitimately differs;
@@ -22,7 +22,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-import _nest  # noqa: E402
+import _urna  # noqa: E402
 
 
 def _chunk(i: int) -> dict:
@@ -55,7 +55,7 @@ def _build(path: Path, with_blobs: bool) -> None:
             {"blob_ref_index": 0, "byte_start": 7, "byte_end": 15},
             {"blob_ref_index": None, "byte_start": 0, "byte_end": 0},
         ]
-    _nest.build(
+    _urna.build(
         str(path),
         "demo-model",
         4,
@@ -69,15 +69,15 @@ def _build(path: Path, with_blobs: bool) -> None:
 
 class TestBlobBridge(unittest.TestCase):
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="nest-blob-bridge-"))
-        self.plain = self.tmp / "plain.nest"
-        self.blobs = self.tmp / "blobs.nest"
+        self.tmp = Path(tempfile.mkdtemp(prefix="urna-blob-bridge-"))
+        self.plain = self.tmp / "plain.urna"
+        self.blobs = self.tmp / "blobs.urna"
         _build(self.plain, False)
         _build(self.blobs, True)
 
     def test_content_hash_stable_with_blobs(self) -> None:
-        a = _nest.NestFile.open(str(self.plain))
-        b = _nest.NestFile.open(str(self.blobs))
+        a = _urna.UrnaFile.open(str(self.plain))
+        b = _urna.UrnaFile.open(str(self.blobs))
         self.assertEqual(
             a.content_hash,
             b.content_hash,
@@ -86,7 +86,7 @@ class TestBlobBridge(unittest.TestCase):
         self.assertNotEqual(a.file_hash, b.file_hash)
 
     def test_blob_table_roundtrips(self) -> None:
-        f = _nest.NestFile.open(str(self.blobs))
+        f = _urna.UrnaFile.open(str(self.blobs))
         self.assertTrue(f.has_blobs)
         refs = f.blob_refs()
         self.assertEqual(len(refs), 1)
@@ -100,7 +100,7 @@ class TestBlobBridge(unittest.TestCase):
         self.assertIn("blob_span_overlay", names)
 
     def test_overlay_replaces_placeholder_spans(self) -> None:
-        f = _nest.NestFile.open(str(self.blobs))
+        f = _urna.UrnaFile.open(str(self.blobs))
         hits = f.search([1.0, 0.0, 0.0, 0.0], 3)
         by_uri = {h.source_uri: h for h in hits}
         self.assertIn("media/corpus.av1", by_uri)
@@ -109,15 +109,15 @@ class TestBlobBridge(unittest.TestCase):
         self.assertEqual(len(blob_hit), 1)
 
     def test_plain_file_has_no_blobs(self) -> None:
-        f = _nest.NestFile.open(str(self.plain))
+        f = _urna.UrnaFile.open(str(self.plain))
         self.assertFalse(f.has_blobs)
         self.assertEqual(f.blob_refs(), [])
         self.assertIsNone(f.inspect()["blobs"])
 
     def test_span_count_mismatch_rejected(self) -> None:
-        bad = self.tmp / "bad.nest"
+        bad = self.tmp / "bad.urna"
         with self.assertRaises(ValueError):
-            _nest.build(
+            _urna.build(
                 str(bad),
                 "demo-model",
                 4,

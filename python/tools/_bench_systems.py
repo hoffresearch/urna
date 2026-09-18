@@ -43,19 +43,19 @@ def rm(path: str) -> None:
         p.unlink()
 
 
-class NestSystem:
-    """nest via the python binding; preset selects the stored dtype / index."""
+class UrnaSystem:
+    """urna via the python binding; preset selects the stored dtype / index."""
 
-    name = "nest"
+    name = "urna"
 
     def __init__(self, preset: str, ann: bool, text_encoding: str | None = None):
-        import nest
+        import urna
 
-        self.nest = nest
+        self.urna = urna
         self.preset = preset
         self.text_encoding = text_encoding
         self.has_ann = ann
-        self.name = f"nest ({preset})"
+        self.name = f"urna ({preset})"
         self.db = None
         self.order: dict[str, int] = {}
 
@@ -71,7 +71,7 @@ class NestSystem:
             }
             for i in range(rows.shape[0])
         ]
-        self.nest.build(
+        self.urna.build(
             output_path=path,
             embedding_model="synthetic",
             embedding_dim=int(rows.shape[1]),
@@ -86,7 +86,7 @@ class NestSystem:
         )
 
     def open(self, path: str) -> None:
-        self.db = self.nest.open(path)
+        self.db = self.urna.open(path)
         # chunk ids are content-addressed; file order == insertion order, so
         # the position of a chunk id IS the row index.
         self.order = {cid: i for i, cid in enumerate(self.db.chunk_ids())}
@@ -103,8 +103,8 @@ class NestSystem:
         return self.db.content_hash
 
     reopen_snippet = (
-        "import sys; sys.path.insert(0, 'python'); import nest, json; "
-        "db = nest.open(PATH); db.search(Q, 10)"
+        "import sys; sys.path.insert(0, 'python'); import urna, json; "
+        "db = urna.open(PATH); db.search(Q, 10)"
     )
 
 
@@ -121,7 +121,7 @@ class UsearchSystem:
     def build(self, rows: np.ndarray, path: str) -> None:
         rm(path)
         # connectivity 16 / expansion_add 200 / expansion_search 100: the same
-        # hnsw knobs nest and hnswlib run with in this table.
+        # hnsw knobs urna and hnswlib run with in this table.
         idx = self.Index(
             ndim=rows.shape[1],
             metric="cos",

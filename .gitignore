@@ -1,5 +1,5 @@
 /target
-# Cargo.lock IS tracked: nest ships a CLI binary, so a committed lockfile is
+# Cargo.lock IS tracked: urna ships a CLI binary, so a committed lockfile is
 # required for reproducible builds and CVE triage against a pinned dep set.
 **/*.rs.bk
 *.pdb
@@ -49,14 +49,14 @@ dat/demo/FakeTrue.Br-hf/
 dat/demo/portuguese-fake-news-classifier-bilstm-combined/
 dat/demo/truw-built/
 
-# dat/corpus_next.v1.nest remains tracked via Git LFS.
-# Per-phase preset .nest files (dat/measure/corpus_*.nest) are
+# dat/corpus_next.v1.urna remains tracked via Git LFS.
+# Per-phase preset .urna files (dat/measure/corpus_*.urna) are
 # regeneration artifacts: re-derivable in minutes by measure_presets.py
 # from the LFS-tracked baseline. Do NOT commit them — they'd inflate the
 # LFS bandwidth quota every phase. We commit only the JSON checksums and
 # metrics next to them.
-dat/measure/corpus_*.nest
-dat/measure/*.nest-*
+dat/measure/corpus_*.urna
+dat/measure/*.urna-*
 
 
 # Temporary workspace for agent sessions.
@@ -74,14 +74,14 @@ dat/hoff.db
 # never be staged or pushed by any auto-committer — INCLUDING a `git add -A`
 # from a `--no-verify` commit, which still honors .gitignore.
 #
-# Ignore ALL .nest by default (a PHI export with any name, not just cohort_*),
+# Ignore ALL .urna by default (a PHI export with any name, not just cohort_*),
 # then negate ONLY the three sanctioned PUBLIC, non-PHI corpora that ARE tracked.
-*.nest
+*.urna
 *.sidecar.jsonl
 **/pairs/
-!dat/corpus_next.v1.nest
-!crates/nest-format/tests/fixtures/golden_v1_minimal.nest
-!dat/measure/fakerecogna_exact.nest
+!dat/corpus_next.v1.urna
+!crates/urna-format/tests/fixtures/golden_v1_minimal.urna
+!dat/measure/fakerecogna_exact.urna
 
 dat/demo/
 !dat/demo/Instructions.md

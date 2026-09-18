@@ -1,8 +1,8 @@
 # post-release verification (issue #75): tests the INSTALLED product, not
 # the build. for every released platform this downloads the release
 # artifacts exactly the way a user does (one-liner installer against the
-# release download url), then runs `nest validate` on the golden fixture
-# and `nest doctor` with real numpy/tokenizers. a second job pip-installs
+# release download url), then runs `urna validate` on the golden fixture
+# and `urna doctor` with real numpy/tokenizers. a second job pip-installs
 # the published wheel and repeats validate + the uvx console entry point.
 #
 # trigger: a published github release (created by the dist workflow), or
@@ -41,37 +41,37 @@ jobs:
       - name: install embedder python deps
         run: python -m pip install numpy tokenizers
 
-      - name: install nest from the release (unix)
+      - name: install urna from the release (unix)
         if: runner.os != 'Windows'
         env:
-          NEST_RELEASE_BASE: https://github.com/hoffresearch/nest/releases/download/${{ env.TAG }}
+          URNA_RELEASE_BASE: https://github.com/hoffresearch/urna/releases/download/${{ env.TAG }}
         run: sh scripts/install.sh
 
-      - name: install nest from the release (windows)
+      - name: install urna from the release (windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          NEST_RELEASE_BASE: https://github.com/hoffresearch/nest/releases/download/${{ env.TAG }}
+          URNA_RELEASE_BASE: https://github.com/hoffresearch/urna/releases/download/${{ env.TAG }}
         run: ./scripts/install.ps1
 
       - name: validate the golden fixture (unix)
         if: runner.os != 'Windows'
         env:
-          NEST_PYTHON: python
+          URNA_PYTHON: python
         run: |
           export PATH="$HOME/.local/bin:$PATH"
-          nest validate crates/nest-format/tests/fixtures/golden_v1_minimal.nest
-          nest doctor
+          urna validate crates/urna-format/tests/fixtures/golden_v1_minimal.urna
+          urna doctor
 
       - name: validate the golden fixture (windows)
         if: runner.os == 'Windows'
         shell: pwsh
         env:
-          NEST_PYTHON: python
+          URNA_PYTHON: python
         run: |
           $env:PATH = "$HOME\.local\bin;$env:PATH"
-          nest validate crates\nest-format\tests\fixtures\golden_v1_minimal.nest
-          nest doctor
+          urna validate crates\urna-format\tests\fixtures\golden_v1_minimal.urna
+          urna doctor
 
   wheel:
     name: wheel ${{ matrix.os }}
@@ -87,11 +87,11 @@ jobs:
           python-version: "3.12"
       - name: install uv
         run: python -m pip install uv
-      - name: pip install nestdb and validate
+      - name: pip install urna and validate
         run: |
-          python -m pip install nestdb
-          python -c "import nest; assert nest.potion_model_path(), 'potion table must be bundled'"
-          python -c "import nest; nest.open('crates/nest-format/tests/fixtures/golden_v1_minimal.nest').validate(); print('validate ok')"
-          nest validate crates/nest-format/tests/fixtures/golden_v1_minimal.nest
+          python -m pip install urna
+          python -c "import urna; assert urna.potion_model_path(), 'potion table must be bundled'"
+          python -c "import urna; urna.open('crates/urna-format/tests/fixtures/golden_v1_minimal.urna').validate(); print('validate ok')"
+          urna validate crates/urna-format/tests/fixtures/golden_v1_minimal.urna
       - name: uvx entry point
-        run: uvx --from nestdb nest validate crates/nest-format/tests/fixtures/golden_v1_minimal.nest
+        run: uvx --from urna urna validate crates/urna-format/tests/fixtures/golden_v1_minimal.urna

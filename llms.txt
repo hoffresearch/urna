@@ -1,10 +1,10 @@
-# nest
+# urna
 
 concise context for llm coding agents working in this repository.
 
 ## what this is
 
-single-file sovereign vector database. the .nest file IS the database: chunks, embeddings, source spans, optional hnsw/bm25/graph indices, and a search contract in one mmap-friendly container. agents get cited, hash-verified answers fully offline: no server, no api call, no socket at query time.
+single-file sovereign vector database. the .urna file IS the database: chunks, embeddings, source spans, optional hnsw/bm25/graph indices, and a search contract in one mmap-friendly container. agents get cited, hash-verified answers fully offline: no server, no api call, no socket at query time.
 
 ## project snapshot
 
@@ -17,15 +17,15 @@ single-file sovereign vector database. the .nest file IS the database: chunks, e
 
 text query in, cited answer out. offline by construction: the verbs embed with the vendored potion static table (numpy + tokenizers, no torch, no network) and validate the embedder's model_hash against the manifest.
 
-- nest ask <file> "query" -k 3: prints the cited canonical text + a nest://content_hash/chunk_id citation. --disclose explain adds the rerank-source honesty line ("real cosine" vs "real cosine at stored precision").
-- nest retrieve <file> "query" -k 3 --format jsonl: json/jsonl answer-pack; every hit's score IS the exact-cosine rerank value, with the tier-1 stored canonical text + verifying hashes + the citation.
+- urna ask <file> "query" -k 3: prints the cited canonical text + a urna://content_hash/chunk_id citation. --disclose explain adds the rerank-source honesty line ("real cosine" vs "real cosine at stored precision").
+- urna retrieve <file> "query" -k 3 --format jsonl: json/jsonl answer-pack; every hit's score IS the exact-cosine rerank value, with the tier-1 stored canonical text + verifying hashes + the citation.
 
-engine subcommands (file + vector in, never run python): inspect, validate, stats, media, search, search-ann, search-graph, search-space, search-text, benchmark, cite, doctor. agent verbs (text or spec in, shell out to the offline python embedder / forge): ask, retrieve, build. `nest --help` groups them the same way; implementations live in crates/nest-cli/src/cmd/ (engine) and cmd/agent/ (agent).
+engine subcommands (file + vector in, never run python): inspect, validate, stats, media, search, search-ann, search-graph, search-space, search-text, benchmark, cite, doctor. agent verbs (text or spec in, shell out to the offline python embedder / forge): ask, retrieve, build. `urna --help` groups them the same way; implementations live in crates/urna-cli/src/cmd/ (engine) and cmd/agent/ (agent).
 
 ## python entry
 
-- sys.path.insert(0, "python"); import nest; db = nest.open(path)
-- db.retrieve(qvec, k=5) is the agent-native path: routes by manifest capability, score IS the exact rerank value, each hit carries the tier-1 text + the nest:// citation.
+- sys.path.insert(0, "python"); import urna; db = urna.open(path)
+- db.retrieve(qvec, k=5) is the agent-native path: routes by manifest capability, score IS the exact rerank value, each hit carries the tier-1 text + the urna:// citation.
 
 ## build and verification
 
@@ -37,7 +37,7 @@ engine subcommands (file + vector in, never run python): inspect, validate, stat
 - ./scripts/release_check.sh
 
 prefer release_check.sh before merge, it is the project gate; .github/workflows/ci.yml runs the same gate (minus the lfs corpus measurement) on every push and pull request, plus the mutation-fuzz harnesses and a cargo-fuzz smoke. forge-core carries its own gate: cargo test --manifest-path forge-core/Cargo.toml.
-- mutation fuzz: cargo test -p nest-format --test mutation_fuzz -p nest-runtime --test mutation_fuzz (NEST_MUTATION_ITERS scales it); coverage-guided targets in fuzz/ (cargo +nightly fuzz run <target>).
+- mutation fuzz: cargo test -p urna-format --test mutation_fuzz -p urna-runtime --test mutation_fuzz (URNA_MUTATION_ITERS scales it); coverage-guided targets in fuzz/ (cargo +nightly fuzz run <target>).
 
 ## coding practices
 
@@ -45,7 +45,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 - no panic in library code, use typed errors.
 - keep files small and single-responsibility.
 - preserve deterministic behavior for hashing and index builds.
-- unsafe: clippy denies undocumented unsafe blocks and unwrap() outside tests (workspace lints). nest-format has zero unsafe; the runtime's unsafe is the simd kernels and two mmap calls, each with a // SAFETY: comment. read fixed-width fields through nest_format::bytes, check header-derived sizes with checked arithmetic, write cursor bounds checks as need > remaining, sort f32 scores through nest_runtime::order.
+- unsafe: clippy denies undocumented unsafe blocks and unwrap() outside tests (workspace lints). urna-format has zero unsafe; the runtime's unsafe is the simd kernels and two mmap calls, each with a // SAFETY: comment. read fixed-width fields through urna_format::bytes, check header-derived sizes with checked arithmetic, write cursor bounds checks as need > remaining, sort f32 scores through urna_runtime::order.
 - keep markdown lowercase, no emoji, no em dash.
 - every change ships with real tests, no mocks, against real artifacts.
 
@@ -58,7 +58,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 
 ## dataset policy
 
-- dat/corpus_next.v1.nest is tracked with git lfs.
+- dat/corpus_next.v1.urna is tracked with git lfs.
 - dat/demo datasets are local-only and gitignored.
 - dataset fetch commands and provenance are documented in dat/demo/Instructions.md.
 - the offline one-gif demo needs no datasets: python python/forge/retrieve.py.
@@ -73,7 +73,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 
 - do not force-push main.
 - do not bypass release_check.sh.
-- do not bump NEST_FORMAT_VERSION for additive changes.
+- do not bump URNA_FORMAT_VERSION for additive changes.
 - do not commit local demo datasets under dat/demo.
 
 ## references
@@ -86,7 +86,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 - doc/usage.md
 - doc/benchmarks.md
 - doc/CHANGELOG
-- https://github.com/brennercruvinel/mtg-nest-benchmark (the image-corpus benchmark: code, specs, corpora, results; the .nest artifacts on the hugging face dataset of the same name; private for now)
+- https://github.com/brennercruvinel/mtg-nest-benchmark (the image-corpus benchmark: code, specs, corpora, results; the .urna artifacts on the hugging face dataset of the same name; private for now)
 
 made it simple, but signifcant.
 Hoff Research - hoffresearch.com

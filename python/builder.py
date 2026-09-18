@@ -1,4 +1,4 @@
-"""Reusable Python pipeline for building deterministic .nest files.
+"""Reusable Python pipeline for building deterministic .urna files.
 
 The pipeline stages are:
 
@@ -7,8 +7,8 @@ The pipeline stages are:
   3. compute or attach embeddings (caller-provided callable)
   4. cache (chunk_id -> embedding) in a SQLite scratch DB so re-runs
      skip the embedding step
-  5. emit a .nest file via nest.build()
-  6. invoke `nest validate` on the result
+  5. emit a .urna file via urna.build()
+  6. invoke `urna validate` on the result
 
 The chunker, embedder and emitter are deliberately decoupled so a caller
 can swap the embedding model or the chunking strategy without touching
@@ -25,7 +25,7 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import nest
+import urna
 
 
 @dataclass(frozen=True)
@@ -38,7 +38,7 @@ class ChunkSpec:
     byte_end: int
 
     def chunk_id(self, chunker_version: str) -> str:
-        return nest.chunk_id(
+        return urna.chunk_id(
             self.canonical_text,
             self.source_uri,
             self.byte_start,
@@ -56,7 +56,7 @@ def chunk_text(
 ) -> list[ChunkSpec]:
     """Greedy character-window chunker. Splits on a hard character budget,
     with optional overlap. Returns chunks whose byte spans index into the
-    UTF-8 encoding of `text`, so the spans round-trip through `nest cite`.
+    UTF-8 encoding of `text`, so the spans round-trip through `urna cite`.
 
     The simplest possible thing that's still useful — production callers
     will want a sentence-aware splitter, but the chunk_id contract is
@@ -103,11 +103,11 @@ class EmbeddingCache:
     only a function of the text/spans/chunker, NOT the embedding model, so a
     cache keyed on chunk_id alone would silently hand back a PREVIOUS model's
     vectors when the same corpus is re-embedded with a different model —
-    shipping a .nest whose vectors do not match its declared model_hash. Keying
+    shipping a .urna whose vectors do not match its declared model_hash. Keying
     on the model closes that.
 
     Uses table `embeddings_v2`: an old chunk-id-only `embeddings` table (from a
-    prior nest version) is simply not reused (chunks are re-embedded), never
+    prior urna version) is simply not reused (chunks are re-embedded), never
     misread — no in-place migration, no stale-model hit.
     """
 
@@ -162,7 +162,7 @@ class BuildConfig:
     description: str | None = None
     license: str | None = None
     reproducible: bool = True
-    # encoding preset (see nest.build docstring for the full table): exact /
+    # encoding preset (see urna.build docstring for the full table): exact /
     # compressed / tiny / nano (int4, dim %64==0, stored-prec) / hybrid.
     preset: str = "exact"
     # per-knob overrides (None = inherit from preset)
@@ -189,7 +189,7 @@ class BuildConfig:
 
 
 class Pipeline:
-    """Glue between chunking, embedding, caching and the nest writer.
+    """Glue between chunking, embedding, caching and the urna writer.
 
     Usage::
 
@@ -280,7 +280,7 @@ class Pipeline:
 
         if os.path.exists(self.cfg.output_path):
             os.unlink(self.cfg.output_path)
-        nest.build(
+        urna.build(
             output_path=self.cfg.output_path,
             embedding_model=self.cfg.embedding_model,
             embedding_dim=self.cfg.embedding_dim,
@@ -308,7 +308,7 @@ class Pipeline:
 
         # final integrity check via the in-process reader (PyO3 path).
         # no CLI subprocess: one Python entry point only.
-        db = nest.open(self.cfg.output_path)
+        db = urna.open(self.cfg.output_path)
         db.validate()
         return self.cfg.output_path
 

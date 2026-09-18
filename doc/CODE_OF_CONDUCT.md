@@ -1,6 +1,6 @@
 # code of conduct
 
-`nest` is maintained by hoff research. anyone is welcome to use it, contribute, or open issues.
+`urna` is maintained by hoff research. anyone is welcome to use it, contribute, or open issues.
 
 ## what we expect
 

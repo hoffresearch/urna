@@ -6,10 +6,10 @@
 # on the list are legacy / vendored / generated and are tracked separately;
 # when you touch a python module, add it here and make it clean.
 #
-#   NEST_PYTHON=.venv/bin/python sh scripts/ruff_check.sh
+#   URNA_PYTHON=.venv/bin/python sh scripts/ruff_check.sh
 set -eu
 cd "$(dirname "$0")/.."
-PY="${NEST_PYTHON:-python3}"
+PY="${URNA_PYTHON:-python3}"
 TARGETS="
 python/embed_query.py
 python/model_fingerprint.py
@@ -27,11 +27,11 @@ python/forge/image_backends.py
 python/forge/image_backends_av1.py
 python/forge/image_order.py
 python/forge/image_corpus.py
-python/tools/nest_build_image_corpus.py
-python/tools/nest_search_image.py
-python/tools/nest_image_eval.py
+python/tools/urna_build_image_corpus.py
+python/tools/urna_search_image.py
+python/tools/urna_image_eval.py
 python/tools/_image_metrics.py
-python/tools/nest_image_sweep.py
+python/tools/urna_image_sweep.py
 tests/test_search_text_model_hash.py
 tests/test_image_corpus.py
 tests/test_blob_bridge.py
@@ -50,10 +50,10 @@ python/forge/quality_gate.py
 python/forge/quality_utility.py
 python/forge/media_profiles.py
 python/forge/embed_query_model.py
-python/tools/nest_forge.py
-python/tools/nest_model_bench.py
+python/tools/urna_forge.py
+python/tools/urna_model_bench.py
 python/tools/_model_bench_report.py
-python/tools/nest_ui_bridge.py
+python/tools/urna_ui_bridge.py
 tests/test_forge_spec.py
 tests/test_quality_gate.py
 tests/test_cli_space.py

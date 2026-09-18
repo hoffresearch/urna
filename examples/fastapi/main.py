@@ -1,17 +1,17 @@
-"""fastapi + nestdb: offline cited answers (issue #75).
+"""fastapi + urna: offline cited answers (issue #75).
 
 loads the corpus once at startup and serves `POST /ask` with a text query;
 the query is embedded OFFLINE with the potion table bundled in the wheel
-(nestdb[embed]), and every hit returns the tier-1 canonical text plus its
-nest:// citation. no network at runtime by construction.
+(urna[embed]), and every hit returns the tier-1 canonical text plus its
+urna:// citation. no network at runtime by construction.
 
-setup:  pip install fastapi uvicorn "nestdb[embed]"
+setup:  pip install fastapi uvicorn "urna[embed]"
 run:    uvicorn main:app --port 8000
 try:    curl -s localhost:8000/ask -H 'content-type: application/json' \
           -d '{"query": "vector search on the edge", "k": 2}'
 
 the demo corpus builds itself on first run (a handful of sentences embedded
-with potion, reproducible=True). point NEST_FILE at a real potion-built
+with potion, reproducible=True). point URNA_FILE at a real potion-built
 corpus for anything serious.
 """
 
@@ -21,19 +21,19 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import nest
+import urna
 from fastapi import FastAPI
-from nest.embed_potion import potion_embedder
 from pydantic import BaseModel
+from urna.embed_potion import potion_embedder
 
-NEST_FILE = Path(os.environ.get("NEST_FILE", "demo_fastapi.nest"))
+URNA_FILE = Path(os.environ.get("URNA_FILE", "demo_fastapi.urna"))
 
 DOCS = [
-    "nest is a single-file vector database that works fully offline.",
+    "urna is a single-file vector database that works fully offline.",
     "vector search on the edge needs no server and no api key.",
     "every search hit carries a content-addressable citation.",
     "the potion static table embeds queries without a gpu or network.",
-    "a .nest file bundles chunks, embeddings, and indices in one artifact.",
+    "a .urna file bundles chunks, embeddings, and indices in one artifact.",
     "fastapi serves the corpus with a cited answer endpoint.",
 ]
 
@@ -53,7 +53,7 @@ def _bootstrap_corpus(path: Path) -> None:
                 "embedding": emb.embed_texts([text])[0],
             }
         )
-    nest.build(
+    urna.build(
         str(path),
         emb.embedding_model,
         emb.embedding_dim,
@@ -66,9 +66,9 @@ def _bootstrap_corpus(path: Path) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if not NEST_FILE.exists():
-        _bootstrap_corpus(NEST_FILE)
-    app.state.db = nest.open(str(NEST_FILE))
+    if not URNA_FILE.exists():
+        _bootstrap_corpus(URNA_FILE)
+    app.state.db = urna.open(str(URNA_FILE))
     app.state.db.validate()
     yield
 
@@ -100,4 +100,4 @@ def ask(req: Ask):
 
 @app.get("/health")
 def health():
-    return {"corpus": str(NEST_FILE), "file_hash": app.state.db.file_hash}
+    return {"corpus": str(URNA_FILE), "file_hash": app.state.db.file_hash}

@@ -1,11 +1,11 @@
 # Python tooling configuration.
 #
 # The DEV flow does NOT install a Python package — the PyO3 extension is
-# built by `cargo build --release -p nest-python` and copied into
-# `python/_nest.so`. The Python source under `python/` and `tests/` is
+# built by `cargo build --release -p urna-python` and copied into
+# `python/_urna.so`. The Python source under `python/` and `tests/` is
 # imported directly by adding `python/` to `sys.path`.
 #
-# The PUBLISHED package is the `nestdb` wheel, a maturin project owned by
+# The PUBLISHED package is the `urna` wheel, a maturin project owned by
 # `packaging/pyproject.toml` and staged by `scripts/stage_wheel.py` (see
 # the reference section of doc/usage.md). This root file stays the dev-tooling config: it exists
 # so `ruff` (and any other PEP 518 tool) finds a canonical config at the
@@ -30,7 +30,7 @@ target-version = "py312"
 line-length = 100
 extend-exclude = [
     "python/__pycache__",
-    "**/_nest.so",
+    "**/_urna.so",
     "**/*.dylib",
     "**/*.dll",
 ]
@@ -43,7 +43,7 @@ extend-exclude = [
 # UP  = pyupgrade
 # SIM = flake8-simplify
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
-# `nest` is the package name and is detected by `sys.path.insert`, not by a
+# `urna` is the package name and is detected by `sys.path.insert`, not by a
 # regular install. E402 stays ignored for the path-bootstrap idiom; unused
 # imports (F401) are enforced, with intentional re-exports declared via
 # __all__ or a targeted noqa.

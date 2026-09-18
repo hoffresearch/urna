@@ -23,7 +23,7 @@ import sys
 import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import nest  # noqa: E402
+import urna  # noqa: E402
 
 
 def _unit(v: list[float]) -> list[float]:
@@ -65,7 +65,7 @@ def _corpus(n: int, dim: int, seed: int) -> list[dict]:
 def _build(path: str, chunks: list[dict], dim: int, *, with_graph: bool) -> None:
     if os.path.exists(path):
         os.unlink(path)
-    nest.build(
+    urna.build(
         output_path=path,
         embedding_model="demo",
         embedding_dim=dim,
@@ -99,15 +99,15 @@ def main() -> int:
 
     chunks = _corpus(args.n, args.dim, seed=0xC0FFEE)
     tmp = tempfile.gettempdir()
-    base_path = os.path.join(tmp, "graph_gate_baseline.nest")
-    drop_path = os.path.join(tmp, "graph_gate_dropped.nest")
+    base_path = os.path.join(tmp, "graph_gate_baseline.urna")
+    drop_path = os.path.join(tmp, "graph_gate_dropped.urna")
     # baseline = no graph (the recall=1.0 exact ground truth source); dropped =
     # graph-on (the overlap-dropped corpus reconstructs context from the graph).
     _build(base_path, chunks, args.dim, with_graph=False)
     _build(drop_path, chunks, args.dim, with_graph=True)
 
-    base = nest.open(base_path)
-    dropped = nest.open(drop_path)
+    base = urna.open(base_path)
+    dropped = urna.open(drop_path)
     # citations must stay stable across the drop (graph excluded from content_hash).
     assert base.content_hash == dropped.content_hash, "content_hash changed by the drop"
 

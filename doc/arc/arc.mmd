@@ -1,4 +1,4 @@
-%% nest visual architecture reference
+%% urna visual architecture reference
 %% companion to doc/arc/arc.yaml (the machine-readable and human-readable
 %% architecture reference). the pair is the source of truth; there is no
 %% separate human-prose architecture doc.
@@ -9,40 +9,40 @@
 %%   subgraph flowcharts with cross-cluster edges do not. the file inventory
 %%   in arc.yaml is the authoritative module breakdown.
 %%
-%%   it traces the two flows that define nest: build (python writes the file)
-%%   and query (rust serves from the file). the .nest file is the only
+%%   it traces the two flows that define urna: build (python writes the file)
+%%   and query (rust serves from the file). the .urna file is the only
 %%   artifact that crosses the language boundary.
 
 sequenceDiagram
     autonumber
     participant B as builder.py
-    participant F as nest-format
-    participant N as .nest file
-    participant R as nest-runtime
+    participant F as urna-format
+    participant N as .urna file
+    participant R as urna-runtime
     participant E as embed_query.py
-    participant Q as nest cli / api
+    participant Q as urna cli / api
     participant P as embed_query_potion.py
     participant A as ask / retrieve
     participant I as image corpus tooling
-    participant D as nest_forge.py (spec)
-    participant U as nest_ui_bridge.py (json)
+    participant D as urna_forge.py (spec)
+    participant U as urna_ui_bridge.py (json)
 
     note over B,N: build · offline · reproducible
     B->>B: chunk + embed + model_hash
-    B->>F: nest.build(chunks, model_hash, mrl_dim?, with_graph?)
+    B->>F: urna.build(chunks, model_hash, mrl_dim?, with_graph?)
     F->>F: optional matryoshka truncate + renorm, then quant
     F->>F: per-section try-smaller wire encoding (text: zstd / txt_streams / dict / fsst / dedup; content_hash-stable)
     F->>F: optional graph_adjacency 0x0C csr (NEXT_CHUNK + top-m semantic; excluded from content_hash)
     F->>N: deterministic emit + four hashes
 
-    note over I,N: image corpus build · offline · media inside the .nest
+    note over I,N: image corpus build · offline · media inside the .urna
     I->>I: discover images / render pdf pages (sorted, ordinal = frame no)
     I->>I: letterbox onto one canvas
     I->>I: probe_gop sonda (gop_policy=auto decides intra vs inter)
     I->>I: optional similarity_order + sharding, then encode av1/avif via pipe
     I->>I: verify frame count == item count
     I->>I: vision embed the DECODED frames (dermlip / clip)
-    I->>F: nest.build(chunks, blob_refs, chunk_blob_spans, spaces=[image space], model_hash)
+    I->>F: urna.build(chunks, blob_refs, chunk_blob_spans, spaces=[image space], model_hash)
     F->>F: optional blob_refs 0x14 + span overlay 0x16 + inlined blob_data 0x17 (embed_media) + space_table 0x15 + band slab 0x20+ (all excluded from content_hash)
     F->>N: deterministic emit + four hashes (media travels inside the file)
 
@@ -51,7 +51,7 @@ sequenceDiagram
     D->>D: load rows + per-item input_hash; dedup identical images
     D->>I: media via backends (crf=auto gate: ssimulacra2 strata + embedding drift + optional text-to-image hit@1 utility leg; tune/jxl levers)
     D->>D: embed each registry model once (triad-addressed cache under xdg, shared across specs; st models in isolated workers)
-    D->>F: nest.build per output (single / per-model / both; space 0 = the ONE default text model)
+    D->>F: urna.build per output (single / per-model / both; space 0 = the ONE default text model)
     F->>N: deterministic emit + manifest v1 + build.lock.json
 
     note over R,Q: query · offline · mmap
@@ -62,7 +62,7 @@ sequenceDiagram
     R->>R: model_hash vs manifest (per space, in isolation)
     R->>R: hnsw / bm25 / graph-bfs candidates
     R->>R: mandatory exact cosine rerank
-    R-->>Q: hits + nest://content_hash/chunk_id
+    R-->>Q: hits + urna://content_hash/chunk_id
 
     note over A,N: flagship · agent-native · offline by construction
     A->>P: ask / retrieve embed query OFFLINE (embed_gate routes by manifest model: potion table, or embed_query_model.py for registry models)
@@ -70,9 +70,9 @@ sequenceDiagram
     A->>R: route by manifest capability, search (score IS the exact rerank)
     R-->>A: hits + SearchExplain (rerank_source: real cosine vs stored precision)
     A->>N: decode tier-1 stored canonical text per chunk_id
-    A-->>Q: cited answer (ask) / json-jsonl answer-pack (retrieve) + nest:// citation
+    A-->>Q: cited answer (ask) / json-jsonl answer-pack (retrieve) + urna:// citation
 
     note over U,N: json bridge · any frontend, zero engine logic outside the engine
-    U->>U: embed query via registry preset (NEST_ALLOW_REMOTE_CODE opt-in)
-    U->>R: browse / search exact·ann·hybrid·graph·space / blob_bytes(i), all via _nest
+    U->>U: embed query via registry preset (URNA_ALLOW_REMOTE_CODE opt-in)
+    U->>R: browse / search exact·ann·hybrid·graph·space / blob_bytes(i), all via _urna
     R-->>U: hits matched by chunk_id + media resolved to blob uri + shard-local frame (segments↔blobs by sha256) + single-blob bytes

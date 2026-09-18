@@ -7,8 +7,8 @@ version = "0.4.0"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
-repository = "https://github.com/hoffresearch/nest"
-homepage = "https://github.com/hoffresearch/nest"
+repository = "https://github.com/hoffresearch/urna"
+homepage = "https://github.com/hoffresearch/urna"
 
 # workspace-wide lint policy (every crate opts in with `[lints] workspace =
 # true`). the two `deny`s are the hardening contract of doc/SECURITY.md made
@@ -31,10 +31,10 @@ anyhow = "1"
 zstd = { version = "0.13", default-features = false, features = ["experimental", "zdict_builder"] }
 half = { version = "2", features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
-nest-format = { path = "crates/nest-format" }
-nest-runtime = { path = "crates/nest-runtime" }
+urna-format = { path = "crates/urna-format" }
+urna-runtime = { path = "crates/urna-runtime" }
 
-# distribution backbone for the `nest` cli binary (issue #75): per-platform
+# distribution backbone for the `urna` cli binary (issue #75): per-platform
 # tarballs + sha256 checksums + the homebrew tap formula, all driven from
 # tags on main. the documented one-liner installer is scripts/install.sh
 # (it also lays down the offline embedder payload, which dist installers do
@@ -43,7 +43,7 @@ nest-runtime = { path = "crates/nest-runtime" }
 cargo-dist-version = "0.32.0"
 ci = ["github"]
 installers = ["homebrew"]
-tap = "hoffresearch/homebrew-nest"
+tap = "hoffresearch/homebrew-urna"
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
@@ -59,7 +59,7 @@ publish-jobs = ["homebrew"]
 github-attestations = true
 # supply chain: a cyclonedx sbom per release artifact,
 # uploaded next to it and covered by the same attestations; binaries built
-# with cargo-auditable so `cargo audit bin nest` can read the dependency
+# with cargo-auditable so `cargo audit bin urna` can read the dependency
 # tree out of the executable. the tag-verify job runs in the plan phase and
 # blocks the build when the release tag is not signed by a key listed in
 # .github/allowed_signers.
@@ -74,18 +74,18 @@ github-build-setup = "../dist-build-setup.yml"
 # the offline embedder payload (staged by scripts/stage_embedder_payload.py
 # and packed as one artifact) ships next to the binary archives so the
 # one-liner installer can lay it down under the data dir and a released
-# binary passes `nest doctor` with no network and no repo checkout.
+# binary passes `urna doctor` with no network and no repo checkout.
 [[workspace.metadata.dist.extra-artifacts]]
 build = [
     "python3",
     "scripts/stage_embedder_payload.py",
     "target/dist-payload",
     "--tar",
-    "target/nest-embedder-payload.tar.gz",
+    "target/urna-embedder-payload.tar.gz",
 ]
 artifacts = [
-    "target/nest-embedder-payload.tar.gz",
-    "target/nest-embedder-payload.tar.gz.sha256",
+    "target/urna-embedder-payload.tar.gz",
+    "target/urna-embedder-payload.tar.gz.sha256",
 ]
 
 # cargo-dist builds with this profile (thin lto over release).

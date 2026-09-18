@@ -82,7 +82,7 @@ def _avif(render_paths, output_path, dataset_name, canvas, pix_fmt, avif_quality
     # still account the ORIGINAL files, or the ratio is against a lossless
     # re-encode of the decoded canvas (5.4x inflated on the 38k card corpus).
     source_bytes = sum(p.stat().st_size for p in render_paths)
-    with tempfile.TemporaryDirectory(prefix="nest-avif-src-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="urna-avif-src-") as tmp:
         tmp_pngs = _letterbox_all(render_paths, canvas, Path(tmp))
         yuv = {"yuv420p": "420", "yuv444p": "444"}[pix_fmt]
         media = encode_avif(

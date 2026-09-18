@@ -7,7 +7,7 @@ byte-identical (L3); a corrupted cache is recomputed, never reused;
 provenance = "minimal" writes compact items (key + ordinal, items_compact,
 the dedup map) and readers refuse dropped fields with a clear error;
 ${VAR} in spec paths expands strictly (unset names the key); the
-embed cache is content-addressed under one shared root (NEST_CACHE_DIR or
+embed cache is content-addressed under one shared root (URNA_CACHE_DIR or
 xdg), so two specs with the same rows share one potion table, a media
 knob change adds an entry instead of overwriting, `[output] cache_dir`
 wins over the env var, the same root via another override source still
@@ -28,15 +28,15 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "python"))
-os.environ["NEST_ENABLE_FAKE_PRESET"] = "1"
+os.environ["URNA_ENABLE_FAKE_PRESET"] = "1"
 
-import nest
 import numpy as np
+import urna
 from forge.build_spec import SpecError, load_spec, validate
 from forge.forge_pipeline import build
 
 HAVE_FFMPEG = shutil.which("ffmpeg") is not None
-CACHE_ROOT = Path()  # set by main(): the suite's own NEST_CACHE_DIR, inside its tmp dir
+CACHE_ROOT = Path()  # set by main(): the suite's own URNA_CACHE_DIR, inside its tmp dir
 
 
 def _listing(root: Path) -> set[str]:
@@ -292,14 +292,14 @@ def test_quality_defaults(base: Path) -> None:
 
 
 def test_env_expansion(base: Path) -> None:
-    prior = os.environ.get("NEST_FORGE_TEST_DATA")
+    prior = os.environ.get("URNA_FORGE_TEST_DATA")
     try:
         _env_expansion_body(base)
     finally:
         if prior is None:
-            os.environ.pop("NEST_FORGE_TEST_DATA", None)
+            os.environ.pop("URNA_FORGE_TEST_DATA", None)
         else:
-            os.environ["NEST_FORGE_TEST_DATA"] = prior
+            os.environ["URNA_FORGE_TEST_DATA"] = prior
     print("test_env_expansion: OK")
 
 
@@ -315,7 +315,7 @@ name = "envtest"
 chunker_version = "v"
 [source]
 kind = "jsonl"
-path = "${{NEST_FORGE_TEST_DATA}}/rows.jsonl"
+path = "${{URNA_FORGE_TEST_DATA}}/rows.jsonl"
 order_by = ["id"]
 [source.text]
 template = "{{title}} costs $5"
@@ -325,7 +325,7 @@ text = "default"
 [output]
 dir = "{d / "out"}"
 """)
-    os.environ["NEST_FORGE_TEST_DATA"] = str(d / "data")
+    os.environ["URNA_FORGE_TEST_DATA"] = str(d / "data")
     spec = load_spec(spec_p)
     validate(spec)
     assert spec.source.path == str(d / "data" / "rows.jsonl"), "braced var must expand"
@@ -334,47 +334,47 @@ dir = "{d / "out"}"
     )
     result = build(spec)
     assert result["n_items"] == 3
-    nest.open(result["outputs"]["envtest.nest"]["file"]).validate()
+    urna.open(result["outputs"]["envtest.urna"]["file"]).validate()
     # the lock stores the expanded path; a rebuild under a moved data root
     # (same rows, another location) must still claim L3 under --strict-env
     shutil.copytree(d / "data", d / "data-b")
-    os.environ["NEST_FORGE_TEST_DATA"] = str(d / "data-b")
+    os.environ["URNA_FORGE_TEST_DATA"] = str(d / "data-b")
     again = build(load_spec(spec_p), rebuild_only=True, strict_env=True)
     assert (
-        again["outputs"]["envtest.nest"]["file_hash"]
-        == (result["outputs"]["envtest.nest"]["file_hash"])
+        again["outputs"]["envtest.urna"]["file_hash"]
+        == (result["outputs"]["envtest.urna"]["file_hash"])
     ), "rebuild-only under another data root must stay byte-identical"
     for state, setup in (("is not set", None), ("is empty", "")):
         if setup is None:
-            os.environ.pop("NEST_FORGE_TEST_DATA")
+            os.environ.pop("URNA_FORGE_TEST_DATA")
         else:
-            os.environ["NEST_FORGE_TEST_DATA"] = setup
+            os.environ["URNA_FORGE_TEST_DATA"] = setup
         try:
             load_spec(spec_p)
         except SpecError as e:
             msg = str(e)
-            assert "source.path" in msg and "NEST_FORGE_TEST_DATA" in msg, msg
+            assert "source.path" in msg and "URNA_FORGE_TEST_DATA" in msg, msg
             assert state in msg and "export" in msg, msg
         else:
             raise AssertionError(f"a ${{VAR}} that {state} must be a SpecError, never a silent '$'")
     # no expanduser mid-string, bare $ untouched, and ~/ still expands
     from forge.spec_paths import expand_paths
 
-    os.environ["NEST_FORGE_TEST_DATA"] = "/x"
+    os.environ["URNA_FORGE_TEST_DATA"] = "/x"
     out = expand_paths(
-        {"source": {"db": "${NEST_FORGE_TEST_DATA}/~x", "query": "cost > $5"}},
+        {"source": {"db": "${URNA_FORGE_TEST_DATA}/~x", "query": "cost > $5"}},
     )
     assert out == {"source": {"db": "/x/~x", "query": "cost > $5"}}, out
-    assert expand_paths({"text": {"template": "{t} $5 ${NEST_FORGE_TEST_DATA}"}}) == {
+    assert expand_paths({"text": {"template": "{t} $5 ${URNA_FORGE_TEST_DATA}"}}) == {
         "text": {"template": "{t} $5 /x"}
     }, "the braced var expands inside a template while {col} and $5 survive"
     assert expand_paths(["~/x"]) == [os.path.expanduser("~/x")]
-    os.environ["NEST_FORGE_TEST_DATA"] = "~/via-var"
-    assert expand_paths("${NEST_FORGE_TEST_DATA}/y") == os.path.expanduser("~/via-var/y"), (
+    os.environ["URNA_FORGE_TEST_DATA"] = "~/via-var"
+    assert expand_paths("${URNA_FORGE_TEST_DATA}/y") == os.path.expanduser("~/via-var/y"), (
         "a variable holding ~/ expands too"
     )
     try:
-        expand_paths({"models": [{"preset": "p"}, {"model_path": "${NEST_FORGE_UNSET_X}"}]})
+        expand_paths({"models": [{"preset": "p"}, {"model_path": "${URNA_FORGE_UNSET_X}"}]})
     except SpecError as e:
         assert str(e).startswith("models[1].model_path:"), str(e)
     else:
@@ -430,17 +430,17 @@ def test_e2e_fake(base: Path) -> None:
     result = build(spec)
     assert result["n_items"] == 12 and result["n_unique_frames"] == 10, "dedup must collapse dupes"
     out = d / "out"
-    dbs = {name: nest.open(str(out / name)) for name in result["outputs"]}
+    dbs = {name: urna.open(str(out / name)) for name in result["outputs"]}
     for db in dbs.values():
         db.validate()
-    single = dbs["faketest.nest"]
+    single = dbs["faketest.urna"]
     assert single.space_names == ["fake-test@4", "fake-test-text@4"]
     hits = single.search_space("fake-test@4", [0.5, 0.5, 0.5, 0.5], 3)
     assert len(hits) == 3 and hits[0].score >= hits[2].score
     # citation consistency: same chunk_ids in the single and per-model files
     q = [1.0] + [0.0] * 255
     ids_single = {h.chunk_id for h in single.search(q, k=12)}
-    ids_per = {h.chunk_id for h in dbs["faketest-fake-test.nest"].search(q, k=12)}
+    ids_per = {h.chunk_id for h in dbs["faketest-fake-test.urna"].search(q, k=12)}
     assert ids_single == ids_per, "chunk_ids must be identical across output modes"
     # duplicate rows share the same blob span (N chunks -> 1 frame)
     manifest = json.loads((out / "faketest.manifest.json").read_text())
@@ -449,16 +449,16 @@ def test_e2e_fake(base: Path) -> None:
     assert uris[1] == uris[5] == uris[9], "dup rows must map to one frame"
     assert manifest["media"]["dedup"]["n_unique_frames"] == 10
     # L3: rebuild from caches is byte-identical
-    h1 = (out / "faketest.nest").read_bytes()
+    h1 = (out / "faketest.urna").read_bytes()
     build(load_spec(d / "spec.toml"), rebuild_only=True)
-    assert (out / "faketest.nest").read_bytes() == h1, "rebuild-only must be byte-identical"
+    assert (out / "faketest.urna").read_bytes() == h1, "rebuild-only must be byte-identical"
     print("test_e2e_fake: OK")
 
 
 def test_provenance_minimal(base: Path) -> None:
     """provenance = "minimal" writes items[] as key + ordinal only, flagged
     by items_compact, keeps the dedup map when it is not the identity, and
-    the .nest is byte-for-byte the standard build's (the manifest is a
+    the .urna is byte-for-byte the standard build's (the manifest is a
     sidecar, never part of the file)."""
     if not HAVE_FFMPEG:
         print("test_provenance_minimal: SKIP (no ffmpeg)")
@@ -488,9 +488,9 @@ def test_provenance_minimal(base: Path) -> None:
     assert [rf(it) for it in full["items"]] == [rc(it) for it in compact["items"]]
     assert rc(compact["items"][5]) == rc(compact["items"][1]), "dup rows share one frame"
     # the file is the same: the manifest is a sidecar
-    a = nest.open(str(d / "out" / "faketest.nest"))
-    b = nest.open(str(d / "min" / "faketest.nest"))
-    assert a.file_hash == b.file_hash, "provenance mode must not touch the .nest"
+    a = urna.open(str(d / "out" / "faketest.urna"))
+    b = urna.open(str(d / "min" / "faketest.urna"))
+    assert a.file_hash == b.file_hash, "provenance mode must not touch the .urna"
     assert (d / "out" / "faketest.manifest.json").stat().st_size > (
         d / "min" / "faketest.manifest.json"
     ).stat().st_size
@@ -513,15 +513,15 @@ def test_provenance_minimal(base: Path) -> None:
         proc = subprocess.run(
             [
                 sys.executable,
-                str(REPO / "python" / "tools" / "nest_ui_bridge.py"),
-                str(d / out / "faketest.nest"),
+                str(REPO / "python" / "tools" / "urna_ui_bridge.py"),
+                str(d / out / "faketest.urna"),
                 "browse",
                 "--limit",
                 "12",
             ],
             capture_output=True,
             text=True,
-            env={**os.environ, "NEST_ENABLE_FAKE_PRESET": "1"},
+            env={**os.environ, "URNA_ENABLE_FAKE_PRESET": "1"},
         )
         assert proc.returncode == 0, proc.stderr
         pages.append(json.loads(proc.stdout))
@@ -544,20 +544,20 @@ def test_embed_media(base: Path) -> None:
     spec = load_spec(_fixture(d, with_media=True, mode="single", embed_media=True))
     build(spec)
     out = d / "out"
-    db = nest.open(str(out / "faketest.nest"))
+    db = urna.open(str(out / "faketest.urna"))
     db.validate()
     refs = db.blob_refs()
     assert refs and all(r["inlined"] for r in refs), "embed_media must inline every blob"
     media_bytes = sum(p.stat().st_size for p in (out / "faketest.media").glob("*") if p.is_file())
-    nest_bytes = (out / "faketest.nest").stat().st_size
-    assert nest_bytes > media_bytes, "the self-contained file must carry the media bytes"
+    urna_bytes = (out / "faketest.urna").stat().st_size
+    assert urna_bytes > media_bytes, "the self-contained file must carry the media bytes"
     manifest = json.loads((out / "faketest.manifest.json").read_text())
     assert manifest["media"]["embedded"] is True
     # the sidecar-mode twin of the same corpus keeps blobs out-of-line
     d2 = base / "embed-side"
     d2.mkdir()
     build(load_spec(_fixture(d2, with_media=True, mode="single")))
-    side = nest.open(str(d2 / "out" / "faketest.nest"))
+    side = urna.open(str(d2 / "out" / "faketest.urna"))
     assert all(not r["inlined"] for r in side.blob_refs())
     print("test_embed_media: OK")
 
@@ -604,7 +604,7 @@ def test_corrupt_cache_recomputed(base: Path) -> None:
     mtime = cache.stat().st_mtime_ns
     cache.write_bytes(cache.read_bytes()[:-7])  # torn write: sidecar no longer matches
     result = build(load_spec(spec_p))  # must recompute, not crash or reuse
-    nest.open(result["outputs"]["faketest.nest"]["file"]).validate()
+    urna.open(result["outputs"]["faketest.urna"]["file"]).validate()
     assert cache.stat().st_mtime_ns != mtime, "a torn entry must be rewritten, not reused"
     assert sidecar.read_text().strip() == hashlib.sha256(cache.read_bytes()).hexdigest(), (
         "the recompute must leave a valid checksum sidecar"
@@ -617,7 +617,7 @@ def test_corrupt_cache_recomputed(base: Path) -> None:
 def test_cache_shared_across_specs(base: Path) -> None:
     """content-addressed entries under one root: same rows in two output
     dirs read one potion table; a media knob change adds a clip-side entry
-    instead of overwriting; the spec's cache_dir beats NEST_CACHE_DIR."""
+    instead of overwriting; the spec's cache_dir beats URNA_CACHE_DIR."""
     if not HAVE_FFMPEG:
         print("test_cache_shared_across_specs: SKIP (no ffmpeg)")
         return
@@ -677,7 +677,7 @@ def test_cache_shared_across_specs(base: Path) -> None:
     for npz in after_fake:
         assert (fake / (npz + ".sha256")).is_file(), "every entry keeps its checksum sidecar"
 
-    # [output] cache_dir in the spec wins over NEST_CACHE_DIR
+    # [output] cache_dir in the spec wins over URNA_CACHE_DIR
     local = base / "local-cache"
     spec_p.write_text(spec_p.read_text().replace("[output]", f'[output]\ncache_dir = "{local}"'))
     build(load_spec(spec_p))
@@ -690,16 +690,16 @@ def test_cache_shared_across_specs(base: Path) -> None:
     )
 
     # the cache location is not identity: the same root supplied through
-    # NEST_CACHE_DIR instead of the spec must still claim L3 under --strict-env,
+    # URNA_CACHE_DIR instead of the spec must still claim L3 under --strict-env,
     # and the lock never records where the cache lived.
     spec_p.write_text(spec_p.read_text().replace(f'cache_dir = "{local}"\n', ""))
     assert "cache_dir" not in spec_p.read_text()
-    env_root = os.environ["NEST_CACHE_DIR"]
-    os.environ["NEST_CACHE_DIR"] = str(local)
+    env_root = os.environ["URNA_CACHE_DIR"]
+    os.environ["URNA_CACHE_DIR"] = str(local)
     try:
         r5 = build(load_spec(spec_p), rebuild_only=True, strict_env=True)
     finally:
-        os.environ["NEST_CACHE_DIR"] = env_root
+        os.environ["URNA_CACHE_DIR"] = env_root
     assert r5["timings"]["embed.potion"] == 0.0, "same root via env must hit the spec's entries"
     lock = json.loads(Path(r5["build_lock"]).read_text())
     assert "cache_dir" not in lock["resolved_spec"]["output"], "cache root is not in the lock"
@@ -732,7 +732,7 @@ def test_probe_conflict(base: Path) -> None:
     # vendored: no model dir, fingerprint None), as another spec's stale probe
     probe.write_text(json.dumps({"model_hash": "sha256:" + "0" * 64, "dir_fingerprint": None}))
     result = build(load_spec(spec_p))
-    nest.open(result["outputs"]["faketest.nest"]["file"]).validate()
+    urna.open(result["outputs"]["faketest.urna"]["file"]).validate()
     lock = json.loads(Path(result["build_lock"]).read_text())
     assert lock["models"]["potion"] == real, "the loaded model is the ground truth"
     assert json.loads(probe.read_text())["model_hash"] == real, "the probe must be corrected"
@@ -750,16 +750,16 @@ def test_cache_root_errors(base: Path) -> None:
     spec_p = _fixture(d, with_media=False, mode="single")
     not_a_dir = base / "cache-as-file"
     not_a_dir.write_text("x")
-    env_root = os.environ["NEST_CACHE_DIR"]
-    os.environ["NEST_CACHE_DIR"] = str(not_a_dir)
+    env_root = os.environ["URNA_CACHE_DIR"]
+    os.environ["URNA_CACHE_DIR"] = str(not_a_dir)
     try:
         build(load_spec(spec_p))
     except SpecError as e:
-        assert "output.cache_dir" in str(e) and "NEST_CACHE_DIR" in str(e), str(e)
+        assert "output.cache_dir" in str(e) and "URNA_CACHE_DIR" in str(e), str(e)
     else:
         raise AssertionError("a file as cache root must be a SpecError")
     finally:
-        os.environ["NEST_CACHE_DIR"] = env_root
+        os.environ["URNA_CACHE_DIR"] = env_root
     spec_p.write_text(
         spec_p.read_text().replace("[output]", f'[output]\ncache_dir = "{not_a_dir}"')
     )
@@ -774,13 +774,13 @@ def test_cache_root_errors(base: Path) -> None:
 
 def main() -> None:
     global CACHE_ROOT
-    user_cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "nest"
+    user_cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "urna"
     user_before = _listing(user_cache)
-    with tempfile.TemporaryDirectory(prefix="nest-forge-spec-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="urna-forge-spec-") as tmp:
         base = Path(tmp)
         # every build in this suite writes its embed cache here, never ~/.cache
         CACHE_ROOT = base / "xdg-cache"
-        os.environ["NEST_CACHE_DIR"] = str(CACHE_ROOT)
+        os.environ["URNA_CACHE_DIR"] = str(CACHE_ROOT)
         test_validation_errors(base)
         test_media_profiles(base)
         test_quality_defaults(base)

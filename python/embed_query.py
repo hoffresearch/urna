@@ -1,7 +1,7 @@
 """Embed a single text query using the same sentence-transformers model
 the corpus was built with.
 
-Invoked by the Rust CLI's `nest search-text` subcommand. Stays in
+Invoked by the Rust CLI's `urna search-text` subcommand. Stays in
 Python because (a) sentence-transformers is the same toolchain used at
 build time, so vectors are bit-identical (modulo float ops), and (b)
 keeping the CLI binary lean — no candle/onnxruntime dependency.
@@ -39,8 +39,8 @@ from pathlib import Path
 # corpus model name must never trigger a hub download mid-run — especially
 # while the box is handling PHI (see the data governance section of
 # doc/SECURITY.md). Opt into the
-# first-time model fetch explicitly with NEST_ALLOW_DOWNLOAD=1.
-if os.environ.get("NEST_ALLOW_DOWNLOAD") != "1":
+# first-time model fetch explicitly with URNA_ALLOW_DOWNLOAD=1.
+if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
     for _k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
         os.environ.setdefault(_k, "1")
 

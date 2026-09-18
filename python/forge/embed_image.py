@@ -2,7 +2,7 @@
 
 This lives in the forge tooling layer because it pulls heavy optional
 dependencies (torch, open_clip, Pillow). It never enters the sovereign
-runtime, and no `.nest` reader needs it.
+runtime, and no `.urna` reader needs it.
 
 Models are addressed the way open_clip addresses them:
 `hf-hub:redlessone/DermLIP_ViT-B-16` for dermatology, or a plain

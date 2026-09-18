@@ -294,7 +294,7 @@ def main() -> None:
     if not HAVE:
         print("SKIP: ffmpeg/ssimulacra2/cjxl/djxl not all present (brew install jpeg-xl)")
         return
-    with tempfile.TemporaryDirectory(prefix="nest-qgate-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="urna-qgate-") as tmp:
         base = Path(tmp)
         test_gate_structure_and_choice(base)
         test_visual_floor_rejects(base)

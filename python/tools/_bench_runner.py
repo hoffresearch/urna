@@ -1,7 +1,7 @@
 """Latency-bench helpers used by `measure_presets.py`.
 
-Pure functions over a `nest.NestFile` plus a list of `(qvec, qtext)`
-queries — no `.nest` I/O, no result formatting. Internal to
+Pure functions over a `urna.UrnaFile` plus a list of `(qvec, qtext)`
+queries — no `.urna` I/O, no result formatting. Internal to
 `python/tools/`.
 """
 
@@ -51,7 +51,7 @@ def run_bench(
 
 
 def parse_variant(name: str):
-    """Resolve a variant name into nest.build kwargs.
+    """Resolve a variant name into urna.build kwargs.
 
     Three forms:
       - a plain preset: "exact" | "compressed" | "tiny" | "nano" | "hybrid"
@@ -70,7 +70,7 @@ def parse_variant(name: str):
         comparable to the existing tiny/nano presets. The truncation +
         L2-renorm happens build-time in the rust builder before quantization.
 
-    Returns `(label, kwargs)` where kwargs feed straight into nest.build.
+    Returns `(label, kwargs)` where kwargs feed straight into urna.build.
     """
     dtype_alias = {
         "f32": "float32",
@@ -112,20 +112,20 @@ def build_variant(chunks, meta, preset: str, out_path: Path):
     """Build `out_path` with the given preset or mrl ladder point; return
     seconds elapsed.
 
-    Imports `nest` lazily because `_bench_runner` is meant to be cheap
+    Imports `urna` lazily because `_bench_runner` is meant to be cheap
     to import (unlike the PyO3 extension load, which pulls a 1.6 MB .so).
     """
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    import nest
+    import urna
 
     _label, variant_kwargs = parse_variant(preset)
 
     if out_path.exists():
         out_path.unlink()
     t0 = time.time()
-    nest.build(
+    urna.build(
         output_path=str(out_path),
         embedding_model=meta["embedding_model"],
         embedding_dim=meta["embedding_dim"],

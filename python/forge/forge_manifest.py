@@ -179,7 +179,7 @@ def _spec_dict(spec) -> dict:
     raw = asdict(spec)
     raw["media"] = asdict(spec.media) if spec.media is not None else None
     # where the embed cache lives is not identity: the same entries are read
-    # whether the root came from the spec, --cache-dir or NEST_CACHE_DIR, and
+    # whether the root came from the spec, --cache-dir or URNA_CACHE_DIR, and
     # a machine path does not belong in the L3 record.
     raw["output"].pop("cache_dir", None)
     return raw

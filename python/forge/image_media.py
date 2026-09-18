@@ -133,15 +133,15 @@ def probe_pix_fmt(path: Path) -> str:
     return str(fmt)
 
 
-def media_dir_for(nest_path: Path) -> Path:
-    """Where a corpus keeps its media, as a sibling of the `.nest`.
+def media_dir_for(urna_path: Path) -> Path:
+    """Where a corpus keeps its media, as a sibling of the `.urna`.
 
-    A corpus is `corpus.nest` plus `corpus.media/`. Keeping media beside the
+    A corpus is `corpus.urna` plus `corpus.media/`. Keeping media beside the
     file (never at an absolute path baked into a URI) is what lets a corpus
     be copied to another machine and still resolve.
     """
-    nest_path = Path(nest_path)
-    return nest_path.parent / f"{nest_path.stem}.media"
+    urna_path = Path(urna_path)
+    return urna_path.parent / f"{urna_path.stem}.media"
 
 
 def parse_media_uri(uri: str) -> tuple[str, int | None]:

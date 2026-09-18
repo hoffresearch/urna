@@ -1,5 +1,5 @@
 """Emit side of the declarative build: blob tables, space payloads,
-the per-output `nest.build` calls (atomic commit), manifest v1 and
+the per-output `urna.build` calls (atomic commit), manifest v1 and
 build.lock.json. Split from forge_pipeline (stages) along the
 orchestrate/emit seam to honor the file-size contract.
 """
@@ -20,7 +20,7 @@ from forge.forge_manifest import build_lock, check_lock, redact_path, write_mani
 def _blob_tables(ctx) -> tuple[list[dict] | None, list[dict] | None, list[str] | None]:
     if ctx.media is None:
         return None, None, None
-    media_dir = image_media.media_dir_for(ctx.out_dir / f"{ctx.spec.name}.nest")
+    media_dir = image_media.media_dir_for(ctx.out_dir / f"{ctx.spec.name}.urna")
     embed = ctx.spec.output.embed_media
     refs: list[dict] = []
     paths: list[str] = []
@@ -86,7 +86,7 @@ def _spaces_payload(ctx, only_preset: str | None = None) -> list[dict]:
 
 
 def _emit(ctx) -> dict:
-    import nest
+    import urna
 
     spec = ctx.spec
     dm = default_model(spec)
@@ -108,7 +108,7 @@ def _emit(ctx) -> dict:
         tmp = ctx.tmp_dir / filename
         final = ctx.out_dir / filename
         t0 = time.time()
-        nest.build(
+        urna.build(
             str(tmp),
             d_preset.embedding_model,
             int(text_vecs.shape[1]),
@@ -130,7 +130,7 @@ def _emit(ctx) -> dict:
             provenance={"dataset": spec.name, "corpus_input_hash": ctx.input_hash},
         )
         os.replace(tmp, final)
-        db = nest.open(str(final))
+        db = urna.open(str(final))
         db.validate()
         return {
             "file": str(final),
@@ -141,13 +141,13 @@ def _emit(ctx) -> dict:
 
     outputs = {}
     if spec.output.mode in ("single", "both"):
-        outputs[f"{spec.name}.nest"] = emit_one(f"{spec.name}.nest", _spaces_payload(ctx))
+        outputs[f"{spec.name}.urna"] = emit_one(f"{spec.name}.urna", _spaces_payload(ctx))
     if spec.output.mode in ("per-model", "both"):
         for ms in spec.models:
             if ms.preset == dm.preset and ms.image == "none" and spec.output.mode == "per-model":
                 continue  # the default model alone would duplicate the single file's core
-            outputs[f"{spec.name}-{ms.preset}.nest"] = emit_one(
-                f"{spec.name}-{ms.preset}.nest", _spaces_payload(ctx, only_preset=ms.preset)
+            outputs[f"{spec.name}-{ms.preset}.urna"] = emit_one(
+                f"{spec.name}-{ms.preset}.urna", _spaces_payload(ctx, only_preset=ms.preset)
             )
     return {
         "outputs": outputs,
@@ -163,7 +163,7 @@ def _finalize(ctx, result: dict, *, strict_env: bool, rebuild_only: bool) -> Non
     spec_dir = Path(spec.spec_path).parent if spec.spec_path else ctx.out_dir
     mode = spec.output.provenance
     model_hashes = {p: m["model_hash"] for p, m in ctx.model_meta.items()}
-    lock = build_lock(spec, model_hashes, device=os.environ.get("NEST_ST_DEVICE", "auto"))
+    lock = build_lock(spec, model_hashes, device=os.environ.get("URNA_ST_DEVICE", "auto"))
     lock_path = ctx.out_dir / f"{spec.name}.build.lock.json"
     if rebuild_only and lock_path.is_file():
         diffs = check_lock(json.loads(lock_path.read_text()), lock)

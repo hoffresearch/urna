@@ -95,7 +95,7 @@ class _FakeAdapter:
 
     @property
     def model_hash(self) -> str:
-        return "sha256:" + hashlib.sha256(b"nest-forge-fake-test/v1").hexdigest()
+        return "sha256:" + hashlib.sha256(b"urna-forge-fake-test/v1").hexdigest()
 
     def fingerprint(self) -> dict:
         return {"embedder": "fake", "embedding_dim": self.dim, "normalize": "l2"}
@@ -183,7 +183,7 @@ class _SubprocessSTAdapter:
         import sys as _sys
         import tempfile
 
-        self._tmp = self._tmp or tempfile.mkdtemp(prefix=f"nest-st-{self.preset.name}-")
+        self._tmp = self._tmp or tempfile.mkdtemp(prefix=f"urna-st-{self.preset.name}-")
         worker = Path(__file__).parent / "embed_st_worker.py"
         cmd = [
             _sys.executable,
@@ -198,7 +198,7 @@ class _SubprocessSTAdapter:
         if self.model_path:
             cmd += ["--model-path", str(self.model_path)]
         env = dict(
-            os.environ, NEST_ENABLE_FAKE_PRESET=os.environ.get("NEST_ENABLE_FAKE_PRESET", "")
+            os.environ, URNA_ENABLE_FAKE_PRESET=os.environ.get("URNA_ENABLE_FAKE_PRESET", "")
         )
         self._proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, env=env
