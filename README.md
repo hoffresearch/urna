@@ -554,7 +554,7 @@ int8 at 384 is the `tiny` preset, int4 at 384 is `nano`. int4 packs blocks of 64
 <details>
 <summary>image corpus: 38,627 magic cards in one file, five image models, and what came back into urna</summary>
 
-[brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark) (code, specs, twenty experiments) and the dataset on the hub, [brennercruvinel/mtg-nest-benchmark](https://huggingface.co/datasets/brennercruvinel/mtg-nest-benchmark) (ten `.urna` files, 11.7 GB, plus a parquet view). 4 GB of jpeg scans, one card per oracle id, packed by the forge into single files with the text, the vectors, the index and the media inside.
+[brennercruvinel/mtg-urna-benchmark](https://github.com/brennercruvinel/mtg-urna-benchmark) (code, specs, twenty experiments) and the dataset on the hub, [brennercruvinel/mtg-urna-benchmark](https://huggingface.co/datasets/brennercruvinel/mtg-urna-benchmark) (ten `.urna` files, 11.7 GB, plus a parquet view). 4 GB of jpeg scans, one card per oracle id, packed by the forge into single files with the text, the vectors, the index and the media inside.
 
 | profile | media | file | ratio vs the jpeg source |
 |---------|-------|-----:|-------------------------:|
@@ -597,7 +597,7 @@ measured on a 30,725-chunk pt-br corpus (`dat/measure/ladder.json`, gated in ci)
 - [doc/SECURITY.md](doc/SECURITY.md): reporting, scope, hardening notes (denied lints, the mutation-fuzz harness, the nightly soak), and the data-governance posture for distributed `.urna` files
 - [doc/CHANGELOG](doc/CHANGELOG): releases and unreleased deltas, with measured numbers
 - [dat/demo/Instructions.md](dat/demo/Instructions.md): the pt-br demo corpus sources and rebuild
-- [brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark): the image-corpus benchmark (38,627 card scans in single-file `.urna` containers): code, specs, corpora as id lists, results per experiment; the `.urna` artifacts are on the hugging face dataset of the same name. private for now
+- [brennercruvinel/mtg-urna-benchmark](https://github.com/brennercruvinel/mtg-urna-benchmark): the image-corpus benchmark (38,627 card scans in single-file `.urna` containers): code, specs, corpora as id lists, results per experiment; the `.urna` artifacts are on the hugging face dataset of the same name. private for now
 
 </details>
 
