@@ -151,11 +151,23 @@ jobs:
       - name: toolchain
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@v2
+      # a base commit without crates/urna-format has nothing to compare
+      # against (the nest -> urna rename); skip instead of failing.
+      - name: baseline has urna-format
+        id: baseline
+        run: |
+          if git cat-file -e "${{ github.event.pull_request.base.sha }}:crates/urna-format/Cargo.toml" 2>/dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::base commit has no crates/urna-format; semver check skipped"
+          fi
       # the on-disk format is frozen; the rust api that reads it should say
       # when it breaks. urna-format is not on crates.io, so the baseline is
       # the pr's base commit rather than the last published version. in 0.x
       # a minor bump is the major bump, which the tool understands.
       - uses: obi1kenobi/cargo-semver-checks-action@v2
+        if: steps.baseline.outputs.present == 'true'
         with:
           package: urna-format
           baseline-rev: ${{ github.event.pull_request.base.sha }}

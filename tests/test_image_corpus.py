@@ -354,7 +354,6 @@ class ImageCorpusTest(unittest.TestCase):
             self.skipTest("PyMuPDF not available")
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
         import urna_image_eval as ev
-
         from tools import urna_build_image_corpus as builder
 
         pdf_dir = self.tmp / "pdfs"

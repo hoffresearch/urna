@@ -32,6 +32,8 @@ import numpy as np
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from forge import embed_image, image_items  # noqa: E402
+from tools import urna_build_image_corpus as builder  # noqa: E402
+from tools import urna_image_eval as ev  # noqa: E402
 from tools._image_metrics import (  # noqa: E402
     bootstrap_delta,
     class_floor_ok,
@@ -40,9 +42,6 @@ from tools._image_metrics import (  # noqa: E402
     ranking_agreement,
     sign_test,
 )
-
-from tools import urna_build_image_corpus as builder  # noqa: E402
-from tools import urna_image_eval as ev  # noqa: E402
 
 _DTYPES = {"f32": "float32", "f16": "float16", "int8": "int8", "int4": "int4"}
 
