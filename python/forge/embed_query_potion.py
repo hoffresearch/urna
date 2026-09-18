@@ -3,7 +3,7 @@
 the offline twin of python/embed_query.py: that one loads sentence-transformers
 (network on first use, breaks offline-by-construction), this one uses the
 vendored model2vec/potion-base-8M table (numpy + tokenizers only, no torch, no
-socket). the flagship verbs `nest ask` / `nest retrieve` shell out to THIS
+socket). the flagship verbs `urna ask` / `urna retrieve` shell out to THIS
 script so an offline corpus built with the default embedder gets a cited answer
 with no network.
 

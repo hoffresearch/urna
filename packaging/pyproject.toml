@@ -1,8 +1,8 @@
-# maturin project for the official `nestdb` wheel (issue #75).
+# maturin project for the official `urna` wheel (issue #75).
 #
 # scripts/stage_wheel.py copies this file VERBATIM into packaging/staging/;
 # every relative path below resolves from staging/, not from packaging/.
-# the dev flow (cargo build + cp into python/_nest.so) is unchanged; this
+# the dev flow (cargo build + cp into python/_urna.so) is unchanged; this
 # file only feeds the published package.
 
 [build-system]
@@ -10,8 +10,8 @@ requires = ["maturin>=1.4,<2.0"]
 build-backend = "maturin"
 
 [project]
-name = "nestdb"
-description = "sovereign embedded vector database: single-file .nest container with content-addressable citations, offline-first"
+name = "urna"
+description = "sovereign embedded vector database: single-file .urna container with content-addressable citations, offline-first"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
@@ -26,24 +26,24 @@ classifiers = [
 ]
 dynamic = ["version"]
 
-# offline text embedding with the bundled potion table (nest.embed_potion).
+# offline text embedding with the bundled potion table (urna.embed_potion).
 # optional: the core library surface (open/search/validate/...) needs nothing
 # beyond the wheel itself.
 [project.optional-dependencies]
 embed = ["numpy>=1.26", "tokenizers>=0.20"]
 
 [project.urls]
-Repository = "https://github.com/hoffresearch/nest"
-Issues = "https://github.com/hoffresearch/nest/issues"
+Repository = "https://github.com/hoffresearch/urna"
+Issues = "https://github.com/hoffresearch/urna/issues"
 
-# `uvx --from nestdb nest ...` / `pipx run`: read-only verbs (validate,
+# `uvx --from urna urna ...` / `pipx run`: read-only verbs (validate,
 # inspect, stats, search) over the library api. the full cli (ask, retrieve,
 # doctor, ...) is the rust binary from scripts/install.sh.
 [project.scripts]
-nest = "nest._cli:main"
+urna = "urna._cli:main"
 
 [tool.maturin]
-manifest-path = "../../crates/nest-python/Cargo.toml"
-module-name = "nest._nest"
+manifest-path = "../../crates/urna-python/Cargo.toml"
+module-name = "urna._urna"
 python-source = "."
 features = ["pyo3/extension-module"]

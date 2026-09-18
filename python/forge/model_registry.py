@@ -194,7 +194,7 @@ PRESETS: dict[str, ModelPreset] = {
         ModelPreset(
             name="fake-test",
             kind="fake",
-            embedding_model="nest-forge-fake-test/v1",
+            embedding_model="urna-forge-fake-test/v1",
             default_dim=8,
             mrl=MrlSpec(True, (8, 4)),
             modalities=frozenset({"text", "image"}),
@@ -204,8 +204,8 @@ PRESETS: dict[str, ModelPreset] = {
 
 
 def get_preset(name: str) -> ModelPreset:
-    if name == "fake-test" and os.environ.get("NEST_ENABLE_FAKE_PRESET") != "1":
-        raise RegistryError("preset 'fake-test' requires NEST_ENABLE_FAKE_PRESET=1 (test-only)")
+    if name == "fake-test" and os.environ.get("URNA_ENABLE_FAKE_PRESET") != "1":
+        raise RegistryError("preset 'fake-test' requires URNA_ENABLE_FAKE_PRESET=1 (test-only)")
     preset = PRESETS.get(name)
     if preset is None:
         valid = ", ".join(sorted(PRESETS))
@@ -233,10 +233,10 @@ def check_deps(preset: ModelPreset) -> None:
 
 
 def resolve_model_dir(preset: ModelPreset, model_path: str | os.PathLike | None = None):
-    """explicit > NEST_MODEL_DIR_<NAME> env > preset.local_dir > hf cache > None."""
+    """explicit > URNA_MODEL_DIR_<NAME> env > preset.local_dir > hf cache > None."""
     if model_path:
         return Path(model_path)
-    env_key = "NEST_MODEL_DIR_" + preset.name.upper().replace("-", "_")
+    env_key = "URNA_MODEL_DIR_" + preset.name.upper().replace("-", "_")
     if os.environ.get(env_key):
         return Path(os.environ[env_key])
     if preset.local_dir:

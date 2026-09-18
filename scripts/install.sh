@@ -1,12 +1,12 @@
 #!/bin/sh
-# nest installer (issue #75). one-liner:
+# urna installer (issue #75). one-liner:
 #
-#   curl -sSf https://raw.githubusercontent.com/hoffresearch/nest/main/scripts/install.sh | sh
+#   curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.sh | sh
 #
 # downloads the release tarball for this platform, verifies its sha256
 # against the release's checksum file, installs the binary to
 # ~/.local/bin, and lays down the offline embedder payload (potion table)
-# under ${XDG_DATA_HOME:-~/.local/share}/nest. after install the product
+# under ${XDG_DATA_HOME:-~/.local/share}/urna. after install the product
 # never touches the network; only this script does.
 #
 # flags:
@@ -14,16 +14,16 @@
 #   --uninstall        remove the binary and the payload
 #
 # env overrides (used by tests and custom setups):
-#   NEST_RELEASE_BASE  url prefix that serves the release artifacts
-#   NEST_BIN_DIR       binary install dir      (default ~/.local/bin)
-#   NEST_DATA_DIR      payload parent dir      (default ${XDG_DATA_HOME:-~/.local/share})
+#   URNA_RELEASE_BASE  url prefix that serves the release artifacts
+#   URNA_BIN_DIR       binary install dir      (default ~/.local/bin)
+#   URNA_DATA_DIR      payload parent dir      (default ${XDG_DATA_HOME:-~/.local/share})
 
 set -eu
 
-REPO="hoffresearch/nest"
+REPO="hoffresearch/urna"
 
 say() { printf '%s\n' "$*"; }
-die() { printf 'nest-install: error: %s\n' "$*" >&2; exit 1; }
+die() { printf 'urna-install: error: %s\n' "$*" >&2; exit 1; }
 need() { command -v "$1" >/dev/null 2>&1 || die "missing required tool: $1"; }
 
 VERSION=""
@@ -55,14 +55,14 @@ case "$VERSION" in
     *) VERSION="v$VERSION" ;;
 esac
 
-BIN_DIR="${NEST_BIN_DIR:-$HOME/.local/bin}"
-DATA_DIR="${NEST_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}}"
-PAYLOAD_DIR="$DATA_DIR/nest"
+BIN_DIR="${URNA_BIN_DIR:-$HOME/.local/bin}"
+DATA_DIR="${URNA_DATA_DIR:-${XDG_DATA_HOME:-$HOME/.local/share}}"
+PAYLOAD_DIR="$DATA_DIR/urna"
 
 if [ "$UNINSTALL" -eq 1 ]; then
-    rm -f "$BIN_DIR/nest"
+    rm -f "$BIN_DIR/urna"
     rm -rf "$PAYLOAD_DIR"
-    say "nest-install: removed $BIN_DIR/nest and $PAYLOAD_DIR"
+    say "urna-install: removed $BIN_DIR/urna and $PAYLOAD_DIR"
     exit 0
 fi
 
@@ -84,21 +84,21 @@ case "$ARCH" in
 esac
 TARGET="$ARCH_PART-$OS_PART"
 
-if [ -n "${NEST_RELEASE_BASE:-}" ]; then
-    BASE="$NEST_RELEASE_BASE"
+if [ -n "${URNA_RELEASE_BASE:-}" ]; then
+    BASE="$URNA_RELEASE_BASE"
 elif [ -n "$VERSION" ]; then
     BASE="https://github.com/$REPO/releases/download/$VERSION"
 else
     BASE="https://github.com/$REPO/releases/latest/download"
 fi
 
-ARCHIVE="nest-cli-$TARGET.tar.xz"
-PAYLOAD="nest-embedder-payload.tar.gz"
+ARCHIVE="urna-cli-$TARGET.tar.xz"
+PAYLOAD="urna-embedder-payload.tar.gz"
 
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-say "nest-install: fetching $ARCHIVE + payload ($TARGET)"
+say "urna-install: fetching $ARCHIVE + payload ($TARGET)"
 curl -sSfL "$BASE/$ARCHIVE" -o "$TMP/$ARCHIVE" || die "download failed: $BASE/$ARCHIVE"
 curl -sSfL "$BASE/$ARCHIVE.sha256" -o "$TMP/$ARCHIVE.sha256" || die "checksum download failed"
 curl -sSfL "$BASE/$PAYLOAD" -o "$TMP/$PAYLOAD" || die "download failed: $BASE/$PAYLOAD"
@@ -121,18 +121,18 @@ verify() {
 }
 verify "$TMP/$ARCHIVE" "$TMP/$ARCHIVE.sha256"
 verify "$TMP/$PAYLOAD" "$TMP/$PAYLOAD.sha256"
-say "nest-install: checksums verified"
+say "urna-install: checksums verified"
 
 mkdir -p "$BIN_DIR" "$DATA_DIR"
 tar -xJf "$TMP/$ARCHIVE" -C "$TMP"
-cp "$TMP/nest-cli-$TARGET/nest" "$BIN_DIR/nest"
-chmod +x "$BIN_DIR/nest"
+cp "$TMP/urna-cli-$TARGET/urna" "$BIN_DIR/urna"
+chmod +x "$BIN_DIR/urna"
 tar -xzf "$TMP/$PAYLOAD" -C "$DATA_DIR"
 
-say "nest-install: installed $BIN_DIR/nest"
-say "nest-install: embedder payload at $PAYLOAD_DIR"
+say "urna-install: installed $BIN_DIR/urna"
+say "urna-install: embedder payload at $PAYLOAD_DIR"
 case ":$PATH:" in
     *":$BIN_DIR:"*) ;;
-    *) say "nest-install: note: $BIN_DIR is not on your PATH" ;;
+    *) say "urna-install: note: $BIN_DIR is not on your PATH" ;;
 esac
-say "nest-install: run \`nest doctor\` to validate the install (offline)"
+say "urna-install: run \`urna doctor\` to validate the install (offline)"

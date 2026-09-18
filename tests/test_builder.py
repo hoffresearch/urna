@@ -7,7 +7,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-import nest
+import urna
 from builder import BuildConfig, EmbeddingCache, Pipeline, chunk_text
 
 
@@ -34,9 +34,9 @@ def test_chunk_text_byte_spans_round_trip():
         assert encoded[c.byte_start : c.byte_end] == c.canonical_text.encode("utf-8")
 
 
-def test_pipeline_emits_validated_nest_file():
+def test_pipeline_emits_validated_urna_file():
     with tempfile.TemporaryDirectory() as d:
-        out = os.path.join(d, "pipe.nest")
+        out = os.path.join(d, "pipe.urna")
         cfg = BuildConfig(
             output_path=out,
             embedding_model="toy",
@@ -54,7 +54,7 @@ def test_pipeline_emits_validated_nest_file():
         pipe.emit()
         pipe.close()
 
-        db = nest.open(out)
+        db = urna.open(out)
         assert db.embedding_dim == 8
         assert db.n_embeddings >= 2
         hits = db.search([1.0] + [0.0] * 7, 1)
@@ -75,8 +75,8 @@ def test_cache_skips_re_embedding_on_second_run():
             return _toy_embed(specs)
 
         text = "frase um. frase dois. frase tres."
-        out_a = os.path.join(d, "a.nest")
-        out_b = os.path.join(d, "b.nest")
+        out_a = os.path.join(d, "a.urna")
+        out_b = os.path.join(d, "b.urna")
         for out in (out_a, out_b):
             cfg = BuildConfig(
                 output_path=out,
@@ -119,7 +119,7 @@ def test_mrl_truncation_sets_embedding_dim_and_query_stride():
     full_dim = 384
     mrl_dim = 128
     with tempfile.TemporaryDirectory() as d:
-        out = os.path.join(d, "mrl.nest")
+        out = os.path.join(d, "mrl.urna")
         specs = []
         for source, text in [
             ("a.txt", "uma frase em portugues com acentuacao para o teste matryoshka"),
@@ -138,7 +138,7 @@ def test_mrl_truncation_sets_embedding_dim_and_query_stride():
             )
             for s, e in zip(specs, embs, strict=False)
         ]
-        nest.build(
+        urna.build(
             output_path=out,
             embedding_model="toy",
             embedding_dim=full_dim,
@@ -149,7 +149,7 @@ def test_mrl_truncation_sets_embedding_dim_and_query_stride():
             mrl_dim=mrl_dim,
         )
 
-        db = nest.open(out)
+        db = urna.open(out)
         db.validate()
         assert db.embedding_dim == mrl_dim, db.embedding_dim
 
@@ -171,7 +171,7 @@ def test_mrl_truncation_sets_embedding_dim_and_query_stride():
 def test_mrl_dim_validation_rejects_oversized_and_zero():
     """mrl_dim must satisfy 0 < mrl_dim <= embedding_dim."""
     with tempfile.TemporaryDirectory() as d:
-        out = os.path.join(d, "bad.nest")
+        out = os.path.join(d, "bad.urna")
         chunks = [
             dict(
                 canonical_text="x",
@@ -184,7 +184,7 @@ def test_mrl_dim_validation_rejects_oversized_and_zero():
         for bad in (0, 8):  # 0 and > embedding_dim(4)
             raised = False
             try:
-                nest.build(
+                urna.build(
                     output_path=out,
                     embedding_model="toy",
                     embedding_dim=4,
@@ -229,7 +229,7 @@ def test_retrieve_model_hash_gate():
     h1 = "sha256:" + "ab" * 32
     wrong = "sha256:" + "cd" * 32
     with tempfile.TemporaryDirectory() as d:
-        out = os.path.join(d, "gate.nest")
+        out = os.path.join(d, "gate.urna")
         chunks = [
             dict(
                 canonical_text="alpha",
@@ -246,7 +246,7 @@ def test_retrieve_model_hash_gate():
                 embedding=[0.0, 1.0, 0.0, 0.0],
             ),
         ]
-        nest.build(
+        urna.build(
             output_path=out,
             embedding_model="toy",
             embedding_dim=4,
@@ -255,7 +255,7 @@ def test_retrieve_model_hash_gate():
             chunks=chunks,
             reproducible=True,
         )
-        db = nest.open(out)
+        db = urna.open(out)
         assert db.model_hash == h1, db.model_hash
         q = [1.0, 0.0, 0.0, 0.0]
         assert db.retrieve(q, 1, expected_model_hash=h1), "matching hash must succeed"
@@ -271,7 +271,7 @@ def test_retrieve_model_hash_gate():
 
 if __name__ == "__main__":
     test_chunk_text_byte_spans_round_trip()
-    test_pipeline_emits_validated_nest_file()
+    test_pipeline_emits_validated_urna_file()
     test_cache_skips_re_embedding_on_second_run()
     test_cache_keyed_by_model_no_stale_reuse()
     test_retrieve_model_hash_gate()

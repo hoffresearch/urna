@@ -28,15 +28,15 @@ TRIAD_KEYS = ("model_hash", "embedding_recipe_hash", "corpus_input_hash")
 def cache_root(override: str = "") -> Path:
     """Where embed caches and model probes live, shared across specs and
     output dirs: explicit override (spec `[output] cache_dir`) > env
-    `NEST_CACHE_DIR` > `${XDG_CACHE_HOME:-~/.cache}/nest`."""
+    `URNA_CACHE_DIR` > `${XDG_CACHE_HOME:-~/.cache}/urna`."""
     if override:
         return Path(os.path.expanduser(override))
-    env = os.environ.get("NEST_CACHE_DIR", "")
+    env = os.environ.get("URNA_CACHE_DIR", "")
     if env:
         return Path(os.path.expanduser(env))
     xdg = os.environ.get("XDG_CACHE_HOME", "")
     base = Path(xdg) if xdg else Path.home() / ".cache"
-    return base / "nest"
+    return base / "urna"
 
 
 @contextmanager

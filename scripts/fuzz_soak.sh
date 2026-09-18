@@ -8,21 +8,21 @@
 #
 #   sh scripts/fuzz_soak.sh            # 1 hour per target
 #   sh scripts/fuzz_soak.sh 600        # 10 minutes per target
-#   NEST_FUZZ_TARGETS="section-decoders" sh scripts/fuzz_soak.sh 300
+#   URNA_FUZZ_TARGETS="section-decoders" sh scripts/fuzz_soak.sh 300
 #
 # needs the nightly toolchain and cargo-fuzz (`cargo install cargo-fuzz`).
 
 set -eu
 
 SECONDS_PER_TARGET="${1:-3600}"
-TARGETS="${NEST_FUZZ_TARGETS:-nest-view section-decoders runtime-indexes mmap-open-search}"
+TARGETS="${URNA_FUZZ_TARGETS:-urna-view section-decoders runtime-indexes mmap-open-search}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/fuzz"
 
 for t in $TARGETS; do
     mkdir -p "corpus/$t"
     if [ -z "$(ls -A "corpus/$t")" ]; then
-        cp seeds/*.bin ../crates/nest-format/tests/fixtures/golden_v1_minimal.nest "corpus/$t/"
+        cp seeds/*.bin ../crates/urna-format/tests/fixtures/golden_v1_minimal.urna "corpus/$t/"
     fi
     echo "fuzz-soak: $t for ${SECONDS_PER_TARGET}s"
     cargo +nightly fuzz run "$t" -- \

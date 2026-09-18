@@ -1,11 +1,11 @@
-"""flask + nestdb: offline cited answers (issue #75).
+"""flask + urna: offline cited answers (issue #75).
 
 same shape as the fastapi example, minimal flask flavor: the corpus loads
 once at import, `POST /ask` embeds the query OFFLINE with the potion table
-bundled in the wheel (nestdb[embed]) and returns the tier-1 canonical text
-plus nest:// citations. no network at runtime by construction.
+bundled in the wheel (urna[embed]) and returns the tier-1 canonical text
+plus urna:// citations. no network at runtime by construction.
 
-setup:  pip install flask "nestdb[embed]"
+setup:  pip install flask "urna[embed]"
 run:    flask --app app run --port 8000
 try:    curl -s localhost:8000/ask -H 'content-type: application/json' \
           -d '{"query": "vector search on the edge", "k": 2}'
@@ -16,18 +16,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import nest
+import urna
 from flask import Flask, jsonify, request
-from nest.embed_potion import potion_embedder
+from urna.embed_potion import potion_embedder
 
-NEST_FILE = Path(os.environ.get("NEST_FILE", "demo_flask.nest"))
+URNA_FILE = Path(os.environ.get("URNA_FILE", "demo_flask.urna"))
 
 DOCS = [
-    "nest is a single-file vector database that works fully offline.",
+    "urna is a single-file vector database that works fully offline.",
     "vector search on the edge needs no server and no api key.",
     "every search hit carries a content-addressable citation.",
     "the potion static table embeds queries without a gpu or network.",
-    "a .nest file bundles chunks, embeddings, and indices in one artifact.",
+    "a .urna file bundles chunks, embeddings, and indices in one artifact.",
     "flask serves the corpus with a cited answer endpoint.",
 ]
 
@@ -46,7 +46,7 @@ def _bootstrap_corpus(path: Path) -> None:
         }
         for i, text in enumerate(DOCS)
     ]
-    nest.build(
+    urna.build(
         str(path),
         emb.embedding_model,
         emb.embedding_dim,
@@ -57,9 +57,9 @@ def _bootstrap_corpus(path: Path) -> None:
     )
 
 
-if not NEST_FILE.exists():
-    _bootstrap_corpus(NEST_FILE)
-db = nest.open(str(NEST_FILE))
+if not URNA_FILE.exists():
+    _bootstrap_corpus(URNA_FILE)
+db = urna.open(str(URNA_FILE))
 db.validate()
 
 app = Flask(__name__)
@@ -85,4 +85,4 @@ def ask():
 
 @app.get("/health")
 def health():
-    return jsonify(corpus=str(NEST_FILE), file_hash=db.file_hash)
+    return jsonify(corpus=str(URNA_FILE), file_hash=db.file_hash)

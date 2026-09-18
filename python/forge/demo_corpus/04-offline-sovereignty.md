@@ -1,6 +1,6 @@
 # offline by construction
 
-nest is sovereign: the runtime never opens a socket, and every query is
+urna is sovereign: the runtime never opens a socket, and every query is
 answered from the memory-mapped file on the local machine. nobody outside the
 operator has to be online, trusted, or even reachable for the database to
 work. that is the whole privacy story, and it needs no policy engine.

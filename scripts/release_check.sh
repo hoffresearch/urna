@@ -13,11 +13,11 @@
 # presets).
 #
 # Override knobs (env vars):
-#   NEST_BASELINE  — baseline JSON to compare against (default: dat/measure/baseline.json)
-#   NEST_QUERIES   — measure_presets query count (default: 100)
-#   NEST_K         — measure_presets top-k (default: 10)
-#   NEST_PYTHON    — python interpreter (default: ./.venv/bin/python if present, else python3)
-#   NEST_OUT       — where to write the post-run JSON (default: /tmp/release_check_post.json)
+#   URNA_BASELINE  — baseline JSON to compare against (default: dat/measure/baseline.json)
+#   URNA_QUERIES   — measure_presets query count (default: 100)
+#   URNA_K         — measure_presets top-k (default: 10)
+#   URNA_PYTHON    — python interpreter (default: ./.venv/bin/python if present, else python3)
+#   URNA_OUT       — where to write the post-run JSON (default: /tmp/release_check_post.json)
 
 set -euo pipefail
 
@@ -25,13 +25,13 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 # ---- knobs ----
-BASELINE="${NEST_BASELINE:-dat/measure/baseline.json}"
-QUERIES="${NEST_QUERIES:-100}"
-K="${NEST_K:-10}"
-OUT="${NEST_OUT:-/tmp/release_check_post.json}"
+BASELINE="${URNA_BASELINE:-dat/measure/baseline.json}"
+QUERIES="${URNA_QUERIES:-100}"
+K="${URNA_K:-10}"
+OUT="${URNA_OUT:-/tmp/release_check_post.json}"
 
-if [[ -n "${NEST_PYTHON:-}" ]]; then
-  PY="$NEST_PYTHON"
+if [[ -n "${URNA_PYTHON:-}" ]]; then
+  PY="$URNA_PYTHON"
 elif [[ -x "$ROOT/.venv/bin/python" ]]; then
   PY="$ROOT/.venv/bin/python"
 else
@@ -81,23 +81,23 @@ fi
 ok "all source files ≤ 300 lines"
 
 # ---- rebuild PyO3 .so ----
-step "rebuild python/_nest.so"
+step "rebuild python/_urna.so"
 # build the extension against the SAME interpreter that runs the tests, so a
 # .venv that differs from the default build python can never load a mismatched
-# _nest.so (that mismatch segfaults test_e2e). PYO3_PYTHON pins it to $PY.
+# _urna.so (that mismatch segfaults test_e2e). PYO3_PYTHON pins it to $PY.
 # pyo3/extension-module keeps libpython OUT of the dylib (extension modules
 # resolve symbols from the host process): without it the .so hard-links a
 # libpython path and segfaults under statically-embedded interpreters (uv's
 # python-build-standalone) by loading a second runtime. maturin builds the
 # published wheel the same way.
-PYO3_PYTHON="$PY" cargo build --release -p nest-python \
+PYO3_PYTHON="$PY" cargo build --release -p urna-python \
   --features pyo3/extension-module >/dev/null
 case "$(uname)" in
-  Darwin) cp target/release/lib_nest.dylib python/_nest.so ;;
-  Linux)  cp target/release/lib_nest.so    python/_nest.so ;;
-  *) printf "unknown OS, copy lib_nest.* manually\n" >&2; exit 1 ;;
+  Darwin) cp target/release/lib_urna.dylib python/_urna.so ;;
+  Linux)  cp target/release/lib_urna.so    python/_urna.so ;;
+  *) printf "unknown OS, copy lib_urna.* manually\n" >&2; exit 1 ;;
 esac
-ok "_nest.so built and copied"
+ok "_urna.so built and copied"
 
 # ---- python tests ----
 step "python tests/test_e2e.py"
@@ -142,7 +142,7 @@ ok "query embedder routing (4 cases)"
 # in lockstep; ruff missing from $PY is a skip here, a failure in ci.
 if "$PY" -c "import ruff" 2>/dev/null || "$PY" -m ruff --version 2>/dev/null | head -1 >/dev/null; then
   step "ruff check / format on the files we own (scripts/ruff_check.sh)"
-  NEST_PYTHON="$PY" sh scripts/ruff_check.sh
+  URNA_PYTHON="$PY" sh scripts/ruff_check.sh
   ok "ruff clean"
 else
   printf '  skip: ruff not importable in %s\n' "$PY" >&2

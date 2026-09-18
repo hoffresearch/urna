@@ -21,7 +21,7 @@ max_line_length = off
 indent_style = tab
 
 # Binary fixtures must not be touched by editor heuristics.
-[*.nest]
+[*.urna]
 charset = unset
 end_of_line = unset
 insert_final_newline = false

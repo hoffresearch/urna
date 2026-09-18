@@ -1,12 +1,14 @@
-![nest](/doc/nest-hoff-research-db.png)
+![urna](/doc/urna-hoff-research-db.png)
 
-# nest
+# urna
 
 single-file, memory-mapped, hash-verified vector database with stable citations.
 
-one `.nest` file carries chunks, embeddings, source spans, media, indices, and a search contract. a rust runtime mmaps it and answers with exact-cosine scores and `nest://content_hash/chunk_id` citations that survive re-encoding. reproducible byte for byte, offline by construction: the file is the whole database and nothing phones home.
+one `.urna` file carries chunks, embeddings, source spans, media, indices, and a search contract. a rust runtime mmaps it and answers with exact-cosine scores and `urna://content_hash/chunk_id` citations that survive re-encoding. reproducible byte for byte, offline by construction: the file is the whole database and nothing phones home.
 
-python builds. rust serves. nest ships.
+python builds. rust serves. urna ships.
+
+> renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier does not open under `urna`; rebuild it from the same chunks. details in `doc/CHANGELOG`.
 
 no server to run, no api call, no central index to audit. ship a curated knowledge base inside the application; every answer points at a chunk you can verify.
 
@@ -45,14 +47,14 @@ quadrantChart
     quadrant-3 "fast and flat"
     quadrant-4 "slow and flat"
     "hnswlib": [0.08, 0.08] radius: 5, color: #4285F4
-    "nest hybrid (verified)": [0.243, 0.197] radius: 6, color: #22C55E
+    "urna hybrid (verified)": [0.243, 0.197] radius: 6, color: #22C55E
     "usearch": [0.229, 0.92] radius: 5, color: #FF6F00
-    "nest exact (verified)": [0.73, 0.567] radius: 6, color: #22C55E
+    "urna exact (verified)": [0.73, 0.567] radius: 6, color: #22C55E
     "lancedb": [0.886, 0.717] radius: 5, color: #DEA584
     "sqlite-vec": [0.92, 0.76] radius: 5, color: #8E44AD
 ```
 
-the two nest points verify every byte before the first answer and return recall@10 = 1.000. numbers per point: [doc/benchmarks.md](doc/benchmarks.md).
+the two urna points verify every byte before the first answer and return recall@10 = 1.000. numbers per point: [doc/benchmarks.md](doc/benchmarks.md).
 
 ## sovereign, enforced by the format
 
@@ -61,25 +63,25 @@ four properties, held by the bytes, not by policy.
 | property       | what the format enforces |
 |----------------|--------------------------|
 | self-contained | the file is the entire knowledge base; copy it like a sqlite db |
-| verifiable     | sha-256 per section, per file, and over the decoded content; every hit cites `nest://content_hash/chunk_id` and `nest cite` resolves it to the stored text |
+| verifiable     | sha-256 per section, per file, and over the decoded content; every hit cites `urna://content_hash/chunk_id` and `urna cite` resolves it to the stored text |
 | reproducible   | same chunks + same model fingerprint + `reproducible=True` = byte-identical `file_hash` on any machine |
 | offline-first  | the runtime never opens a socket; a model mismatch fails loudly at the `model_hash` gate |
 
 ## install
 
 ```sh
-curl -sSf https://raw.githubusercontent.com/hoffresearch/nest/main/scripts/install.sh | sh
+curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.sh | sh
 ```
 
 ```sh
-nest doctor
+urna doctor
 ```
 
 ```sh
-pip install "nestdb[embed]"     # python; offline embedding via the bundled potion table
+pip install "urna[embed]"     # python; offline embedding via the bundled potion table
 ```
 
-also windows (`install.ps1`), homebrew tap, `cargo binstall nest-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [doc/usage.md](doc/usage.md#reference). the release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
+also windows (`install.ps1`), homebrew tap, `cargo binstall urna-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [doc/usage.md](doc/usage.md#reference). the release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
 
 <details>
 <summary>dev build (rust edition 2024, python 3.12+)</summary>
@@ -89,15 +91,15 @@ cargo build --release --workspace
 ```
 
 ```sh
-cargo build --release -p nest-python --features pyo3/extension-module
+cargo build --release -p urna-python --features pyo3/extension-module
 ```
 
 ```sh
-cp target/release/lib_nest.dylib python/_nest.so   # macOS
+cp target/release/lib_urna.dylib python/_urna.so   # macOS
 ```
 
 ```sh
-cp target/release/lib_nest.so python/_nest.so      # linux
+cp target/release/lib_urna.so python/_urna.so      # linux
 ```
 
 </details>
@@ -117,25 +119,25 @@ one binary, two groups of verbs. the engine takes a file and a vector and never 
 cited answer, offline, `--disclose explain` adds the rerank-source honesty line:
 
 ```sh
-nest ask my_corpus.nest "can I use this offline" -k 3
+urna ask my_corpus.urna "can I use this offline" -k 3
 ```
 
 json/jsonl answer-pack of cited spans, `score` is the exact rerank value:
 
 ```sh
-nest retrieve my_corpus.nest "can I use this offline" -k 5 --format jsonl
+urna retrieve my_corpus.urna "can I use this offline" -k 5 --format jsonl
 ```
 
 declarative corpus build from one toml (source + media + one or several embedding models):
 
 ```sh
-nest build --spec corpus.toml
+urna build --spec corpus.toml
 ```
 
 plan and dependency status without loading anything:
 
 ```sh
-nest build --spec corpus.toml --dry-run
+urna build --spec corpus.toml --dry-run
 ```
 
 `build` takes one toml describing the source (sqlite query, csv/jsonl, image dir), the media (av1/avif/jxl, dedup, `crf="auto"` dual quality gate), and one or several embedding models from the registry (`potion`, `clip-vit-b32`, `siglip2`, `wemm-2b`, ...), each a named vector space in the same file. `ask`/`retrieve` embed offline and validate `model_hash` against the manifest. contract and knobs, with a full worked spec: [doc/usage.md](doc/usage.md) section 13.
@@ -148,31 +150,31 @@ nest build --spec corpus.toml --dry-run
 exact top-k over the whole file:
 
 ```sh
-nest search my_corpus.nest "[0.1, 0.2, ...]" -k 10
+urna search my_corpus.urna "[0.1, 0.2, ...]" -k 10
 ```
 
 hnsw candidates, exact rerank:
 
 ```sh
-nest search-ann my_corpus.nest "[0.1, 0.2, ...]" -k 10 --ef 200
+urna search-ann my_corpus.urna "[0.1, 0.2, ...]" -k 10 --ef 200
 ```
 
 chunk-graph bfs from the seeds, exact rerank:
 
 ```sh
-nest search-graph my_corpus.nest "[0.1, 0.2, ...]" -k 10 --hops 2 --ef 100
+urna search-graph my_corpus.urna "[0.1, 0.2, ...]" -k 10 --hops 2 --ef 100
 ```
 
 one named multimodal space:
 
 ```sh
-nest search-space my_corpus.nest "[0.1, ...]" --space "wemm-2b@256" -k 5
+urna search-space my_corpus.urna "[0.1, ...]" --space "wemm-2b@256" -k 5
 ```
 
 embed the text, gate on `model_hash`, route by manifest capability:
 
 ```sh
-nest search-text my_corpus.nest "vacina contra covid funciona" -k 5
+urna search-text my_corpus.urna "vacina contra covid funciona" -k 5
 ```
 
 </details>
@@ -183,69 +185,73 @@ nest search-text my_corpus.nest "vacina contra covid funciona" -k 5
 human-readable manifest and sections:
 
 ```sh
-nest inspect my_corpus.nest
+urna inspect my_corpus.urna
 ```
 
 structured, for scripts:
 
 ```sh
-nest inspect my_corpus.nest --json | jq
+urna inspect my_corpus.urna --json | jq
 ```
 
 verify every checksum (per section, per file, decoded content):
 
 ```sh
-nest validate my_corpus.nest
+urna validate my_corpus.urna
 ```
 
 size, counts, encodings:
 
 ```sh
-nest stats my_corpus.nest
+urna stats my_corpus.urna
 ```
 
 resolve a citation to the stored canonical text and its verifying hashes:
 
 ```sh
-nest cite my_corpus.nest 'nest://sha256:1aa9.../sha256:8f314...'
+urna cite my_corpus.urna 'urna://sha256:1aa9.../sha256:8f314...'
 ```
 
 list the inlined media blobs, sha256-verified:
 
 ```sh
-nest media my_corpus.nest
+urna media my_corpus.urna
 ```
 
 export every blob, each verified against its `blob_refs` sha256:
 
 ```sh
-nest media my_corpus.nest --export DIR
+urna media my_corpus.urna --export DIR
 ```
 
 latency and recall on this machine:
 
 ```sh
-nest benchmark my_corpus.nest -q 100 -k 10 --ann 100 --madvise-cold
+urna benchmark my_corpus.urna -q 100 -k 10 --ann 100 --madvise-cold
 ```
 
 install health check, exit code per layer:
 
 ```sh
-nest doctor
+urna doctor
 ```
 
 </details>
 
 ## python
 
-`nest.open` returns a mmap-backed `NestFile`; every hit carries `citation_id`, `source_uri`, byte offsets, and the exact-rerank `score`.
+`urna.open` returns a mmap-backed `UrnaFile`; every hit carries `citation_id`, `source_uri`, byte offsets, and the exact-rerank `score`.
 
 <details>
 <summary>open and retrieve</summary>
 
 ```python
-import sys; sys.path.insert(0, "python"); import nest
-db = nest.open("my_corpus.nest")
+import sys
+
+sys.path.insert(0, "python")
+import urna
+
+db = urna.open("my_corpus.urna")
 ```
 
 cited hits, routed by manifest capability (exact, hnsw, hybrid, graph):
@@ -306,7 +312,7 @@ assert db.validate() is True
 ```
 
 ```python
-info = db.inspect()   # manifest, sections, hashes
+info = db.inspect()  # manifest, sections, hashes
 ```
 
 </details>
@@ -317,8 +323,8 @@ info = db.inspect()   # manifest, sections, hashes
 each chunk is a dict with `canonical_text`, `source_uri`, `byte_start`, `byte_end`, `embedding`:
 
 ```python
-nest.build(
-    output_path="my_corpus.nest",
+urna.build(
+    output_path="my_corpus.urna",
     embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     embedding_dim=384,
     chunker_version="fixed-512/1",
@@ -332,7 +338,7 @@ nest.build(
 matryoshka prefix truncation is a build-time kwarg, valid for int4 at 256, 192, 128:
 
 ```python
-nest.build(..., preset="micro", mrl_dim=256)
+urna.build(..., preset="micro", mrl_dim=256)
 ```
 
 or `Pipeline` in `python/builder.py` (chunker, sqlite cache, auto-validate). offline demo, builds from the cc0 demo corpus and asks one question:
@@ -346,9 +352,9 @@ python python/forge/retrieve.py
 ## benchmarks
 
 <details>
-<summary>nest vs usearch, hnswlib, sqlite-vec, lancedb, and the preset ladder</summary>
+<summary>urna vs usearch, hnswlib, sqlite-vec, lancedb, and the preset ladder</summary>
 
-[doc/benchmarks.md](doc/benchmarks.md): nest against usearch, hnswlib, sqlite-vec and lancedb on the same 100,000 x 384 rows, same machine, same ruler. nest hybrid answers at recall@10 = 1.000 with p50 0.72 ms (hnsw candidates, exact-cosine rerank), rebuilds byte-identically, and is the only store in the table that proves its own bytes; the price is a cold open of ~290 ms (every checksum is verified before the first query) and an hnsw build 2.1x slower than hnswlib single-threaded (was 2.4x before the build loop was tuned). the table also lists what nest does not do (updates, filters, concurrent writers).
+[doc/benchmarks.md](doc/benchmarks.md): urna against usearch, hnswlib, sqlite-vec and lancedb on the same 100,000 x 384 rows, same machine, same ruler. urna hybrid answers at recall@10 = 1.000 with p50 0.72 ms (hnsw candidates, exact-cosine rerank), rebuilds byte-identically, and is the only store in the table that proves its own bytes; the price is a cold open of ~290 ms (every checksum is verified before the first query) and an hnsw build 2.1x slower than hnswlib single-threaded (was 2.4x before the build loop was tuned). the table also lists what urna does not do (updates, filters, concurrent writers).
 
 <details>
 <summary>preset ladder: size vs recall</summary>
@@ -421,7 +427,7 @@ config:
 ---
 xychart-beta
   title "warm p50 (ms), k=10, 100,000 x 384 (lower is better)"
-  x-axis ["hnswlib", "usearch", "nest hybrid", "nest exact", "lancedb", "sqlite-vec"]
+  x-axis ["hnswlib", "usearch", "urna hybrid", "urna exact", "lancedb", "sqlite-vec"]
   y-axis "p50 (ms)" 0 --> 22
   bar [0.324, 0.672, 0.721, 7.803, 16.728, 19.762]
 ```
@@ -445,7 +451,7 @@ config:
 ---
 xychart-beta
   title "warm p99 (ms), k=10, 100,000 x 384 (lower is better)"
-  x-axis ["hnswlib", "nest hybrid", "nest exact", "lancedb", "sqlite-vec", "usearch"]
+  x-axis ["hnswlib", "urna hybrid", "urna exact", "lancedb", "sqlite-vec", "usearch"]
   y-axis "p99 (ms)" 0 --> 70
   bar [0.525, 1.021, 8.315, 19.401, 24.836, 61.422]
 ```
@@ -457,7 +463,7 @@ xychart-beta
 <summary>competitors: cold open and build</summary>
 
 ---
-cold open + first query per store. nest verifies every section checksum and the footer hash before serving; the other stores trust their bytes
+cold open + first query per store. urna verifies every section checksum and the footer hash before serving; the other stores trust their bytes
 
 ```mermaid
 ---
@@ -475,13 +481,13 @@ config:
 ---
 xychart-beta
   title "cold open + 1st query (ms), fresh interpreter, min of 3"
-  x-axis ["sqlite-vec", "usearch", "hnswlib", "nest exact", "nest hybrid", "lancedb"]
+  x-axis ["sqlite-vec", "usearch", "hnswlib", "urna exact", "urna hybrid", "lancedb"]
   y-axis "ms" 0 --> 700
   bar [50.0, 58.1, 181.5, 292.3, 356.1, 612.4]
 ```
 
 ---
-single-threaded build time per store. nest's hnsw build is the slow row, 2.1x hnswlib
+single-threaded build time per store. urna's hnsw build is the slow row, 2.1x hnswlib
 
 ```mermaid
 ---
@@ -499,7 +505,7 @@ config:
 ---
 xychart-beta
   title "build (s), single thread, 100,000 x 384"
-  x-axis ["lancedb", "sqlite-vec", "nest exact", "hnswlib", "usearch", "nest hybrid"]
+  x-axis ["lancedb", "sqlite-vec", "urna exact", "hnswlib", "usearch", "urna hybrid"]
   y-axis "seconds" 0 --> 200
   bar [0.25, 0.81, 2.14, 83.07, 109.26, 172.82]
 ```
@@ -546,9 +552,9 @@ int8 at 384 is the `tiny` preset, int4 at 384 is `nano`. int4 packs blocks of 64
 </details>
 
 <details>
-<summary>image corpus: 38,627 magic cards in one file, five image models, and what came back into nest</summary>
+<summary>image corpus: 38,627 magic cards in one file, five image models, and what came back into urna</summary>
 
-[brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark) (code, specs, twenty experiments) and the dataset on the hub, [brennercruvinel/mtg-nest-benchmark](https://huggingface.co/datasets/brennercruvinel/mtg-nest-benchmark) (ten `.nest` files, 11.7 GB, plus a parquet view). 4 GB of jpeg scans, one card per oracle id, packed by the forge into single files with the text, the vectors, the index and the media inside.
+[brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark) (code, specs, twenty experiments) and the dataset on the hub, [brennercruvinel/mtg-nest-benchmark](https://huggingface.co/datasets/brennercruvinel/mtg-nest-benchmark) (ten `.urna` files, 11.7 GB, plus a parquet view). 4 GB of jpeg scans, one card per oracle id, packed by the forge into single files with the text, the vectors, the index and the media inside.
 
 | profile | media | file | ratio vs the jpeg source |
 |---------|-------|-----:|-------------------------:|
@@ -559,7 +565,7 @@ int8 at 384 is the `tiny` preset, int4 at 384 is `nano`. int4 packs blocks of 64
 
 text-to-image search on the five-model file, every card as a query ("artwork of the card {name}"), hit@1 on 38,627 queries: siglip2 0.750, wemm-2b 0.744, jina 0.336, clip 0.098. siglip2 embeds the corpus in twelve minutes, wemm-2b in twenty-one hours. reading one card back from the av1 stream costs 27 ms on an m4, 23 of them ffmpeg starting.
 
-what the benchmark put into nest: `${VAR}` in spec paths and the `retrieval` / `retrieval-auto` profiles (#131, #135), a hit@k utility floor on the crf=auto gate because cosine drift never said where search breaks (#135), the embed cache under xdg (#133), the avif `source_bytes` fix (#132), avif as a stills recipe with floors a real corpus reaches (#137), a batched decode that raised on every real stream and png intermediates that cost 8x the decode (#138), the avif worker count pinned because libaom writes other bytes with one thread (#139), `tune = "still"` as the default (#140), and a manifest that is key + ordinal instead of 13 MB (#141). the full record, one hypothesis per row with its verdict, is `docs/hypotheses.md` in the benchmark repository.
+what the benchmark put into urna: `${VAR}` in spec paths and the `retrieval` / `retrieval-auto` profiles (#131, #135), a hit@k utility floor on the crf=auto gate because cosine drift never said where search breaks (#135), the embed cache under xdg (#133), the avif `source_bytes` fix (#132), avif as a stills recipe with floors a real corpus reaches (#137), a batched decode that raised on every real stream and png intermediates that cost 8x the decode (#138), the avif worker count pinned because libaom writes other bytes with one thread (#139), `tune = "still"` as the default (#140), and a manifest that is key + ordinal instead of 13 MB (#141). the full record, one hypothesis per row with its verdict, is `docs/hypotheses.md` in the benchmark repository.
 
 </details>
 
@@ -588,10 +594,10 @@ measured on a 30,725-chunk pt-br corpus (`dat/measure/ladder.json`, gated in ci)
 
 - [doc/usage.md](doc/usage.md): every verb, presets, offline mode, model registry, declarative builds, compression levers, and the install reference (channels, verification, maintainer checklist)
 - [doc/benchmarks.md](doc/benchmarks.md): the competitor table, the charts, and how it was measured
-- [doc/SECURITY.md](doc/SECURITY.md): reporting, scope, hardening notes (denied lints, the mutation-fuzz harness, the nightly soak), and the data-governance posture for distributed `.nest` files
+- [doc/SECURITY.md](doc/SECURITY.md): reporting, scope, hardening notes (denied lints, the mutation-fuzz harness, the nightly soak), and the data-governance posture for distributed `.urna` files
 - [doc/CHANGELOG](doc/CHANGELOG): releases and unreleased deltas, with measured numbers
 - [dat/demo/Instructions.md](dat/demo/Instructions.md): the pt-br demo corpus sources and rebuild
-- [brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark): the image-corpus benchmark (38,627 card scans in single-file `.nest` containers): code, specs, corpora as id lists, results per experiment; the `.nest` artifacts are on the hugging face dataset of the same name. private for now
+- [brennercruvinel/mtg-nest-benchmark](https://github.com/brennercruvinel/mtg-nest-benchmark): the image-corpus benchmark (38,627 card scans in single-file `.urna` containers): code, specs, corpora as id lists, results per experiment; the `.urna` artifacts are on the hugging face dataset of the same name. private for now
 
 </details>
 
@@ -600,10 +606,10 @@ measured on a 30,725-chunk pt-br corpus (`dat/measure/ladder.json`, gated in ci)
 
 python builds a deterministic container; a rust runtime mmaps it and answers exact, hnsw, bm25, graph, and per-space searches, always finishing with an exact-cosine rerank. the cli and the python api are thin surfaces over the same runtime.
 
-- `nest-format`: frozen v1 container (layout, manifest, sections, encodings, hashes)
-- `nest-runtime`: mmap, simd dispatch, indices, search with mandatory exact rerank
-- `nest-cli`: the `nest` binary (engine verbs + `ask`/`retrieve` + declarative `build`)
-- `nest-python`: pyo3 bridge (`nest.open`, `nest.build`, `NestFile.retrieve`)
+- `urna-format`: frozen v1 container (layout, manifest, sections, encodings, hashes)
+- `urna-runtime`: mmap, simd dispatch, indices, search with mandatory exact rerank
+- `urna-cli`: the `urna` binary (engine verbs + `ask`/`retrieve` + declarative `build`)
+- `urna-python`: pyo3 bridge (`urna.open`, `urna.build`, `UrnaFile.retrieve`)
 - `python/`: writer pipeline, model registry, offline embedders, forge tooling
 
 the full map (flows, contracts, inventory) lives in [doc/arc/arc.yaml](doc/arc/arc.yaml) and the visual sequence in [doc/arc/arc.mmd](doc/arc/arc.mmd).
@@ -616,7 +622,7 @@ the full map (flows, contracts, inventory) lives in [doc/arc/arc.yaml](doc/arc/a
 - [.contracts/.agents/AGENTS.md](.contracts/.agents/AGENTS.md): the single instruction source for agents and contributors
 - `./scripts/release_check.sh`: the merge gate; it documents itself by being the gate
 - binary format v1 is frozen; encodings 4-255 and section ids 0x09+ are reserved inside v1, and `content_hash` is excluded from every additive section
-- a malformed `.nest` that panics the runtime is a security bug: [doc/SECURITY.md](doc/SECURITY.md)
+- a malformed `.urna` that panics the runtime is a security bug: [doc/SECURITY.md](doc/SECURITY.md)
 
 </details>
 

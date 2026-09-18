@@ -1,7 +1,7 @@
 # forge-core is a SEPARATE cargo workspace, deliberately OUTSIDE the
 # sovereign crates/ workspace, so the (eventually heavy, possibly
 # non-deterministic) forge ingestion deps -- pdf, ocr, clip, fonttools --
-# never enter nest-format / nest-runtime. this crate is FORGE-0a: the
+# never enter urna-format / urna-runtime. this crate is FORGE-0a: the
 # frozen .fci schema only. build/test it from this directory:
 #   cargo build --manifest-path forge-core/Cargo.toml
 #   cargo test  --manifest-path forge-core/Cargo.toml
@@ -10,8 +10,8 @@ name = "forge-core"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
-description = "forge canonical intermediate (.fci) schema, outside the sovereign nest workspace"
-repository = "https://github.com/hoffresearch/nest"
+description = "forge canonical intermediate (.fci) schema, outside the sovereign urna workspace"
+repository = "https://github.com/hoffresearch/urna"
 
 [workspace]
 resolver = "3"

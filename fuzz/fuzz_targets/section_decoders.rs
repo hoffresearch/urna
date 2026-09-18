@@ -4,15 +4,15 @@
 //! gets the fuzzer's full attention instead of sharing it with the header.
 
 use libfuzzer_sys::fuzz_target;
-use nest_format::encoding::{
+use urna_format::encoding::{
     IntpackReader, decode_dedup_map, decode_fsst_payload, decode_payload,
     decode_txt_streams_payload, decode_zstd_dict_payload,
 };
-use nest_format::sections::{
+use urna_format::sections::{
     decode_chunk_ids, decode_chunks_canonical, decode_chunks_original_spans,
     decode_intpack_repack, decode_provenance, decode_search_contract, decode_txt_streams,
 };
-use nest_format::{
+use urna_format::{
     Int4EmbeddingsView, Int8EmbeddingsView, decode_blob_data_table, decode_blob_refs,
     decode_blob_span_overlay, decode_graph_adjacency, decode_space_table,
 };

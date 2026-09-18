@@ -1,4 +1,4 @@
-"""Convert a legacy SQLite-based truw_ptbr.nest into the new v1 binary format.
+"""Convert a legacy SQLite-based truw_ptbr.urna into the new v1 binary format.
 
 Legacy layout:
   - articles(id, block_id, pos_in_block, source, label)
@@ -6,7 +6,7 @@ Legacy layout:
   - blobs(name, data) with name in {manifest, faiss_index, embeddings}
     - embeddings: zstd[ float16 (N, D) ]
 
-New v1 .nest:
+New v1 .urna:
   - manifest.embedding_model from legacy manifest
   - one chunk per article, canonical_text = article body
   - synthetic source_uri = `legacy://truw_ptbr/<id>`, byte span = [0, len(utf8(text))]
@@ -24,9 +24,9 @@ import sys
 import time
 
 # Force HF/sentence-transformers OFFLINE by default (opt in with
-# NEST_ALLOW_DOWNLOAD=1) before any hub access. model_fingerprint also sets
+# URNA_ALLOW_DOWNLOAD=1) before any hub access. model_fingerprint also sets
 # this on import; kept here too so the guarantee is explicit at the entry point.
-if os.environ.get("NEST_ALLOW_DOWNLOAD") != "1":
+if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
     for _k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
         os.environ.setdefault(_k, "1")
 
@@ -34,7 +34,7 @@ import numpy as np
 import zstandard as zstd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import nest
+import urna
 from model_fingerprint import (
     PLACEHOLDER_HASH,
     compute_model_fingerprint,
@@ -129,7 +129,7 @@ def convert(src: str, dst: str, *, reproducible: bool) -> None:
         sources.append(r["source"])
 
     provenance = {
-        "legacy_source": "truw_ptbr.nest (SQLite)",
+        "legacy_source": "truw_ptbr.urna (SQLite)",
         "legacy_version": legacy_manifest.get("version", "unknown"),
         "legacy_created": legacy_manifest.get("created"),
         "labels": labels,
@@ -158,7 +158,7 @@ def convert(src: str, dst: str, *, reproducible: bool) -> None:
 
     if os.path.exists(dst):
         os.unlink(dst)
-    nest.build(
+    urna.build(
         output_path=dst,
         embedding_model=model,
         embedding_dim=dim,
@@ -167,7 +167,7 @@ def convert(src: str, dst: str, *, reproducible: bool) -> None:
         chunks=chunks,
         title="truw_ptbr",
         version="v1-from-legacy",
-        description="Portuguese fake-news corpus, converted from the legacy SQLite-based .nest",
+        description="Portuguese fake-news corpus, converted from the legacy SQLite-based .urna",
         license=legacy_manifest.get("license"),
         provenance=provenance,
         reproducible=reproducible,
@@ -177,7 +177,7 @@ def convert(src: str, dst: str, *, reproducible: bool) -> None:
     print(f"wrote {dst}: {size / 1e6:.2f} MB in {elapsed:.1f}s")
 
     # final integrity check through the same Rust reader the runtime uses.
-    db = nest.open(dst)
+    db = urna.open(dst)
     db.validate()
     print(
         f"validated: {dst}\n"
@@ -190,8 +190,8 @@ def convert(src: str, dst: str, *, reproducible: bool) -> None:
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--src", required=True, help="path to a legacy SQLite-based truw_ptbr.nest")
-    p.add_argument("--dst", required=True, help="output path for the converted v1 .nest")
+    p.add_argument("--src", required=True, help="path to a legacy SQLite-based truw_ptbr.urna")
+    p.add_argument("--dst", required=True, help="output path for the converted v1 .urna")
     p.add_argument("--reproducible", action="store_true")
     args = p.parse_args()
     convert(args.src, args.dst, reproducible=args.reproducible)

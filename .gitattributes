@@ -2,13 +2,13 @@
 *.xlsx filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
 *.sqlite filter=lfs diff=lfs merge=lfs -text
-*.nest filter=lfs diff=lfs merge=lfs -text
-*.nest-* filter=lfs diff=lfs merge=lfs -text
+*.urna filter=lfs diff=lfs merge=lfs -text
+*.urna-* filter=lfs diff=lfs merge=lfs -text
 *.parquet filter=lfs diff=lfs merge=lfs -text
 # vendored model2vec/potion static embedder table (~30MB binary tensor).
 *.safetensors filter=lfs diff=lfs merge=lfs -text
 
 # Golden test fixtures stay in regular git (small, byte-frozen — they
 # must round-trip through golden_file_size_unchanged etc.).
-crates/nest-format/tests/fixtures/** -filter -diff -merge -text
-dat/corpus_next.v1.nest filter=lfs diff=lfs merge=lfs -text
+crates/urna-format/tests/fixtures/** -filter -diff -merge -text
+dat/corpus_next.v1.urna filter=lfs diff=lfs merge=lfs -text

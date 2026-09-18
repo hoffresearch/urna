@@ -45,8 +45,8 @@ def main() -> None:
         assert struct.unpack("<f", struct.pack("<f", x))[0] == x, "values must be f32-stable"
 
     # lexical signal: overlapping text scores closer than disjoint text.
-    base = embed_one("the sovereign nest file is a single file database")
-    near = embed_one("the nest file is a sovereign single-file database")
+    base = embed_one("the sovereign urna file is a single file database")
+    near = embed_one("the urna file is a sovereign single-file database")
     far = embed_one("completely unrelated words about turtles and the weather")
     assert _cos(base, near) > _cos(base, far), "shared tokens must raise cosine"
 

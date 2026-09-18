@@ -1,7 +1,7 @@
 """bridge coverage for the multimodal space bands (0x15 + 0x20).
 
-real artifacts only: builds a tiny text+vision .nest through nest.build
-(spaces kwarg), opens it through nest.open, and checks
+real artifacts only: builds a tiny text+vision .urna through urna.build
+(spaces kwarg), opens it through urna.open, and checks
 
 - search_space scores the vision band with real cosine and honors the
   per-space model_hash gate;
@@ -21,7 +21,7 @@ from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-import _nest  # noqa: E402
+import _urna  # noqa: E402
 
 TEXT_DIM = 4
 VIS_DIM = 2
@@ -50,7 +50,7 @@ def _vision_space() -> dict:
 
 def _build(path: Path, with_spaces: bool) -> None:
     kwargs = {"spaces": [_vision_space()]} if with_spaces else {}
-    _nest.build(
+    _urna.build(
         str(path),
         "demo-model",
         TEXT_DIM,
@@ -64,14 +64,14 @@ def _build(path: Path, with_spaces: bool) -> None:
 
 class TestSpaceBridge(unittest.TestCase):
     def setUp(self) -> None:
-        self.tmp = Path(tempfile.mkdtemp(prefix="nest-space-bridge-"))
-        self.plain = self.tmp / "plain.nest"
-        self.multi = self.tmp / "multi.nest"
+        self.tmp = Path(tempfile.mkdtemp(prefix="urna-space-bridge-"))
+        self.plain = self.tmp / "plain.urna"
+        self.multi = self.tmp / "multi.urna"
         _build(self.plain, False)
         _build(self.multi, True)
 
     def test_search_space_scores_vision_band(self) -> None:
-        f = _nest.NestFile.open(str(self.multi))
+        f = _urna.UrnaFile.open(str(self.multi))
         self.assertTrue(f.has_spaces)
         self.assertEqual(f.space_names, ["vision"])
         hits = f.search_space("vision", [1.0, 0.0], 3, expected_model_hash=VIS_HASH)
@@ -83,7 +83,7 @@ class TestSpaceBridge(unittest.TestCase):
             f.search_space("vision", [1.0, 0.0], 3, expected_model_hash="sha256:" + "9" * 64)
 
     def test_spaces_are_isolated(self) -> None:
-        f = _nest.NestFile.open(str(self.multi))
+        f = _urna.UrnaFile.open(str(self.multi))
         # text path works and only sees the 0x04 slab.
         hits = f.search([1.0, 0.0, 0.0, 0.0], 3)
         self.assertAlmostEqual(hits[0].score, 1.0, places=6)
@@ -97,8 +97,8 @@ class TestSpaceBridge(unittest.TestCase):
             f.search_space("audio", [1.0, 0.0], 3)
 
     def test_content_hash_stable_with_spaces(self) -> None:
-        a = _nest.NestFile.open(str(self.plain))
-        b = _nest.NestFile.open(str(self.multi))
+        a = _urna.UrnaFile.open(str(self.plain))
+        b = _urna.UrnaFile.open(str(self.multi))
         self.assertEqual(a.content_hash, b.content_hash)
         self.assertNotEqual(a.file_hash, b.file_hash)
         self.assertFalse(a.has_spaces)
@@ -109,11 +109,11 @@ class TestSpaceBridge(unittest.TestCase):
         self.assertTrue(doc["manifest"]["capabilities_ext"]["supports_multimodal"])
 
     def test_space_row_count_mismatch_rejected(self) -> None:
-        bad = self.tmp / "bad.nest"
+        bad = self.tmp / "bad.urna"
         space = _vision_space()
         space["vectors"] = [[1.0, 0.0]]  # 1 row for 3 chunks
         with self.assertRaises(ValueError):
-            _nest.build(
+            _urna.build(
                 str(bad),
                 "demo-model",
                 TEXT_DIM,
@@ -124,10 +124,10 @@ class TestSpaceBridge(unittest.TestCase):
             )
 
     def test_space_dtype_float16_band(self) -> None:
-        path = self.tmp / "multi16.nest"
+        path = self.tmp / "multi16.urna"
         space = _vision_space()
         space["dtype"] = "float16"
-        _nest.build(
+        _urna.build(
             str(path),
             "demo-model",
             TEXT_DIM,
@@ -136,7 +136,7 @@ class TestSpaceBridge(unittest.TestCase):
             [_chunk(i) for i in range(3)],
             spaces=[space],
         )
-        f = _nest.NestFile.open(str(path))
+        f = _urna.UrnaFile.open(str(path))
         hits = f.search_space("vision", [1.0, 0.0], 3)
         self.assertAlmostEqual(hits[0].score, 1.0, places=3)
 

@@ -108,12 +108,12 @@ def _ensure_cache_root(path: Path) -> None:
     except OSError as e:
         raise SpecError(
             f"output.cache_dir: cache root {path} is not a usable directory ({e.strerror}); "
-            "set via [output] cache_dir, --cache-dir or NEST_CACHE_DIR"
+            "set via [output] cache_dir, --cache-dir or URNA_CACHE_DIR"
         ) from e
     if not path.is_dir():
         raise SpecError(
             f"output.cache_dir: cache root {path} is not a directory; "
-            "set via [output] cache_dir, --cache-dir or NEST_CACHE_DIR"
+            "set via [output] cache_dir, --cache-dir or URNA_CACHE_DIR"
         )
 
 
@@ -216,7 +216,7 @@ def _embed_images(ctx: _Ctx, adapter) -> np.ndarray:
     from forge import image_backends
     from forge.image_corpus import _embed_compressed
 
-    media_dir = image_media.media_dir_for(ctx.out_dir / f"{ctx.spec.name}.nest")
+    media_dir = image_media.media_dir_for(ctx.out_dir / f"{ctx.spec.name}.urna")
     frames_fn = image_backends.decoded_frames_fn(media_dir, ctx.media, ctx.frame_uris)
     vecs, _hashes = _embed_compressed(adapter, frames_fn, len(ctx.unique))
     perm = ctx.media.get("order_permutation")

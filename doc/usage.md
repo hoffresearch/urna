@@ -1,31 +1,35 @@
 # usage
 
-`nest` is a single-file binary container for distributing semantic knowledge bases. one file: chunks, canonical text, byte-spans, embeddings, search contract, hashes. copy it, share it, search it.
+`urna` is a single-file binary container for distributing semantic knowledge bases. one file: chunks, canonical text, byte-spans, embeddings, search contract, hashes. copy it, share it, search it.
 
-this guide covers the commands you'll actually use: the agent verbs `ask`, `retrieve` and `build` (the front door; they shell out to the offline python embedder or the forge), and the engine subcommands beneath them (validate, stats, inspect, media, search/search-ann/search-graph/search-space/search-text, benchmark, cite, doctor), which take a file and a vector and never run python. `nest --help` lists them in the same two groups. getting the binary onto a machine (every install channel, verification, offline notes, the maintainer checklist) is the reference section at the end of this document; the short form is `curl -sSf https://raw.githubusercontent.com/hoffresearch/nest/main/scripts/install.sh | sh` followed by `nest doctor`.
+this guide covers the commands you'll actually use: the agent verbs `ask`, `retrieve` and `build` (the front door; they shell out to the offline python embedder or the forge), and the engine subcommands beneath them (validate, stats, inspect, media, search/search-ann/search-graph/search-space/search-text, benchmark, cite, doctor), which take a file and a vector and never run python. `urna --help` lists them in the same two groups. getting the binary onto a machine (every install channel, verification, offline notes, the maintainer checklist) is the reference section at the end of this document; the short form is `curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.sh | sh` followed by `urna doctor`.
 
-## 1. build a `.nest` from chunks
+## 1. build a `.urna` from chunks
 
 the python pipeline owns chunking, embedding, caching, and the final emit. the rust writer owns reproducibility, hashing, and deterministic byte layout.
 
 ```python
-import sys; sys.path.insert(0, "python")
+import sys
+
+sys.path.insert(0, "python")
 from builder import BuildConfig, ChunkSpec, Pipeline, chunk_text
+
 
 def embed(specs):
     # plug in your sentence-transformers or candle / onnxruntime here
     from sentence_transformers import SentenceTransformer
+
     m = SentenceTransformer(cfg.embedding_model)
-    return m.encode([s.canonical_text for s in specs],
-                    normalize_embeddings=True).tolist()
+    return m.encode([s.canonical_text for s in specs], normalize_embeddings=True).tolist()
+
 
 cfg = BuildConfig(
-    output_path="my_corpus.nest",
+    output_path="my_corpus.urna",
     embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
     embedding_dim=384,
     chunker_version="my-chunker/v1",
-    model_hash="sha256:" + "0" * 64,    # see §7 for the real fingerprint
-    preset="exact",                      # see §6 for preset choices
+    model_hash="sha256:" + "0" * 64,  # see §7 for the real fingerprint
+    preset="exact",  # see §6 for preset choices
     reproducible=True,
 )
 pipe = Pipeline(cfg, embedder=embed, scratch_db="cache.sqlite")
@@ -35,25 +39,25 @@ for source_uri, text in documents:
 pipe.emit()
 ```
 
-for real-world examples: `python/convert_legacy.py` (SQLite to `.nest`) and `python/tools/nest_build_corpus.py` (7 PT-BR datasets to a unified `.nest`).
+for real-world examples: `python/convert_legacy.py` (SQLite to `.urna`) and `python/tools/urna_build_corpus.py` (7 PT-BR datasets to a unified `.urna`).
 
 ### image and pdf corpora
 
-image corpora live in the forge tooling layer because a vision tower needs torch, which the sovereign runtime does not take. the `.nest` they emit is an ordinary `.nest`, served by the same rust runtime from mmap.
+image corpora live in the forge tooling layer because a vision tower needs torch, which the sovereign runtime does not take. the `.urna` they emit is an ordinary `.urna`, served by the same rust runtime from mmap.
 
 the media travels inside the file. the encoded stream is stored as content-addressed blobs (section 0x14), each chunk carries the exact byte span it was embedded from (overlay 0x16), and the image vectors sit in their own named space (registry 0x15, slab in the 0x20-0x2F band) behind the `supports_multimodal` capability, gated by their own `model_hash` in isolation. these sections are excluded from `content_hash`, so adding media never moves an existing citation.
 
-`python/tools/nest_build_image_corpus.py` letterboxes every image onto one canvas, encodes the sequence, embeds the DECODED frames, and writes one chunk per image or pdf page. embedding the decoded frames rather than the source pixels is deliberate: the index has to describe what a reader can actually get back.
+`python/tools/urna_build_image_corpus.py` letterboxes every image onto one canvas, encodes the sequence, embeds the DECODED frames, and writes one chunk per image or pdf page. embedding the decoded frames rather than the source pixels is deliberate: the index has to describe what a reader can actually get back.
 
 ```sh
-.venv/bin/python python/tools/nest_build_image_corpus.py \
+.venv/bin/python python/tools/urna_build_image_corpus.py \
     --input-dir /path/to/dermoscopy_images \
     --dataset my-derm \
-    --output corpora/my-derm.nest \
+    --output corpora/my-derm.urna \
     --labels labels.csv
 ```
 
-a corpus is one file. `corpora/my-derm.nest` carries the index, the media blobs, the span overlay, and the space registry; copying it moves the corpus intact. provenance (ordinals, origins, labels, media digests) rides inside as well.
+a corpus is one file. `corpora/my-derm.urna` carries the index, the media blobs, the span overlay, and the space registry; copying it moves the corpus intact. provenance (ordinals, origins, labels, media digests) rides inside as well.
 
 `--width` is a ceiling, not a target: the canvas is clamped to the dataset's median source width, so a corpus is never upscaled. lower it to trade quality for size; raising it above the source does nothing but make the encoder pay for interpolated pixels.
 
@@ -70,8 +74,8 @@ add `--pdf` to render pdf pages as the images; page numbers are kept in the mani
 search with a query image or a clinical description, and optionally decode the matched frames back out:
 
 ```sh
-.venv/bin/python python/tools/nest_search_image.py \
-    --index corpora/my-derm.nest --query-image lesion.jpg -k 10 \
+.venv/bin/python python/tools/urna_search_image.py \
+    --index corpora/my-derm.urna --query-image lesion.jpg -k 10 \
     --letterbox-query --save-frames hits/
 ```
 
@@ -79,7 +83,7 @@ search with a query image or a clinical description, and optionally decode the m
 
 ### measuring an image corpus
 
-`python/tools/nest_image_eval.py` reports two rulers and keeps them apart, because they answer different questions:
+`python/tools/urna_image_eval.py` reports two rulers and keeps them apart, because they answer different questions:
 
 - `identity` asks whether a source image retrieves its own frame. it measures rank stability under the codec and is inflated by construction, since the corpus contains the answer. on an uncompressed index it returns 1.000 by definition.
 - `label` removes the query's own frame and scores how many of the remaining neighbours share its label. nothing in the corpus is the answer, so this is the one that reports retrieval quality. it is printed next to the random-pick baseline for the same label distribution, without which the number cannot be read.
@@ -87,31 +91,31 @@ search with a query image or a clinical description, and optionally decode the m
 neither means much alone. pass `--baseline` with the uncompressed control index (`--control` at build time) to get the delta, which is what the codec actually cost:
 
 ```sh
-.venv/bin/python python/tools/nest_image_eval.py \
-    --index corpora/my-derm.nest \
-    --baseline corpora/my-derm-control.nest \
+.venv/bin/python python/tools/urna_image_eval.py \
+    --index corpora/my-derm.urna \
+    --baseline corpora/my-derm-control.urna \
     -k 1 5 10 --out eval.json
 ```
 
 measured in phase 6 (full matrix and intervals in `doc/CHANGELOG`): on ph2 (n=200) av1-intra crf35 compresses the media 86x for a mean label `precision@10` delta of -3.4 to -4.7 points whose interval crosses zero, but the melanoma class alone drops 16.9 points with a significant interval ([-25, -10]); on ham10000 (2000-sample) the media shrinks 151x for a mean delta of -1.5 [-3.5, +0.6], again with a significant melanoma cost (-10.7). the text-to-image ruler is harsher and honest: 44/60 correct top-10 clinical queries on the control falls to 22/60 at crf35, and the loss does not recover with rate. per-class floors matter more than the mean: report the interval and the worst class, not just the point.
 
-`python/tools/nest_image_sweep.py` runs the variant matrix for you (av1-intra crf ladder, avif444, control, `dtype:` rungs, `av1-order`), records `nest_bytes` and the control's `media_bytes` per variant, and writes one consolidated comparison json:
+`python/tools/urna_image_sweep.py` runs the variant matrix for you (av1-intra crf ladder, avif444, control, `dtype:` rungs, `av1-order`), records `urna_bytes` and the control's `media_bytes` per variant, and writes one consolidated comparison json:
 
 ```sh
-.venv/bin/python python/tools/nest_image_sweep.py \
+.venv/bin/python python/tools/urna_image_sweep.py \
     --input-dir /path/to/images --dataset my-derm \
     --variants av1-intra-crf35,av1-intra-crf40,control,dtype:int8 \
     --labels labels.csv --out-dir sweep/ --out sweep/summary.json
 ```
 
-direct API (no chunker): `nest.build(output_path, embedding_model, embedding_dim, chunker_version, model_hash, chunks, preset="exact", reproducible=True)`.
+direct API (no chunker): `urna.build(output_path, embedding_model, embedding_dim, chunker_version, model_hash, chunks, preset="exact", reproducible=True)`.
 
 ## 2. validate
 
 full integrity check: magic, header checksum, every section's SHA-256 (over physical bytes), footer hash (over the whole file), manifest schema, contract cross-check against the manifest, NaN/Inf walk over the embeddings.
 
 ```sh
-nest validate my_corpus.nest
+urna validate my_corpus.urna
 ```
 
 failure modes are typed (`SectionChecksumMismatch(0x04)`, `UnsupportedDType("bfloat16")`, etc.), never "best effort".
@@ -121,7 +125,7 @@ failure modes are typed (`SectionChecksumMismatch(0x04)`, `UnsupportedDType("bfl
 sizes, dim, dtype, model, hashes, per-section bytes, the SIMD backend the runtime selected.
 
 ```sh
-nest stats my_corpus.nest
+urna stats my_corpus.urna
 ```
 
 ## 4. inspect
@@ -129,8 +133,8 @@ nest stats my_corpus.nest
 header bytes, full section table, manifest as JSON. use `--json` for programmatic consumers (CI dashboards, drift detection):
 
 ```sh
-nest inspect my_corpus.nest             # human-readable
-nest inspect my_corpus.nest --json | jq # structured
+urna inspect my_corpus.urna             # human-readable
+urna inspect my_corpus.urna --json | jq # structured
 ```
 
 schema: `{magic, version_major, version_minor, format_version, schema_version, embedding_dim, n_chunks, n_embeddings, file_size, manifest, sections[], file_hash, content_hash, simd_backend}`.
@@ -142,7 +146,7 @@ schema: `{magic, version_major, version_minor, format_version, schema_version, e
 pass a query vector directly as a JSON array. recall = 1.0 by construction.
 
 ```sh
-nest search my_corpus.nest "[0.1, 0.2, ...]" -k 10
+urna search my_corpus.urna "[0.1, 0.2, ...]" -k 10
 ```
 
 ### search by text
@@ -150,7 +154,7 @@ nest search my_corpus.nest "[0.1, 0.2, ...]" -k 10
 embed the query with the same model the corpus was built with (the manifest declares it), then route to the declared `index_type` (exact, hnsw, hybrid). the runtime cross-checks the embedder's `model_hash` against the manifest before running search and refuses on mismatch. see §7.
 
 ```sh
-nest search-text my_corpus.nest "vacina contra covid funciona" -k 5
+urna search-text my_corpus.urna "vacina contra covid funciona" -k 5
 ```
 
 for tuning the candidate set: `--candidates N` (default `4*k`, min 64).
@@ -160,24 +164,24 @@ for tuning the candidate set: `--candidates N` (default `4*k`, min 64).
 useful for debugging or measuring `ef_search` curves. falls back to exact if the file has no HNSW section.
 
 ```sh
-nest search-ann my_corpus.nest "[0.1, 0.2, ...]" -k 10 --ef 200
+urna search-ann my_corpus.urna "[0.1, 0.2, ...]" -k 10 --ef 200
 ```
 
 ### graph search (chunk-to-chunk)
 
-seeds from the exact-cosine top-`ef`, expands a bounded breadth-first walk over the chunk-to-chunk graph (`--hops`), then exact-reranks the union. the graph only generates candidates; the returned score is real cosine (recall is not computed, the rerank guarantees the score). falls back to exact if the file has no `graph_adjacency` (0x0C) section. build a graph-carrying file with `nest.build(..., with_graph=True)` (default off); the section is additive and excluded from content_hash, so adding a graph never changes a citation.
+seeds from the exact-cosine top-`ef`, expands a bounded breadth-first walk over the chunk-to-chunk graph (`--hops`), then exact-reranks the union. the graph only generates candidates; the returned score is real cosine (recall is not computed, the rerank guarantees the score). falls back to exact if the file has no `graph_adjacency` (0x0C) section. build a graph-carrying file with `urna.build(..., with_graph=True)` (default off); the section is additive and excluded from content_hash, so adding a graph never changes a citation.
 
 ```sh
-nest search-graph my_corpus.nest "[0.1, 0.2, ...]" -k 10 --hops 2 --ef 100
+urna search-graph my_corpus.urna "[0.1, 0.2, ...]" -k 10 --hops 2 --ef 100
 ```
 
 ### search a named space (multimodal)
 
-`search-space` runs the per-space exact search over one named vector band (0x15 + 0x20+): image spaces, extra text spaces, mrl-sliced spaces. the query vector must be embedded with the space's model at the space's dim; an unknown space, a wrong dim, or (with `--expect-model-hash`) a wrong model are typed errors; never a silent fallback to the text path. the space names come from `nest stats` (the `spaces:` block) or `inspect --json` (the `spaces[]` array).
+`search-space` runs the per-space exact search over one named vector band (0x15 + 0x20+): image spaces, extra text spaces, mrl-sliced spaces. the query vector must be embedded with the space's model at the space's dim; an unknown space, a wrong dim, or (with `--expect-model-hash`) a wrong model are typed errors; never a silent fallback to the text path. the space names come from `urna stats` (the `spaces:` block) or `inspect --json` (the `spaces[]` array).
 
 ```sh
-nest search-space my_corpus.nest "[0.1, ...]" --space "wemm-2b@256" -k 5
-nest benchmark my_corpus.nest -q 100 -k 10 --space "wemm-2b@256"
+urna search-space my_corpus.urna "[0.1, ...]" --space "wemm-2b@256" -k 5
+urna benchmark my_corpus.urna -q 100 -k 10 --space "wemm-2b@256"
 ```
 
 ### the flagship: ask and retrieve
@@ -187,22 +191,22 @@ nest benchmark my_corpus.nest -q 100 -k 10 --space "wemm-2b@256"
 `ask` prints one low-cognitive-load cited answer:
 
 ```sh
-nest ask my_corpus.nest "can I use this offline" -k 3
+urna ask my_corpus.urna "can I use this offline" -k 3
 ```
 
-`--disclose answer` (default) prints the cited canonical text and a `nest://` citation, nothing else. `--disclose explain` ALSO prints the rerank-source honesty line: `real cosine` when the score is full precision, `real cosine at stored precision` for a lossy stored slab (float16/int8/int4) with no full-precision source, plus the route and per-path candidate counts.
+`--disclose answer` (default) prints the cited canonical text and a `urna://` citation, nothing else. `--disclose explain` ALSO prints the rerank-source honesty line: `real cosine` when the score is full precision, `real cosine at stored precision` for a lossy stored slab (float16/int8/int4) with no full-precision source, plus the route and per-path candidate counts.
 
 `retrieve` is the agent-shaped surface: a json/jsonl answer-pack of cited spans.
 
 ```sh
-nest retrieve my_corpus.nest "can I use this offline" -k 5 --format jsonl
+urna retrieve my_corpus.urna "can I use this offline" -k 5 --format jsonl
 ```
 
-each hit is `{chunk_id, score, score_type=cosine, source_uri, offset_start, offset_end, citation_id, text, file_hash, content_hash, rerank_source}`. the `score` is the exact rerank value (never a candidate-generator proxy), `text` is the tier-1 stored canonical text, and `citation_id` round-trips through `nest cite`. `--format json` emits a single pretty array instead of one object per line.
+each hit is `{chunk_id, score, score_type=cosine, source_uri, offset_start, offset_end, citation_id, text, file_hash, content_hash, rerank_source}`. the `score` is the exact rerank value (never a candidate-generator proxy), `text` is the tier-1 stored canonical text, and `citation_id` round-trips through `urna cite`. `--format json` emits a single pretty array instead of one object per line.
 
-the embedder picks its interpreter in a fixed order: `NEST_PYTHON` if set, else the repo's `.venv/bin/python` (which carries the forge deps: numpy + tokenizers + the vendored potion table) discovered by walking up from the cwd, else `python3` on PATH. so the repo `.venv` is used automatically; set `NEST_PYTHON` only to force a specific interpreter. the selected interpreter is printed to stderr; and since discovery executes the nearest ancestor `.venv/bin/python`, set `NEST_PYTHON` explicitly if you run `nest` from inside an untrusted directory tree. point `--model-path` at a copied potion table dir for a fully sealed offline run.
+the embedder picks its interpreter in a fixed order: `URNA_PYTHON` if set, else the repo's `.venv/bin/python` (which carries the forge deps: numpy + tokenizers + the vendored potion table) discovered by walking up from the cwd, else `python3` on PATH. so the repo `.venv` is used automatically; set `URNA_PYTHON` only to force a specific interpreter. the selected interpreter is printed to stderr; and since discovery executes the nearest ancestor `.venv/bin/python`, set `URNA_PYTHON` explicitly if you run `urna` from inside an untrusted directory tree. point `--model-path` at a copied potion table dir for a fully sealed offline run.
 
-the python convenience is `python python/forge/retrieve.py`: it builds a `.nest` from the cc0 demo corpus with the potion embedder, asks a question, and prints the cited answer with a `nest://` citation, all offline and deterministic (the one-gif demo).
+the python convenience is `python python/forge/retrieve.py`: it builds a `.urna` from the cc0 demo corpus with the potion embedder, asks a question, and prints the cited answer with a `urna://` citation, all offline and deterministic (the one-gif demo).
 
 ## 6. presets
 
@@ -219,13 +223,13 @@ the python convenience is `python python/forge/retrieve.py`: it builds a `.nest`
 
 numbers measured on the project's PT-BR fake-news corpus (n=30,725, dim=384), 100 queries, k=10 vs the float32 exact baseline (the published ladder `dat/measure/ladder.json`, gated against `dat/measure/baseline.json`). RULER CAVEAT: these `recall@10` figures use a SELF-PERTURBATION ruler (each query is a corpus vector plus tiny noise), so they measure rank-stability under quantization, NOT real-query retrieval, and are likely inflated; see the `ruler` field in `ladder.json`/`baseline.json` and the pending real-query (mteb-style) ruler (gate-zero). these are the honest current sizes after the text-codec repack (intpack chunk_ids/spans, bitpacked hnsw/bm25 payloads) shrank the indexed presets below the v0.2 figures: `tiny` 0.283 -> 0.256, `compressed` 0.350 -> 0.339, `hybrid` 0.668 -> 0.609. latency ranges (NEON, hot cache): exact p50 ~3.1 ms, tiny p50 ~1.2 ms, micro p50 ~0.8 ms, nano p50 ~2.1 ms, hybrid p50 ~4.0 ms.
 
-the `exact`/`compressed`/`tiny`/`nano`/`hybrid` rows are direct `preset=` values; `micro` is the published name for the matryoshka size lever (the documented honest point `mrl256-int8`), built with `nest.build(text_encoding="zstd", dtype="int8", mrl_dim=256, with_hnsw=True)` and emitted by `measure_presets.py --variants ...,micro,...`.
+the `exact`/`compressed`/`tiny`/`nano`/`hybrid` rows are direct `preset=` values; `micro` is the published name for the matryoshka size lever (the documented honest point `mrl256-int8`), built with `urna.build(text_encoding="zstd", dtype="int8", mrl_dim=256, with_hnsw=True)` and emitted by `measure_presets.py --variants ...,micro,...`.
 
-pick `nano` for the smallest distributable file with recall above the nano floor: int4 block-64 embeddings (per-64-dim-group f16 absmax scales + packed 4-bit codes) take the embeddings section from int8's 11.92 MB down to 6.27 MB (~1.9x over int8, ~7.5x over float32). `nano`/`micro` require the effective `embedding_dim` divisible by 64. every sub-int8 preset (`micro`/`nano` and the whole mrl curve) is STORED-PRECISION: the 0x09 `embeddings_fp` rerank source is not wired, so the net-of-fp ratio equals the stored ratio and `score`/`recall@10` are real cosine AT THE STORED PRECISION (int4/int8), disclosed via `dtype` (and `mrl_dim`/`full_dim` for `micro`) in `nest stats` and on every result, never a bare-slab ratio. `micro` trades recall for size on this non-mrl MiniLM baseline (0.810 recall@10 at 0.223 ratio, see the curve below); pick it only when raw size beats the last ~10 recall points or once a real mrl-trained model lands. pick `tiny` when you want a smaller file than `compressed` with recall still above 0.99, `compressed` when you need lossless cosine + 3x compression, `hybrid` when queries include rare terms, proper nouns, or siglas that pure embeddings underweight, and `exact` when storage isn't the bottleneck and you want the recall=1.0 ground truth.
+pick `nano` for the smallest distributable file with recall above the nano floor: int4 block-64 embeddings (per-64-dim-group f16 absmax scales + packed 4-bit codes) take the embeddings section from int8's 11.92 MB down to 6.27 MB (~1.9x over int8, ~7.5x over float32). `nano`/`micro` require the effective `embedding_dim` divisible by 64. every sub-int8 preset (`micro`/`nano` and the whole mrl curve) is STORED-PRECISION: the 0x09 `embeddings_fp` rerank source is not wired, so the net-of-fp ratio equals the stored ratio and `score`/`recall@10` are real cosine AT THE STORED PRECISION (int4/int8), disclosed via `dtype` (and `mrl_dim`/`full_dim` for `micro`) in `urna stats` and on every result, never a bare-slab ratio. `micro` trades recall for size on this non-mrl MiniLM baseline (0.810 recall@10 at 0.223 ratio, see the curve below); pick it only when raw size beats the last ~10 recall points or once a real mrl-trained model lands. pick `tiny` when you want a smaller file than `compressed` with recall still above 0.99, `compressed` when you need lossless cosine + 3x compression, `hybrid` when queries include rare terms, proper nouns, or siglas that pure embeddings underweight, and `exact` when storage isn't the bottleneck and you want the recall=1.0 ground truth.
 
 ### matryoshka prefix truncation (`mrl_dim`)
 
-`nest.build(..., mrl_dim=K)` (or `BuildConfig.mrl_dim`) slices each l2-normalized vector to its first `K` components and re-l2-normalizes the prefix BEFORE quantization (Qwen3/ST/BGE truncate-then-renormalize). this is the dimension axis: orthogonal to and multiplicative with the dtype levers. the stored `embedding_dim` becomes `K`, the source dim is recorded as `full_dim`, and both appear in `nest stats`. queries are striped at `K` too, so a full-dim query against a truncated file is a dimension mismatch; slice + renorm the query to `K` first. truncation is a pure deterministic op, so builds stay byte-identical; `content_hash` is over the truncated embeddings, so a citation is tied to its `mrl_dim` (never claimed stable across dims). int4 still needs the effective dim divisible by 64, so `mrl_dim` in {256, 192, 128} works with int4 but 96 does not (use int8/f16/f32 at 96).
+`urna.build(..., mrl_dim=K)` (or `BuildConfig.mrl_dim`) slices each l2-normalized vector to its first `K` components and re-l2-normalizes the prefix BEFORE quantization (Qwen3/ST/BGE truncate-then-renormalize). this is the dimension axis: orthogonal to and multiplicative with the dtype levers. the stored `embedding_dim` becomes `K`, the source dim is recorded as `full_dim`, and both appear in `urna stats`. queries are striped at `K` too, so a full-dim query against a truncated file is a dimension mismatch; slice + renorm the query to `K` first. truncation is a pure deterministic op, so builds stay byte-identical; `content_hash` is over the truncated embeddings, so a citation is tied to its `mrl_dim` (never claimed stable across dims). int4 still needs the effective dim divisible by 64, so `mrl_dim` in {256, 192, 128} works with int4 but 96 does not (use int8/f16/f32 at 96).
 
 matryoshka pays off on a model trained for it (information front-loads into the prefix). the shipped MiniLM corpus is NOT mrl-trained, so truncation costs real recall@10 there; the published ladder in `dat/measure/ladder.json` (100 queries, k=10) reports the honest curve (same self-perturbation ruler as above, see the RULER CAVEAT) and `python/tools/measure_presets.py` emits it (the default `--variants` are `compressed,tiny,micro,nano,hybrid` plus `mrl256/192/128-int8`, `mrl96-int8`, `mrl256/192/128-int4`):
 
@@ -255,19 +259,24 @@ build with a real fingerprint:
 
 ```python
 from model_fingerprint import (
-    compute_model_fingerprint, fingerprint_to_model_hash, resolve_model_dir,
+    compute_model_fingerprint,
+    fingerprint_to_model_hash,
+    resolve_model_dir,
 )
+
 md = resolve_model_dir("sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
-fp = compute_model_fingerprint(md, model_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+fp = compute_model_fingerprint(
+    md, model_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
 cfg.model_hash = fingerprint_to_model_hash(fp)
 ```
 
 ### fully offline search
 
-distribute the model directory alongside the `.nest` (e.g. on a USB stick or in a sealed Docker image), then point `--model-path` at it on every search:
+distribute the model directory alongside the `.urna` (e.g. on a USB stick or in a sealed Docker image), then point `--model-path` at it on every search:
 
 ```sh
-nest search-text my_corpus.nest "vacina contra covid" -k 5 \
+urna search-text my_corpus.urna "vacina contra covid" -k 5 \
     --model-path /mnt/models/paraphrase-multilingual-MiniLM-L12-v2
 ```
 
@@ -282,10 +291,10 @@ files built with `model_hash = sha256:0...0` (the legacy placeholder) fail the s
 
 ## 8. benchmark
 
-random-query latency stats (mean, p50, p95, p99). with `--ann`, also runs ANN against the same queries and computes `recall@k (ANN vs exact)`. with `--madvise-cold`, runs an extra pass calling `posix_madvise(MADV_DONTNEED)` between queries: upper bound on cold-cache latency, not absolute cold (see `MmapNestFile::madvise_cold` docs).
+random-query latency stats (mean, p50, p95, p99). with `--ann`, also runs ANN against the same queries and computes `recall@k (ANN vs exact)`. with `--madvise-cold`, runs an extra pass calling `posix_madvise(MADV_DONTNEED)` between queries: upper bound on cold-cache latency, not absolute cold (see `MmapUrnaFile::madvise_cold` docs).
 
 ```sh
-nest benchmark my_corpus.nest -q 100 -k 10 --ann 100 --madvise-cold
+urna benchmark my_corpus.urna -q 100 -k 10 --ann 100 --madvise-cold
 ```
 
 typical output (n=30,725, dim=384, neon, int8):
@@ -304,10 +313,10 @@ recall@10 here is ANN-vs-exact rank-stability (the ANN index against the exact-c
 
 ## 9. citations
 
-every search hit carries a stable `citation_id` of the form `nest://<content_hash>/<chunk_id>`. resolve it back to the canonical text and original byte span:
+every search hit carries a stable `citation_id` of the form `urna://<content_hash>/<chunk_id>`. resolve it back to the canonical text and original byte span:
 
 ```sh
-nest cite my_corpus.nest 'nest://sha256:1aa9.../sha256:8f314...'
+urna cite my_corpus.urna 'urna://sha256:1aa9.../sha256:8f314...'
 ```
 
 `content_hash` is hashed over the **decoded** bytes, so a corpus stored with `text_encoding=zstd` produces the same `content_hash` as the same logical content stored raw. citations are stable across wire encodings.
@@ -322,17 +331,17 @@ nest cite my_corpus.nest 'nest://sha256:1aa9.../sha256:8f314...'
 
 runs the full pipeline: cargo test, clippy, fmt, all 3 python test suites, ruff, `measure_presets.py`, `compare_measure.py` against the committed baseline. exits non-zero on any failure.
 
-## 11. install health check (`nest doctor`)
+## 11. install health check (`urna doctor`)
 
-`doctor` takes no file. it validates the install surface after a one-liner / tarball install (the channels are in the reference section below): nest and format versions, the detected simd backend, the python interpreter the embedder will run under, the numpy + tokenizers deps, the potion embedder script, the potion table (a git-lfs pointer is rejected), and one real offline embed of a fixed probe string.
+`doctor` takes no file. it validates the install surface after a one-liner / tarball install (the channels are in the reference section below): urna and format versions, the detected simd backend, the python interpreter the embedder will run under, the numpy + tokenizers deps, the potion embedder script, the potion table (a git-lfs pointer is rejected), and one real offline embed of a fixed probe string.
 
 ```sh
-nest doctor
+urna doctor
 ```
 
 the exit code is typed so installers and ci branch on codes, not text: `0` ok, `2` python interpreter missing, `3` python deps missing, `4` potion embedder script not found, `5` potion table missing or a git-lfs pointer, `6` embedder run failed. a scalar simd fallback prints a warning but still exits `0`. the embedder check opens no socket, so doctor itself stays offline-by-construction.
 
-the embedder script resolves in this order: the repo layout (`python/forge/embed_query_potion.py`, dev checkout), then `${XDG_DATA_HOME:-~/.local/share}/nest/forge/` (one-liner installs), then `<exe>/../share/nest/forge/` (tarball and homebrew-style layouts).
+the embedder script resolves in this order: the repo layout (`python/forge/embed_query_potion.py`, dev checkout), then `${XDG_DATA_HOME:-~/.local/share}/urna/forge/` (one-liner installs), then `<exe>/../share/urna/forge/` (tarball and homebrew-style layouts).
 
 ## 12. model registry and multi-model spaces
 
@@ -350,20 +359,20 @@ embedding models are DATA, not per-project code: `python/forge/model_registry.py
 three rules the registry enforces, loudly:
 
 - **mrl is a ladder, not a slider.** `dims=[256]` is accepted only when the preset's model card validates 256 (`mrl.method="prefix_slice_l2"`). slicing at an unvalidated dim is refused; mathematically possible is not semantically supported.
-- **remote code is an opt-in plus a pin.** presets with `trust_remote_code` load only when the spec lists them in `output.allow_remote_code` AND every model-repo code file matches the pinned sha256 allowlist. a hash identifies a version; the opt-in is the consent. build in an isolated environment when the model dir is not fully trusted. the QUERY side has the same rule: a manifest is data, never an authorization, so `ask`/`retrieve`/`search-text` over a remote-code corpus (and `nest_model_bench.py`) refuse to load the model until the operator opts in with `NEST_ALLOW_REMOTE_CODE="<preset>[,<preset>]"` in the environment.
+- **remote code is an opt-in plus a pin.** presets with `trust_remote_code` load only when the spec lists them in `output.allow_remote_code` AND every model-repo code file matches the pinned sha256 allowlist. a hash identifies a version; the opt-in is the consent. build in an isolated environment when the model dir is not fully trusted. the QUERY side has the same rule: a manifest is data, never an authorization, so `ask`/`retrieve`/`search-text` over a remote-code corpus (and `urna_model_bench.py`) refuse to load the model until the operator opts in with `URNA_ALLOW_REMOTE_CODE="<preset>[,<preset>]"` in the environment.
 - **three hashes, never conflated.** `model_hash` identifies the model (weights + tokenizer + processor + remote code + pooling/normalize/dtype policy). the per-item `input_hash` identifies the content (canonical text ⊕ image bytes ⊕ label ⊕ chunker). the `embedding_recipe_hash` identifies the usage (prompts, query/document modes, preprocess version, `image_max_side`, device class, decoder fingerprint when embedding decoded media). the embed cache key is the triad, so a retranslated text or a re-exported image invalidates exactly what changed.
 
 known limitation: the siglip2 TEXT tower resolves its hf tokenizer through transformers' AutoTokenizer, which probes optional files that 404 online; a fresh process in strict offline mode can fail that probe even with the snapshot cached. the image tower and every other preset are unaffected; for a sealed offline run either query siglip2 spaces by image, or use the wemm/jina text towers.
 
-model dirs resolve explicit `model_path` > `NEST_MODEL_DIR_<PRESET>` env > the preset's `local_dir` > the hf cache; a hub download requires `NEST_ALLOW_DOWNLOAD=1` explicitly. dtype defaults are measured, not assumed: bf16 on cuda, fp16 on mps (wemm-2b image embeds 0.5s vs 23s in fp32 on this class of machine), fp32 on cpu; override with `dtype=` in the spec or `NEST_ST_DTYPE`.
+model dirs resolve explicit `model_path` > `URNA_MODEL_DIR_<PRESET>` env > the preset's `local_dir` > the hf cache; a hub download requires `URNA_ALLOW_DOWNLOAD=1` explicitly. dtype defaults are measured, not assumed: bf16 on cuda, fp16 on mps (wemm-2b image embeds 0.5s vs 23s in fp32 on this class of machine), fp32 on cpu; override with `dtype=` in the spec or `URNA_ST_DTYPE`.
 
-## 13. declarative corpus builds (`nest build --spec`)
+## 13. declarative corpus builds (`urna build --spec`)
 
-one toml describes the whole corpus; nobody writes a build script per project. `nest build` is a launcher over `python/tools/nest_forge.py` (the build is officially a python frontend; torch and ffmpeg live there).
+one toml describes the whole corpus; nobody writes a build script per project. `urna build` is a launcher over `python/tools/urna_forge.py` (the build is officially a python frontend; torch and ffmpeg live there).
 
 ```sh
-nest build --spec corpus.toml --dry-run     # plan + dep status, loads nothing
-nest build --spec corpus.toml --sample 1500
+urna build --spec corpus.toml --dry-run     # plan + dep status, loads nothing
+urna build --spec corpus.toml --sample 1500
 ```
 
 a complete working spec: a sqlite table with per-row images, two models, media behind the dual quality gate, one self-contained output file:
@@ -414,9 +423,9 @@ the contract highlights:
 - **models**: each `[[models]]` names a preset and its role; `text = "default" | "space" | "none"` (exactly ONE default; it is space 0 of every emitted file, never injected implicitly), `image = "space" | "none"`, `dims = [256, 512]` (one named space per dim: `wemm-2b@256`), `space_dtype`, plus the recipe fields (`image_prompt`, `text_query_mode`, `image_max_side`, `encode_kwargs`).
 - **media** (§14 for the levers): `profile` (a measured recipe resolved into knob defaults; explicit keys always win, and an explicit `[media.quality]` key wins over the profile's quality table key by key), `backend`, `crf` (int or `"auto"`), `tune`, `speed`, `fps`, `gop`, `order`, `shard_size`, `dedup` (identical source images stored once; duplicate rows share the frame through the 0x16 overlay).
 - **embedding.image_input**: `mode = "decoded_media"` (default with media: the index describes what the file serves) | `"source"` (measures the model, not the codec). the decoder fingerprint joins the recipe hash in decoded mode; the two modes answer different questions and are never mixed.
-- **output**: `mode = "single" | "per-model" | "both"` (one media encode, one embed pass per model, shared across outputs; chunk_ids are content-addressed so citations agree across modes), `provenance = "minimal" | "standard" | "full"` (path/sql/label redaction. `standard` writes image paths relative to the spec dir and drops nothing else; `full` keeps absolute paths and the sql; `minimal` drops the sql and writes `items[]` compact: `key` + `ordinal` per item, `items_compact = true` at the top level, and a `frame_of_row` list only when dedup collapsed rows. readers get the media frame from `forge.forge_manifest.frame_resolver` and the items from `manifest_items(manifest, need=(...))`, which refuses a dropped field (`image_path`, `label`, `media_uri`) with an error naming `provenance = "standard"` instead of a KeyError; `nest_model_bench.py` needs `standard` or `full` for its source-image queries. motivation: 38627 items with all five fields were 12 MB of a 13 to 16 MB manifest. the mode never touches the `.nest` itself, the manifest is a sidecar), `allow_remote_code`, `embed_media = true|false` (inline the encoded media into the `.nest` itself, section 0x17, so the corpus is ONE self-contained file with no media sidecar at read time; `nest media <file>` lists the blobs, `nest media <file> --export DIR` writes them back out hash-verified, and `nest validate` proves every inlined blob against its `blob_refs` sha256. the sidecar `.media/` dir remains on disk as the build cache; peak build memory is roughly twice the media bytes, so prefer sidecar mode for very large corpora), `cache_dir` (root of the shared embed cache, see the transactional paragraph below; default `NEST_CACHE_DIR`, else `${XDG_CACHE_HOME:-~/.cache}/nest`).
+- **output**: `mode = "single" | "per-model" | "both"` (one media encode, one embed pass per model, shared across outputs; chunk_ids are content-addressed so citations agree across modes), `provenance = "minimal" | "standard" | "full"` (path/sql/label redaction. `standard` writes image paths relative to the spec dir and drops nothing else; `full` keeps absolute paths and the sql; `minimal` drops the sql and writes `items[]` compact: `key` + `ordinal` per item, `items_compact = true` at the top level, and a `frame_of_row` list only when dedup collapsed rows. readers get the media frame from `forge.forge_manifest.frame_resolver` and the items from `manifest_items(manifest, need=(...))`, which refuses a dropped field (`image_path`, `label`, `media_uri`) with an error naming `provenance = "standard"` instead of a KeyError; `urna_model_bench.py` needs `standard` or `full` for its source-image queries. motivation: 38627 items with all five fields were 12 MB of a 13 to 16 MB manifest. the mode never touches the `.urna` itself, the manifest is a sidecar), `allow_remote_code`, `embed_media = true|false` (inline the encoded media into the `.urna` itself, section 0x17, so the corpus is ONE self-contained file with no media sidecar at read time; `urna media <file>` lists the blobs, `urna media <file> --export DIR` writes them back out hash-verified, and `urna validate` proves every inlined blob against its `blob_refs` sha256. the sidecar `.media/` dir remains on disk as the build cache; peak build memory is roughly twice the media bytes, so prefer sidecar mode for very large corpora), `cache_dir` (root of the shared embed cache, see the transactional paragraph below; default `URNA_CACHE_DIR`, else `${XDG_CACHE_HOME:-~/.cache}/urna`).
 
-every build emits `<name>.manifest.json` (`manifest_schema_version = 1`, canonical serialization; a versioned contract, not an ad-hoc log) and `<name>.build.lock.json` (package versions, tool binaries with sha256, model hashes, the materialized spec). reproduction has three declared levels: L1 = same top-k anywhere; L2 = per-vector cosine within 1e-5 on the same device class; L3 = byte-identical `file_hash`, claimable ONLY under a matching lock (`--rebuild-only` re-emits from the triad-keyed caches and compares the lock; `--strict-env` turns divergence into an error). builds are transactional: per-stage state under `<out>/.forge-state/`, outputs staged in `<out>/.tmp/` and committed by atomic rename (same filesystem, so both stay in the output dir), `--resume` continues from the last intact stage. embed caches live OUTSIDE the output dir, under `${XDG_CACHE_HOME:-~/.cache}/nest/embed/<preset>/<triad>.npz` (override with `[output] cache_dir` in the spec, `--cache-dir` on `nest build` or `nest_forge.py`, or `NEST_CACHE_DIR`; `--dry-run` prints the resolved root; the location is not identity, so it never enters the lock and any override source claims L3 against the same root): the file name is a hash of the triad plus the arrays the spec needs, so two specs with the same rows and model read one entry whatever their output dir, a changed knob adds a sibling entry instead of overwriting, and a text-only model's entry does not change with the media crf (the decoder fingerprint enters only image-space recipes). the `model_hash` probes sit beside them under `models/`, keyed by preset plus the knobs that enter the fingerprint (normalize, dtype, device, model_path), and the loaded model corrects a probe that disagrees. caches are flock'd with checksum sidecars, and a torn cache is recomputed, never reused. output dirs built before this layout keep an orphaned `<out>/.cache/` that nothing reads; delete it by hand. the `<name>.media/` sidecar is not a cache in sidecar mode: it is the served media, and it stays beside the `.nest`.
+every build emits `<name>.manifest.json` (`manifest_schema_version = 1`, canonical serialization; a versioned contract, not an ad-hoc log) and `<name>.build.lock.json` (package versions, tool binaries with sha256, model hashes, the materialized spec). reproduction has three declared levels: L1 = same top-k anywhere; L2 = per-vector cosine within 1e-5 on the same device class; L3 = byte-identical `file_hash`, claimable ONLY under a matching lock (`--rebuild-only` re-emits from the triad-keyed caches and compares the lock; `--strict-env` turns divergence into an error). builds are transactional: per-stage state under `<out>/.forge-state/`, outputs staged in `<out>/.tmp/` and committed by atomic rename (same filesystem, so both stay in the output dir), `--resume` continues from the last intact stage. embed caches live OUTSIDE the output dir, under `${XDG_CACHE_HOME:-~/.cache}/urna/embed/<preset>/<triad>.npz` (override with `[output] cache_dir` in the spec, `--cache-dir` on `urna build` or `urna_forge.py`, or `URNA_CACHE_DIR`; `--dry-run` prints the resolved root; the location is not identity, so it never enters the lock and any override source claims L3 against the same root): the file name is a hash of the triad plus the arrays the spec needs, so two specs with the same rows and model read one entry whatever their output dir, a changed knob adds a sibling entry instead of overwriting, and a text-only model's entry does not change with the media crf (the decoder fingerprint enters only image-space recipes). the `model_hash` probes sit beside them under `models/`, keyed by preset plus the knobs that enter the fingerprint (normalize, dtype, device, model_path), and the loaded model corrects a probe that disagrees. caches are flock'd with checksum sidecars, and a torn cache is recomputed, never reused. output dirs built before this layout keep an orphaned `<out>/.cache/` that nothing reads; delete it by hand. the `<name>.media/` sidecar is not a cache in sidecar mode: it is the served media, and it stays beside the `.urna`.
 
 ## 14. dataset compression levers and the dual quality gate
 
@@ -431,53 +440,53 @@ the media section is where the compression research became knobs. all decisions 
 - `profile`: dataset-type presets resolved BEFORE explicit keys (an explicit key always wins, so no other use case is closed off). `"near-dup"` = cluster ordering + per-segment gop + still tune (visually similar corpora: card reprints, video frames, scans); `"stills"` = `backend = "avif"` + `crf = 48` + `speed = 8`, one libaom avif per image (unique images: O(1) per-image access with no video decode; measured 2026-09-12 on 38627 cards, experiment 11 of brennercruvinel/mtg-nest-benchmark: 1195973116 B against 1374431484 B for the all-intra av1 stream, 13% less at matched ssimulacra2 mean 61.96 on the 2048 sample; the cost is a 4 to 10x slower clip embed at build time because frames are decoded one avif at a time); `"stills-av1"` = the previous stills recipe, all-intra + still tune on the av1 stream (one file per shard, ffmpeg decode, and the profile to pair with `crf = "auto"`); `"archive"` = jxl-transcode (byte-reversible, for corpora where loss is not acceptable); `"retrieval"` = all-intra + still tune + `speed = 6` + fixed `crf = 50`, for a corpus that only serves search and never shows its pixels (measured 2026-09-03 on 38627 cards: 532671548 B self-contained, 7.46x vs the jpeg source, no measurable txt@1 loss on 100 queries; the default drift floor at p10 0.942 would have vetoed it, which is why the profile pins crf instead of running the gate); `"retrieval-auto"` = the same recipe with `crf = "auto"` gated by task utility alone: visual and drift floors disabled (`-1e9` / `-1.0`), `utility_floor_hit1 = 0.0`, `utility_tol = 0.02`, ladder `[40, 45, 50, 55, 60]`, so the largest crf whose hit@1 stays within 0.02 of the lossless source wins (the gate model needs a text tower: clip, siglip2, wemm, jina). the resolved knobs and the profile name both land in the manifest.
 - `backend = "jxl"` / `"jxl-transcode"`: the ONLY truly lossless modes. `jxl` is lossless of the source pixels; `jxl-transcode` repacks jpegs reversibly (~20% smaller, round-trip verified by reconstructing the jpeg and comparing sha256). non-transcodable inputs follow `on_unsupported_jpeg = error | copy-source | lossless-jxl`, per-file decisions recorded. preservation contract: decoded pixels (jxl) / original jpeg bytes (verified transcode); exif/icc/xmp only with `keep_metadata`; timestamps and filenames live in the manifest. needs `cjxl`/`djxl` (`brew install jpeg-xl`, which also ships `ssimulacra2` for the gate).
 
-measure everything with `python/tools/nest_image_sweep.py` (variants now include `av1-tune`, `jxl`, `jxl-transcode`) and compare models with the three-tier `python/tools/nest_model_bench.py`: T1 pipeline stability (identity self-retrieval, inflated by construction and labeled as such), T2 codec cost (embedding drift), T3 task utility (label-template text→image as declared weak ground truth, plus `--queries-file` with real operator queries: hit@k, mrr, negative leakage). the tiers answer different questions and are never aggregated into one number.
+measure everything with `python/tools/urna_image_sweep.py` (variants now include `av1-tune`, `jxl`, `jxl-transcode`) and compare models with the three-tier `python/tools/urna_model_bench.py`: T1 pipeline stability (identity self-retrieval, inflated by construction and labeled as such), T2 codec cost (embedding drift), T3 task utility (label-template text→image as declared weak ground truth, plus `--queries-file` with real operator queries: hit@k, mrr, negative leakage). the tiers answer different questions and are never aggregated into one number.
 
-## 15. media blobs (`nest media`)
+## 15. media blobs (`urna media`)
 
-a corpus built with `[output] embed_media = true` (§13) carries its encoded media inside the file (section 0x17, an offset table parallel to the `blob_refs` records plus the raw bytes). `nest media` is the read side:
+a corpus built with `[output] embed_media = true` (§13) carries its encoded media inside the file (section 0x17, an offset table parallel to the `blob_refs` records plus the raw bytes). `urna media` is the read side:
 
 ```sh
-nest media corpus.nest                 # one line per blob: index, sha256, byte length, inlined or sidecar, original uri
-nest media corpus.nest --export DIR    # write every inlined blob to DIR, verifying each against its blob_refs sha256
+urna media corpus.urna                 # one line per blob: index, sha256, byte length, inlined or sidecar, original uri
+urna media corpus.urna --export DIR    # write every inlined blob to DIR, verifying each against its blob_refs sha256
 ```
 
-`--export` fails on the first blob whose bytes do not hash to the recorded `content_hash`; `nest validate` performs the same proof over every inlined blob without writing anything. the python side reads one blob without exporting the store: `NestFile.blob_bytes(i)`. the section is content_hash-excluded, so an embedded corpus and its sidecar twin carry the same citations.
+`--export` fails on the first blob whose bytes do not hash to the recorded `content_hash`; `urna validate` performs the same proof over every inlined blob without writing anything. the python side reads one blob without exporting the store: `UrnaFile.blob_bytes(i)`. the section is content_hash-excluded, so an embedded corpus and its sidecar twin carry the same citations.
 
 ## reference
 
-every way to get `nest` onto a machine, what each channel lays down, how to verify what you got, and what a maintainer has to set up once before a release can feed these channels. each item is collapsed; open the one you need.
+every way to get `urna` onto a machine, what each channel lays down, how to verify what you got, and what a maintainer has to set up once before a release can feed these channels. each item is collapsed; open the one you need.
 
 status: the release pipeline (`.github/workflows/release.yml` via cargo-dist, `.github/workflows/pypi.yml`, `.github/workflows/install-test.yml`) serves from `v0.4.0` (2026-09-17) on; `v0.3.0` predates it and carries no artifacts. the maintainer checklist below is what each channel needs on the account side; a channel whose prerequisite is missing fails its own job and leaves the github release intact.
 
-the product is offline by construction: the installers are the only thing that ever opens a socket. after install, `nest doctor` validates the surface without network.
+the product is offline by construction: the installers are the only thing that ever opens a socket. after install, `urna doctor` validates the surface without network.
 
 <details>
 <summary>one-liner (linux, macos)</summary>
 
 ```sh
-curl -sSf https://raw.githubusercontent.com/hoffresearch/nest/main/scripts/install.sh | sh
-nest doctor
+curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.sh | sh
+urna doctor
 ```
 
 `scripts/install.sh` (posix sh; needs `curl`, `tar`, and `sha256sum` or `shasum`):
 
 1. detects the platform and maps it to a release target: `x86_64` / `aarch64` times `unknown-linux-musl` / `apple-darwin`.
-2. downloads four files from the github release: `nest-cli-<target>.tar.xz`, its `.sha256`, `nest-embedder-payload.tar.gz`, its `.sha256`.
+2. downloads four files from the github release: `urna-cli-<target>.tar.xz`, its `.sha256`, `urna-embedder-payload.tar.gz`, its `.sha256`.
 3. verifies both sha256 sums before anything touches the install dirs. a mismatch aborts with the two hashes printed.
-4. installs the binary to `~/.local/bin/nest` and extracts the payload to `${XDG_DATA_HOME:-~/.local/share}/nest/forge/` (the potion embedder script plus its vendored table).
+4. installs the binary to `~/.local/bin/urna` and extracts the payload to `${XDG_DATA_HOME:-~/.local/share}/urna/forge/` (the potion embedder script plus its vendored table).
 5. warns if `~/.local/bin` is not on `PATH`.
 
 | flag / env | effect |
 |---|---|
 | `--version vX.Y.Z` | pin a release (default: latest). a bare `X.Y.Z` gets the `v` prepended |
 | `--uninstall` | remove the binary and the payload dir |
-| `NEST_RELEASE_BASE` | url prefix that serves the four files (any url `curl` accepts, `file://` included) |
-| `NEST_BIN_DIR` | binary dir, default `~/.local/bin` |
-| `NEST_DATA_DIR` | payload parent, default `${XDG_DATA_HOME:-~/.local/share}` |
-| `NEST_CACHE_DIR` | forge embed cache root (build time, section 13), default `${XDG_CACHE_HOME:-~/.cache}/nest` |
+| `URNA_RELEASE_BASE` | url prefix that serves the four files (any url `curl` accepts, `file://` included) |
+| `URNA_BIN_DIR` | binary dir, default `~/.local/bin` |
+| `URNA_DATA_DIR` | payload parent, default `${XDG_DATA_HOME:-~/.local/share}` |
+| `URNA_CACHE_DIR` | forge embed cache root (build time, section 13), default `${XDG_CACHE_HOME:-~/.cache}/urna` |
 
-the linux binaries are static musl, so they run on any distro and inside `scratch` containers. `nest doctor` needs a python 3.12+ interpreter with `numpy` and `tokenizers` for the offline embed probe (`NEST_PYTHON` selects the interpreter); everything else in the cli runs without python.
+the linux binaries are static musl, so they run on any distro and inside `scratch` containers. `urna doctor` needs a python 3.12+ interpreter with `numpy` and `tokenizers` for the offline embed probe (`URNA_PYTHON` selects the interpreter); everything else in the cli runs without python.
 
 </details>
 
@@ -485,25 +494,25 @@ the linux binaries are static musl, so they run on any distro and inside `scratc
 <summary>windows</summary>
 
 ```powershell
-irm https://raw.githubusercontent.com/hoffresearch/nest/main/scripts/install.ps1 | iex
-nest doctor
+irm https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.ps1 | iex
+urna doctor
 ```
 
-`scripts/install.ps1` mirrors the shell installer: `-Version vX.Y.Z`, `-Uninstall`, the same `NEST_RELEASE_BASE` / `NEST_BIN_DIR` / `NEST_DATA_DIR` overrides. the binary goes to `~\.local\bin\nest.exe`, the payload to `%LOCALAPPDATA%\nest\forge\`. the payload is a `.tar.gz`; `tar` ships with windows 10 1803+. the windows archive is a `.zip`.
+`scripts/install.ps1` mirrors the shell installer: `-Version vX.Y.Z`, `-Uninstall`, the same `URNA_RELEASE_BASE` / `URNA_BIN_DIR` / `URNA_DATA_DIR` overrides. the binary goes to `~\.local\bin\urna.exe`, the payload to `%LOCALAPPDATA%\urna\forge\`. the payload is a `.tar.gz`; `tar` ships with windows 10 1803+. the windows archive is a `.zip`.
 
 </details>
 
 <details>
-<summary>python package `nestdb`</summary>
+<summary>python package `urna`</summary>
 
 ```sh
-pip install "nestdb[embed]"            # library + offline potion embedding
-uvx --from nestdb nest validate file.nest
+pip install "urna[embed]"            # library + offline potion embedding
+uvx --from urna urna validate file.urna
 ```
 
-one `cp312-abi3` wheel per platform: linux x86_64, linux aarch64, macos universal2, windows amd64. python 3.12+. the wheel carries `nest._nest` (the pyo3 extension), the `nest` package, and the bundled potion table (~30 mb) under `nest/models/potion-base-8M/`. the table is bundled on purpose: the installed package embeds offline by construction, so there is no lazy-fetch path to fail in an air-gapped environment. the `embed` extra adds `numpy` and `tokenizers`; the core surface (`nest.open`, `search`, `retrieve`, `validate`, `inspect`) needs nothing beyond the wheel.
+one `cp312-abi3` wheel per platform: linux x86_64, linux aarch64, macos universal2, windows amd64. python 3.12+. the wheel carries `urna._urna` (the pyo3 extension), the `urna` package, and the bundled potion table (~30 mb) under `urna/models/potion-base-8M/`. the table is bundled on purpose: the installed package embeds offline by construction, so there is no lazy-fetch path to fail in an air-gapped environment. the `embed` extra adds `numpy` and `tokenizers`; the core surface (`urna.open`, `search`, `retrieve`, `validate`, `inspect`) needs nothing beyond the wheel.
 
-the console entry point `nest` installed by the wheel is the read-only subset (`validate`, `inspect`, `stats`, `search`) over the library api, which is what makes `uvx --from nestdb nest ...` work. the full cli (`ask`, `retrieve`, `build`, `doctor`, `media`, the ann/graph/space searches) is the rust binary from the one-liner, windows, homebrew and binstall items.
+the console entry point `urna` installed by the wheel is the read-only subset (`validate`, `inspect`, `stats`, `search`) over the library api, which is what makes `uvx --from urna urna ...` work. the full cli (`ask`, `retrieve`, `build`, `doctor`, `media`, the ann/graph/space searches) is the rust binary from the one-liner, windows, homebrew and binstall items.
 
 the wheel is staged by `scripts/stage_wheel.py` into `packaging/staging/` (gitignored) from `packaging/pyproject.toml`, and built by maturin in `pypi.yml`. the dev flow (`cargo build` + copy the `.so`) is unchanged and does not install a package.
 
@@ -513,10 +522,10 @@ the wheel is staged by `scripts/stage_wheel.py` into `packaging/staging/` (gitig
 <summary>homebrew</summary>
 
 ```sh
-brew install hoffresearch/nest/nest
+brew install hoffresearch/urna/urna
 ```
 
-the formula lives in the `hoffresearch/homebrew-nest` tap and is generated by cargo-dist on every release (`installers = ["homebrew"]` in `Cargo.toml`). known gap, tracked in `.contracts/.agents/AGENTS.md`: the generated formula installs the binary only. a brew-installed `nest` reports exit `4` from `nest doctor` until the payload is laid down, either by running the one-liner (it overwrites nothing brew owns) or by copying `python/forge/` from a checkout into `${XDG_DATA_HOME:-~/.local/share}/nest/forge/`. a custom formula that ships the payload is deferred until the tap sees real use.
+the formula lives in the `hoffresearch/homebrew-urna` tap and is generated by cargo-dist on every release (`installers = ["homebrew"]` in `Cargo.toml`). known gap, tracked in `.contracts/.agents/AGENTS.md`: the generated formula installs the binary only. a brew-installed `urna` reports exit `4` from `urna doctor` until the payload is laid down, either by running the one-liner (it overwrites nothing brew owns) or by copying `python/forge/` from a checkout into `${XDG_DATA_HOME:-~/.local/share}/urna/forge/`. a custom formula that ships the payload is deferred until the tap sees real use.
 
 </details>
 
@@ -524,10 +533,10 @@ the formula lives in the `hoffresearch/homebrew-nest` tap and is generated by ca
 <summary>cargo binstall</summary>
 
 ```sh
-cargo binstall nest-cli
+cargo binstall urna-cli
 ```
 
-`[package.metadata.binstall]` in `crates/nest-cli/Cargo.toml` maps the crate to the cargo-dist archive names (`.tar.xz`, `.zip` on windows), so binstall downloads the released binary instead of compiling. same payload gap as homebrew. to build from source instead: `cargo install --git https://github.com/hoffresearch/nest nest-cli`.
+`[package.metadata.binstall]` in `crates/urna-cli/Cargo.toml` maps the crate to the cargo-dist archive names (`.tar.xz`, `.zip` on windows), so binstall downloads the released binary instead of compiling. same payload gap as homebrew. to build from source instead: `cargo install --git https://github.com/hoffresearch/urna urna-cli`.
 
 </details>
 
@@ -535,8 +544,8 @@ cargo binstall nest-cli
 <summary>docker</summary>
 
 ```sh
-docker build --platform=linux/amd64 -f docker/Dockerfile -t nest .
-docker run --rm -v "$PWD/dat:/dat:ro" nest validate /dat/corpus_next.v1.nest
+docker build --platform=linux/amd64 -f docker/Dockerfile -t urna .
+docker run --rm -v "$PWD/dat:/dat:ro" urna validate /dat/corpus_next.v1.urna
 ```
 
 `docker/Dockerfile` builds the static musl binary in a throwaway toolchain stage and copies it into `scratch`: no shell, no package manager, no network at runtime. the corpus arrives as a mounted volume, so the same image serves air-gapped hosts. on apple silicon build the aarch64 variant natively (`--build-arg TARGET=aarch64-unknown-linux-musl`); qemu user emulation crashes rustc mid-build. the image has no python, so `ask` / `retrieve` are not available inside it; the engine verbs (file + vector in) are.
@@ -548,11 +557,11 @@ docker run --rm -v "$PWD/dat:/dat:ro" nest validate /dat/corpus_next.v1.nest
 
 ```sh
 cargo build --release --workspace
-cargo build --release -p nest-python --features pyo3/extension-module
-cp target/release/lib_nest.dylib python/_nest.so   # macos (.so on linux)
+cargo build --release -p urna-python --features pyo3/extension-module
+cp target/release/lib_urna.dylib python/_urna.so   # macos (.so on linux)
 ```
 
-rust edition 2024 (`rustc >= 1.85`), python 3.12+. the potion table is git-lfs: `git lfs pull` before `nest doctor` or any `ask` / `retrieve`, a pointer file is rejected with exit `5`. setup details, hooks and the merge gate are in `doc/CONTRIBUTING.md`.
+rust edition 2024 (`rustc >= 1.85`), python 3.12+. the potion table is git-lfs: `git lfs pull` before `urna doctor` or any `ask` / `retrieve`, a pointer file is rejected with exit `5`. setup details, hooks and the merge gate are in `doc/CONTRIBUTING.md`.
 
 </details>
 
@@ -562,32 +571,32 @@ rust edition 2024 (`rustc >= 1.85`), python 3.12+. the potion table is git-lfs: 
 every release artifact ships with a per-file `<name>.sha256` and the release carries a combined `sha256.sum`. the installers verify before writing; by hand:
 
 ```sh
-sha256sum -c nest-cli-x86_64-unknown-linux-musl.tar.xz.sha256
-gh attestation verify nest-cli-x86_64-unknown-linux-musl.tar.xz --repo hoffresearch/nest
+sha256sum -c urna-cli-x86_64-unknown-linux-musl.tar.xz.sha256
+gh attestation verify urna-cli-x86_64-unknown-linux-musl.tar.xz --repo hoffresearch/urna
 ```
 
 the attestation is sigstore keyless provenance produced in the release job (`attestations: write`, `actions/attest`), binding the artifact digest to the workflow, the commit, and the tag. the pypi wheels carry pep 740 attestations produced by trusted publishing (no stored token), visible on the file's pypi page.
 
-every release also carries a cyclonedx sbom per built package (`nest-cli.cdx.xml`, generated by `cargo cyclonedx` in the build job and attested like the binaries), and the binaries are built with `cargo auditable`, so the dependency tree can be read back out of the executable:
+every release also carries a cyclonedx sbom per built package (`urna-cli.cdx.xml`, generated by `cargo cyclonedx` in the build job and attested like the binaries), and the binaries are built with `cargo auditable`, so the dependency tree can be read back out of the executable:
 
 ```sh
-gh attestation verify nest-cli.cdx.xml --repo hoffresearch/nest
-cargo audit bin ~/.local/bin/nest
+gh attestation verify urna-cli.cdx.xml --repo hoffresearch/urna
+cargo audit bin ~/.local/bin/urna
 ```
 
 commits on `main` are ssh-signed and the branch ruleset requires verified signatures. release tags are annotated and ssh-signed too: `.github/workflows/tag-verify.yml` checks the tag against `.github/allowed_signers` in the plan phase of the release and before the wheels build, so an unsigned tag, a lightweight tag, or a signature from a key not on that list stops the release before anything is built.
 
-`.github/workflows/install-test.yml` runs after every published release and installs the product the way a user does: the one-liner against the release url on linux x86_64 / aarch64, macos arm64 / x86_64, windows, then `nest validate` on the golden fixture and `nest doctor`; a second job pip-installs the published wheel and runs the `uvx` entry point. a failure there means the release is broken for users: yank and re-cut.
+`.github/workflows/install-test.yml` runs after every published release and installs the product the way a user does: the one-liner against the release url on linux x86_64 / aarch64, macos arm64 / x86_64, windows, then `urna validate` on the golden fixture and `urna doctor`; a second job pip-installs the published wheel and runs the `uvx` entry point. a failure there means the release is broken for users: yank and re-cut.
 
 </details>
 
 <details>
 <summary>offline and air-gapped notes</summary>
 
-- after install nothing opens a socket: `ask`, `retrieve`, `doctor`, and the python `nest.embed_potion` all resolve the vendored potion table locally. sentence-transformers presets from the model registry are the exception and download only with `NEST_ALLOW_DOWNLOAD=1` (section 12).
-- the cli finds the embedder in this order: the repo layout (`python/forge/embed_query_potion.py`), then `${XDG_DATA_HOME:-~/.local/share}/nest/forge/`, then `<exe>/../share/nest/forge/`. `nest doctor` prints which one it picked and validates the table is real bytes, not an lfs pointer.
-- air-gapped install: fetch the four files the one-liner downloads on a connected machine, copy them over, and run the installer with `NEST_RELEASE_BASE=file:///path/to/dir`. for the wheel, `pip download nestdb[embed]` on the connected side and `pip install --no-index --find-links` on the other.
-- `nest doctor` exit codes are typed so provisioning scripts branch on them: `0` ok, `2` python missing, `3` numpy/tokenizers missing, `4` embedder script missing, `5` table missing or lfs pointer, `6` embed run failed. a scalar simd fallback warns but exits `0`.
+- after install nothing opens a socket: `ask`, `retrieve`, `doctor`, and the python `urna.embed_potion` all resolve the vendored potion table locally. sentence-transformers presets from the model registry are the exception and download only with `URNA_ALLOW_DOWNLOAD=1` (section 12).
+- the cli finds the embedder in this order: the repo layout (`python/forge/embed_query_potion.py`), then `${XDG_DATA_HOME:-~/.local/share}/urna/forge/`, then `<exe>/../share/urna/forge/`. `urna doctor` prints which one it picked and validates the table is real bytes, not an lfs pointer.
+- air-gapped install: fetch the four files the one-liner downloads on a connected machine, copy them over, and run the installer with `URNA_RELEASE_BASE=file:///path/to/dir`. for the wheel, `pip download urna[embed]` on the connected side and `pip install --no-index --find-links` on the other.
+- `urna doctor` exit codes are typed so provisioning scripts branch on them: `0` ok, `2` python missing, `3` numpy/tokenizers missing, `4` embedder script missing, `5` table missing or lfs pointer, `6` embed run failed. a scalar simd fallback warns but exits `0`.
 
 </details>
 
@@ -596,8 +605,8 @@ commits on `main` are ssh-signed and the branch ruleset requires verified signat
 
 the release workflows assume external state that a fresh org does not have. as of 2026-09-10:
 
-1. **homebrew tap**: create the public repo `hoffresearch/homebrew-nest` with an empty `Formula/` directory. it does not exist yet, and the `publish-homebrew-formula` job in `release.yml` checks it out and pushes to it, so the job fails without it. add a fine-grained token with contents write on that repo as the `HOMEBREW_TAP_TOKEN` secret of `hoffresearch/nest`.
-2. **pypi**: on pypi.org, add a pending trusted publisher for the project name `nestdb` (owner `hoffresearch`, repository `nest`, workflow `pypi.yml`, environment `pypi`), and create the `pypi` environment in the github repo settings. `nestdb` is not published yet; the first successful `pypi.yml` run claims the name. no api token is stored anywhere.
+1. **homebrew tap**: create the public repo `hoffresearch/homebrew-urna` with an empty `Formula/` directory. it does not exist yet, and the `publish-homebrew-formula` job in `release.yml` checks it out and pushes to it, so the job fails without it. add a fine-grained token with contents write on that repo as the `HOMEBREW_TAP_TOKEN` secret of `hoffresearch/urna`.
+2. **pypi**: on pypi.org, add a pending trusted publisher for the project name `urna` (owner `hoffresearch`, repository `urna`, workflow `pypi.yml`, environment `pypi`), and create the `pypi` environment in the github repo settings. `urna` is not published yet; the first successful `pypi.yml` run claims the name. no api token is stored anywhere.
 3. **git-lfs**: release and wheel builds pull the potion table (`.github/dist-build-setup.yml`, `lfs: true` in `pypi.yml`). check the lfs bandwidth quota before a release; five targets plus four wheels each fetch the ~30 mb table.
 4. **attestations**: nothing to configure. `release.yml` already requests `attestations: write`, `pypi.yml` requests `id-token: write`.
 5. **short url**: `get.hoffresearch.com` is not registered (nxdomain). the scripts and the README use the raw github url. if the short form is wanted, point the dns at a 302 to the raw script and update the README plus both script headers in the same change.

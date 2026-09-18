@@ -1,9 +1,9 @@
 //! the .fci (forge canonical intermediate) schema, FROZEN at
 //! `FCI_SCHEMA_VERSION`. it is the stable contract between forge (which
 //! produces it from messy inputs) and the python adapter (which feeds it
-//! into the existing builder.Pipeline + nest.build). the schema is
-//! versioned INDEPENDENTLY of NEST_FORMAT_VERSION because .fci is a forge
-//! artifact, never a .nest section, so it can evolve without touching the
+//! into the existing builder.Pipeline + urna.build). the schema is
+//! versioned INDEPENDENTLY of URNA_FORMAT_VERSION because .fci is a forge
+//! artifact, never a .urna section, so it can evolve without touching the
 //! frozen container.
 
 mod blob_ref;
@@ -20,7 +20,7 @@ pub use record::ChunkRecord;
 use crate::error::ForgeError;
 use serde::{Deserialize, Serialize};
 
-/// Frozen .fci schema version, independent of NEST_FORMAT_VERSION. bumped
+/// Frozen .fci schema version, independent of URNA_FORMAT_VERSION. bumped
 /// only when the .fci layout changes meaning; readers fail closed on an
 /// unknown version.
 pub const FCI_SCHEMA_VERSION: u32 = 1;
@@ -28,7 +28,7 @@ pub const FCI_SCHEMA_VERSION: u32 = 1;
 /// A forge canonical intermediate bundle: canonical-text shards, the
 /// per-modality embedding requests over them, extracted entities + typed
 /// edges, and the blob manifest. serialized deterministically so the same
-/// canonical input yields byte-identical .fci, the upstream half of nest's
+/// canonical input yields byte-identical .fci, the upstream half of urna's
 /// reproducible build.
 ///
 /// field order is fixed by declaration and the serializer is compact, so

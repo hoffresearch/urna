@@ -2,8 +2,8 @@
 
 One home for the statistics every published image-corpus number must carry,
 so a claim cannot be written down without its interval again (the failure
-the 2026-08-07 changelog note retracts). Imported by `nest_image_eval.py`
-(the two-ruler eval) and `nest_image_sweep.py` (the variant matrix).
+the 2026-08-07 changelog note retracts). Imported by `urna_image_eval.py`
+(the two-ruler eval) and `urna_image_sweep.py` (the variant matrix).
 
 - `bootstrap_delta`: paired percentile interval on a per-query difference.
 - `sign_test`: assumption-free paired check, "how often", next to the

@@ -1,7 +1,7 @@
 # how citations work
 
 every search hit comes back with a stable citation of the form
-`nest://content_hash/chunk_id`. the content hash is computed over the decoded
+`urna://content_hash/chunk_id`. the content hash is computed over the decoded
 canonical sections of the file, so it identifies the content rather than a
 particular copy or a particular compression choice.
 

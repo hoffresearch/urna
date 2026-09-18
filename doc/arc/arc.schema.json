@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "https://github.com/hoffresearch/nest/doc/arc/arc.schema.json",
-  "title": "nest architecture reference (doc/arc/arc.yaml)",
+  "$id": "https://github.com/hoffresearch/urna/doc/arc/arc.schema.json",
+  "title": "urna architecture reference (doc/arc/arc.yaml)",
   "description": "shape of the single architecture reference: header, layers, flows, the four narrative lists, and the file inventory. the file name arc.yaml collides with the schemastore entry for the architect framework; the modeline at the top of arc.yaml points editors here instead.",
   "type": "object",
   "additionalProperties": false,
   "required": ["project", "last-updated", "domain", "summary", "layers", "flows", "system_view", "contract", "quality", "risks", "inventory"],
   "properties": {
-    "project": { "type": "string", "const": "nest" },
+    "project": { "type": "string", "const": "urna" },
     "last-updated": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
     "domain": { "type": "string" },
     "summary": { "type": "string", "minLength": 1 },

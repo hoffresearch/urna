@@ -17,13 +17,13 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "python"))
-CLI = REPO / "target" / "release" / "nest"
+CLI = REPO / "target" / "release" / "urna"
 if not CLI.exists():
     raise SystemExit("build the CLI first: cargo build --release --workspace")
 
-os.environ["NEST_ENABLE_FAKE_PRESET"] = "1"
+os.environ["URNA_ENABLE_FAKE_PRESET"] = "1"
 
-import nest
+import urna
 from forge import model_registry as mr
 
 
@@ -41,7 +41,7 @@ def _build(out: str, mrl_dim: int | None) -> None:
         }
         for i, t in enumerate(texts)
     ]
-    nest.build(
+    urna.build(
         out,
         emb.embedding_model,
         8,
@@ -56,9 +56,9 @@ def _build(out: str, mrl_dim: int | None) -> None:
 
 def _ask(corpus: str, env_fake: bool) -> tuple[int, str, str]:
     env = dict(os.environ)
-    env["NEST_PYTHON"] = str(REPO / ".venv" / "bin" / "python")
+    env["URNA_PYTHON"] = str(REPO / ".venv" / "bin" / "python")
     if not env_fake:
-        env.pop("NEST_ENABLE_FAKE_PRESET", None)
+        env.pop("URNA_ENABLE_FAKE_PRESET", None)
     p = subprocess.run(
         [str(CLI), "ask", corpus, "fake chunk number 2", "-k", "1"],
         capture_output=True,
@@ -71,22 +71,22 @@ def _ask(corpus: str, env_fake: bool) -> tuple[int, str, str]:
 
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        corpus = str(Path(tmp) / "r.nest")
+        corpus = str(Path(tmp) / "r.urna")
         _build(corpus, mrl_dim=None)
 
         rc, out, err = _ask(corpus, env_fake=True)
         assert rc == 0, err
-        assert "fake chunk number" in out and "nest://" in out
+        assert "fake chunk number" in out and "urna://" in out
         print("case 1 (registry model routed + gate passes): OK")
 
         rc, _, err = _ask(corpus, env_fake=False)
-        assert rc != 0 and "NEST_ENABLE_FAKE_PRESET" in err, (
+        assert rc != 0 and "URNA_ENABLE_FAKE_PRESET" in err, (
             "the failure must come from embed_query_model.py's registry path, "
             f"proving the routing; got: {err}"
         )
         print("case 2 (routing observable via registry error): OK")
 
-        mrl = str(Path(tmp) / "mrl.nest")
+        mrl = str(Path(tmp) / "mrl.urna")
         _build(mrl, mrl_dim=4)
         info = json.loads(
             subprocess.run(
@@ -96,13 +96,13 @@ def main() -> None:
         assert info["manifest"]["full_dim"] == 8 and info["manifest"]["embedding_dim"] == 4
         rc, out, err = _ask(mrl, env_fake=True)
         assert rc == 0, f"--mrl-dim must be passed for truncated corpora: {err}"
-        assert "nest://" in out
+        assert "urna://" in out
         print("case 3 (mrl corpus gets --mrl-dim, dim gate passes): OK")
 
         # sanity: sliced query really is the engine's truncation (scores align)
         emb = mr.create_embedder("fake-test")
         q = mr.slice_renorm(emb.embed_texts(["fake chunk number 2"]), 4)[0]
-        db = nest.open(mrl)
+        db = urna.open(mrl)
         hits = db.search([float(x) for x in q], k=1)
         assert hits[0].score > 0.999
         print("case 4 (slice_renorm query == stored truncation): OK")

@@ -1,5 +1,5 @@
 [package]
-name = "nest-fuzz"
+name = "urna-fuzz"
 version = "0.0.0"
 publish = false
 license = "MIT"
@@ -14,16 +14,16 @@ cargo-fuzz = true
 
 [dependencies]
 libfuzzer-sys = "0.4"
-nest-format = { path = "../crates/nest-format" }
-nest-runtime = { path = "../crates/nest-runtime" }
+urna-format = { path = "../crates/urna-format" }
+urna-runtime = { path = "../crates/urna-runtime" }
 
 # reach the decoders with the checksum layer resealed (see fuzz_targets/
 # reseal.rs); sha2 matches the workspace pin.
 sha2 = "0.11"
 
 [[bin]]
-name = "nest-view"
-path = "fuzz_targets/nest_view.rs"
+name = "urna-view"
+path = "fuzz_targets/urna_view.rs"
 test = false
 doc = false
 bench = false

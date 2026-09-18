@@ -14,7 +14,7 @@ changes the hash and the gate fails loudly.
 
 Offline: when the model dir resolves locally the HF offline env vars are
 forced before any hub-capable import; a hub download needs
-NEST_ALLOW_DOWNLOAD=1 explicitly (repo convention).
+URNA_ALLOW_DOWNLOAD=1 explicitly (repo convention).
 """
 
 from __future__ import annotations
@@ -32,8 +32,8 @@ REMOTE_CODE_GLOBS = ("modeling_*.py", "*chat_template*.jinja", "processor_config
 
 
 def _default_device() -> str:
-    if os.environ.get("NEST_ST_DEVICE"):
-        return os.environ["NEST_ST_DEVICE"]
+    if os.environ.get("URNA_ST_DEVICE"):
+        return os.environ["URNA_ST_DEVICE"]
     try:
         import torch
 
@@ -47,8 +47,8 @@ def _default_device() -> str:
 
 
 def _default_dtype(device: str) -> str:
-    if os.environ.get("NEST_ST_DTYPE"):
-        return os.environ["NEST_ST_DTYPE"]
+    if os.environ.get("URNA_ST_DTYPE"):
+        return os.environ["URNA_ST_DTYPE"]
     # bf16 where it is first-class; fp16 on mps (measured this session:
     # wemm-2b image embeds 0.5s vs 23s in fp32, cosines agree to ~1e-2);
     # fp32 on cpu.
@@ -95,7 +95,7 @@ class STMultimodalEmbedder:
     def _load(self) -> None:
         if self._model is not None:
             return
-        allow_download = self.model_dir is None and os.environ.get("NEST_ALLOW_DOWNLOAD") == "1"
+        allow_download = self.model_dir is None and os.environ.get("URNA_ALLOW_DOWNLOAD") == "1"
         for k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
             if allow_download:
                 # the explicit opt-in wins over the blanket offline default

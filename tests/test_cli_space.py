@@ -1,8 +1,8 @@
 """Drive the release binary's space surface (RFC-4): search-space happy path
 and typed errors, the stats spaces block, inspect --json spaces[], and
-benchmark --space. Corpus built via nest.build spaces= (as test_space_bridge).
+benchmark --space. Corpus built via urna.build spaces= (as test_space_bridge).
 
-Run: .venv/bin/python tests/test_cli_space.py  (needs target/release/nest)
+Run: .venv/bin/python tests/test_cli_space.py  (needs target/release/urna)
 """
 
 import json
@@ -13,11 +13,11 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "python"))
-CLI = REPO / "target" / "release" / "nest"
+CLI = REPO / "target" / "release" / "urna"
 if not CLI.exists():
     raise SystemExit("build the CLI first: cargo build --release --workspace")
 
-import nest
+import urna
 
 HASH_A = "sha256:" + "a" * 64
 HASH_B = "sha256:" + "b" * 64
@@ -42,7 +42,7 @@ def build_corpus(out: str) -> None:
             "vectors": [[1.0 if j == (2 - i) else 0.0 for j in range(8)] for i in range(3)],
         },
     ]
-    nest.build(
+    urna.build(
         out,
         "test-model",
         4,
@@ -62,7 +62,7 @@ def run(args: list[str]) -> tuple[int, str, str]:
 
 def main() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        corpus = str(Path(tmp) / "s.nest")
+        corpus = str(Path(tmp) / "s.urna")
         build_corpus(corpus)
 
         qv = "[0,0,1,0,0,0,0,0]"
@@ -110,8 +110,8 @@ def main() -> None:
         print("case 7 (benchmark --space): OK")
 
         # no-spaces file: verbs degrade with typed errors, never a fallback
-        plain = str(Path(tmp) / "plain.nest")
-        nest.build(
+        plain = str(Path(tmp) / "plain.urna")
+        urna.build(
             plain,
             "test-model",
             4,

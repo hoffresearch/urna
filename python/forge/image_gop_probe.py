@@ -76,7 +76,7 @@ def probe_gop(
         idx = sorted(set(np.linspace(0, n - 1, take).round().astype(int).tolist()))
     sample = [paths[i] for i in idx]
     quality: dict = {}
-    with tempfile.TemporaryDirectory(prefix="nest-gop-probe-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="urna-gop-probe-") as tmp:
         intra = encode_av1(
             sample,
             Path(tmp) / "intra.mp4",

@@ -2,9 +2,9 @@
 # scripts/pre-commit — defense-in-depth against committing PHI / data artifacts.
 #
 # Clinical data MUST live OUTSIDE this repo (e.g. /Volumes/<redacted>/dat/psy/work).
-# The .gitignore already ignores *.nest / *.sidecar.jsonl / **/pairs/ (a catch-all
+# The .gitignore already ignores *.urna / *.sidecar.jsonl / **/pairs/ (a catch-all
 # that negates only the sanctioned public corpora), but this hook is the stronger
-# backstop: it ABORTS any commit that stages a data artifact (.nest /
+# backstop: it ABORTS any commit that stages a data artifact (.urna /
 # .sidecar.jsonl / a file under pairs/) that is not on the explicit allow-list of
 # sanctioned public corpora below — catching a `git add -f` that bypasses gitignore.
 #
@@ -16,18 +16,18 @@
 set -eu
 
 # Explicit allow-list: the only tracked data artifacts permitted. These are
-# public, non-PHI benchmark/demo/fixture files. Anything else (any new .nest,
+# public, non-PHI benchmark/demo/fixture files. Anything else (any new .urna,
 # any cohort_*, any sidecar, anything under pairs/) is blocked.
-ALLOW='^(dat/corpus_next\.v1\.nest|dat/measure/fakerecogna_exact\.nest|crates/nest-format/tests/fixtures/golden_v1_minimal\.nest)$'
+ALLOW='^(dat/corpus_next\.v1\.urna|dat/measure/fakerecogna_exact\.urna|crates/urna-format/tests/fixtures/golden_v1_minimal\.urna)$'
 
 staged=$(git diff --cached --name-only --diff-filter=ACM)
 [ -n "$staged" ] || exit 0
 
 violations=$(printf '%s\n' "$staged" | grep -E \
-  -e '(^|/)cohort_[^/]*\.nest$' \
+  -e '(^|/)cohort_[^/]*\.urna$' \
   -e '\.sidecar\.jsonl$' \
   -e '(^|/)pairs/' \
-  -e '\.nest$' \
+  -e '\.urna$' \
   | grep -Ev "$ALLOW" || true)
 
 if [ -n "$violations" ]; then

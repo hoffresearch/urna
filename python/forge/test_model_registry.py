@@ -40,19 +40,19 @@ def test_unknown_preset_lists_valid_names() -> None:
 
 
 def test_fake_preset_is_env_gated() -> None:
-    os.environ.pop("NEST_ENABLE_FAKE_PRESET", None)
+    os.environ.pop("URNA_ENABLE_FAKE_PRESET", None)
     try:
         mr.get_preset("fake-test")
     except mr.RegistryError:
         pass
     else:
-        raise AssertionError("fake-test must require NEST_ENABLE_FAKE_PRESET=1")
-    os.environ["NEST_ENABLE_FAKE_PRESET"] = "1"
+        raise AssertionError("fake-test must require URNA_ENABLE_FAKE_PRESET=1")
+    os.environ["URNA_ENABLE_FAKE_PRESET"] = "1"
     assert mr.get_preset("fake-test").kind == "fake"
 
 
 def test_fake_adapter_is_deterministic() -> None:
-    os.environ["NEST_ENABLE_FAKE_PRESET"] = "1"
+    os.environ["URNA_ENABLE_FAKE_PRESET"] = "1"
     a = mr.create_embedder("fake-test")
     b = mr.create_embedder("fake-test")
     va, vb = a.embed_texts(["hello", "world"]), b.embed_texts(["hello", "world"])
@@ -98,11 +98,11 @@ def test_pinned_hash_refuses_altered_code() -> None:
 def test_resolve_model_dir_precedence() -> None:
     preset = mr.PRESETS["wemm-2b"]
     assert mr.resolve_model_dir(preset, "/explicit/x") == Path("/explicit/x")
-    os.environ["NEST_MODEL_DIR_WEMM_2B"] = "/from/env"
+    os.environ["URNA_MODEL_DIR_WEMM_2B"] = "/from/env"
     try:
         assert mr.resolve_model_dir(preset) == Path("/from/env")
     finally:
-        del os.environ["NEST_MODEL_DIR_WEMM_2B"]
+        del os.environ["URNA_MODEL_DIR_WEMM_2B"]
 
 
 def test_potion_adapter_is_text_only() -> None:
@@ -116,7 +116,7 @@ def test_potion_adapter_is_text_only() -> None:
 
 
 def test_slice_renorm_matches_engine_mrl() -> None:
-    import nest
+    import urna
 
     rng = np.random.default_rng(7)
     vecs = rng.standard_normal((3, 8)).astype(np.float32)
@@ -124,7 +124,7 @@ def test_slice_renorm_matches_engine_mrl() -> None:
     sliced = mr.slice_renorm(vecs, 4)
     assert np.allclose(np.linalg.norm(sliced, axis=1), 1.0, atol=1e-6)
     with tempfile.TemporaryDirectory() as tmp:
-        out = str(Path(tmp) / "mrl.nest")
+        out = str(Path(tmp) / "mrl.urna")
         chunks = [
             {
                 "canonical_text": f"chunk {i}",
@@ -135,7 +135,7 @@ def test_slice_renorm_matches_engine_mrl() -> None:
             }
             for i in range(3)
         ]
-        nest.build(
+        urna.build(
             out,
             "test-model",
             8,
@@ -146,7 +146,7 @@ def test_slice_renorm_matches_engine_mrl() -> None:
             mrl_dim=4,
             reproducible=True,
         )
-        db = nest.open(out)
+        db = urna.open(out)
         for i in range(3):
             hits = db.search(sliced[i].tolist(), k=1)
             assert hits[0].offset_start == i, "sliced query must retrieve its own chunk"

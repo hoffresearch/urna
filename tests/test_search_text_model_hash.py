@@ -24,12 +24,12 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "python"))
-import nest  # noqa: E402
+import urna  # noqa: E402
 
 # Path to the release CLI binary.
-CLI = REPO / "target" / "release" / "nest"
+CLI = REPO / "target" / "release" / "urna"
 if not CLI.exists():
-    raise SystemExit("build the CLI first: cargo build --release -p nest-cli")
+    raise SystemExit("build the CLI first: cargo build --release -p urna-cli")
 
 # A fake embedder script that ignores the model and returns a fixed
 # vector + a fingerprint chosen by an env var. Lets us simulate any
@@ -71,7 +71,7 @@ def build_corpus(out_path: Path, model_hash: str, dim: int = 4) -> None:
     ]
     if out_path.exists():
         out_path.unlink()
-    nest.build(
+    urna.build(
         output_path=str(out_path),
         embedding_model="fake/test-model",
         embedding_dim=dim,
@@ -89,7 +89,7 @@ def run_search_text(
     *,
     skip_check: bool = False,
 ) -> tuple[int, str, str]:
-    """Run `nest search-text` with the given fake embedder. Returns
+    """Run `urna search-text` with the given fake embedder. Returns
     (exit_code, stdout, stderr)."""
     cmd = [
         str(CLI),
@@ -121,7 +121,7 @@ def main() -> None:
         embedder.write_text(FAKE_EMBEDDER_SRC)
 
         # Case 1: match — succeeds.
-        c_match = td / "match.nest"
+        c_match = td / "match.urna"
         build_corpus(c_match, real_hash)
         rc, stdout, stderr = run_search_text(c_match, embedder, real_hash)
         assert rc == 0, f"match case should succeed, got rc={rc}\nstderr={stderr}"
@@ -129,7 +129,7 @@ def main() -> None:
         print("case 1 (match): OK")
 
         # Case 2: mismatch — fails with typed error.
-        c_mismatch = td / "mismatch.nest"
+        c_mismatch = td / "mismatch.urna"
         build_corpus(c_mismatch, real_hash)
         rc, stdout, stderr = run_search_text(c_mismatch, embedder, other_hash)
         assert rc != 0, f"mismatch case should fail, got rc=0\nstdout={stdout}"
@@ -139,7 +139,7 @@ def main() -> None:
         print("case 2 (mismatch): OK")
 
         # Case 3: placeholder — fails even when embedder reports same placeholder.
-        c_placeholder = td / "placeholder.nest"
+        c_placeholder = td / "placeholder.urna"
         build_corpus(c_placeholder, placeholder)
         rc, stdout, stderr = run_search_text(c_placeholder, embedder, placeholder)
         assert rc != 0, "placeholder case should fail, got rc=0"
@@ -155,7 +155,7 @@ def main() -> None:
 
         # Case 5: dim mismatch — embedder reports different dim.
         # Build a corpus with dim=8 (different from the embedder's 4).
-        c_dim = td / "dim_mismatch.nest"
+        c_dim = td / "dim_mismatch.urna"
         build_corpus(c_dim, real_hash, dim=8)
         rc, stdout, stderr = run_search_text(c_dim, embedder, real_hash)
         assert rc != 0, "dim mismatch should fail, got rc=0"

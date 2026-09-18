@@ -526,67 +526,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nest-cli"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "clap",
- "hex",
- "memmap2",
- "nest-format",
- "nest-runtime",
- "rand 0.10.2",
- "serde",
- "serde_json",
- "sha2",
-]
-
-[[package]]
-name = "nest-format"
-version = "0.4.0"
-dependencies = [
- "bytemuck",
- "half",
- "hex",
- "proptest",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
- "thiserror",
- "zstd",
-]
-
-[[package]]
-name = "nest-python"
-version = "0.4.0"
-dependencies = [
- "hex",
- "nest-format",
- "nest-runtime",
- "pyo3",
- "pyo3-build-config",
- "serde_json",
-]
-
-[[package]]
-name = "nest-runtime"
-version = "0.4.0"
-dependencies = [
- "criterion",
- "half",
- "hex",
- "libc",
- "memmap2",
- "nest-format",
- "rayon",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
-]
-
-[[package]]
 name = "num-traits"
 version = "0.2.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1039,6 +978,67 @@ name = "unicode-ident"
 version = "1.0.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
+
+[[package]]
+name = "urna-cli"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "hex",
+ "memmap2",
+ "rand 0.10.2",
+ "serde",
+ "serde_json",
+ "sha2",
+ "urna-format",
+ "urna-runtime",
+]
+
+[[package]]
+name = "urna-format"
+version = "0.4.0"
+dependencies = [
+ "bytemuck",
+ "half",
+ "hex",
+ "proptest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "thiserror",
+ "zstd",
+]
+
+[[package]]
+name = "urna-python"
+version = "0.4.0"
+dependencies = [
+ "hex",
+ "pyo3",
+ "pyo3-build-config",
+ "serde_json",
+ "urna-format",
+ "urna-runtime",
+]
+
+[[package]]
+name = "urna-runtime"
+version = "0.4.0"
+dependencies = [
+ "criterion",
+ "half",
+ "hex",
+ "libc",
+ "memmap2",
+ "rayon",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "urna-format",
+]
 
 [[package]]
 name = "utf8parse"

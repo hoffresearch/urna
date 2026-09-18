@@ -1,13 +1,13 @@
 # contributing
 
-`nest` is maintained by [hoff research](https://hoffresearch.com). author: brenner cruvinel ([brenner@hoffresearch.com](mailto:brenner@hoffresearch.com)). all contributions are welcome.
+`urna` is maintained by [hoff research](https://hoffresearch.com). author: brenner cruvinel ([brenner@hoffresearch.com](mailto:brenner@hoffresearch.com)). all contributions are welcome.
 
 ## how to contribute
 
-1. fork the repo at https://github.com/hoffresearch/nest.
+1. fork the repo at https://github.com/hoffresearch/urna.
 2. branch from `main`: `git checkout -b feature/short-description origin/main`.
 3. keep each pr focused on one concern. small is better.
-4. add or update tests for the change. new behavior needs a new test. write real tests against real artifacts (built .nest files, golden fixtures, real corpora), no mocks; cover the happy path, the error path, and one edge case.
+4. add or update tests for the change. new behavior needs a new test. write real tests against real artifacts (built .urna files, golden fixtures, real corpora), no mocks; cover the happy path, the error path, and one edge case.
 5. if the change alters architecture, module boundaries, data flow, or doc locations, update the arc pair (`doc/arc/arc.yaml`, `doc/arc/arc.mmd`) in the same pr. keep both concise and pragmatic. do not add a separate human architecture doc; `arc.yaml` is both the machine map and the human reference.
 6. run `./scripts/release_check.sh` locally before pushing. `.github/workflows/ci.yml` runs the same gate on the pr (minus the lfs corpus measurement), plus the mutation-fuzz harnesses and a cargo-fuzz smoke.
 7. commit with a clear message in plain english. no conventional commits prefix.
@@ -18,18 +18,18 @@
 requires rust edition 2024 (`rustc >= 1.85`) and python 3.12+.
 
 ```
-git clone https://github.com/hoffresearch/nest.git
-cd nest
+git clone https://github.com/hoffresearch/urna.git
+cd urna
 
 cargo build --release --workspace
-cp target/release/lib_nest.dylib python/_nest.so   # macOS
-cp target/release/lib_nest.so   python/_nest.so    # linux
+cp target/release/lib_urna.dylib python/_urna.so   # macOS
+cp target/release/lib_urna.so   python/_urna.so    # linux
 
 python3 -m venv .venv && source .venv/bin/activate
 pip install ruff sentence-transformers pandas zstandard pyarrow
 ```
 
-`dat/corpus_next.v1.nest` is tracked via git lfs. demo datasets under `dat/demo/` are local-only and gitignored; fetch them with the commands documented in `dat/demo/Instructions.md`. without those datasets, runtime unit tests still pass.
+`dat/corpus_next.v1.urna` is tracked via git lfs. demo datasets under `dat/demo/` are local-only and gitignored; fetch them with the commands documented in `dat/demo/Instructions.md`. without those datasets, runtime unit tests still pass.
 
 ## conventions and writing style
 
@@ -61,7 +61,7 @@ human working memory holds four plus or minus one chunks at once (cowan, 2001). 
 
 - **operational target for new files: 220 lines.** aim here.
 - **hard limit: 333 lines.** above this, refactor along single-responsibility lines in the same pr.
-- **rust source carve-out: 300 lines** for `crates/**/src/**`. test files and the `crates/nest-format/tests/roundtrip.rs` carve-out are exempt.
+- **rust source carve-out: 300 lines** for `crates/**/src/**`. test files and the `crates/urna-format/tests/roundtrip.rs` carve-out are exempt.
 
 ## code style
 
@@ -82,7 +82,7 @@ python:
 
 format and runtime invariants:
 
-the format is frozen at v1. any byte-level change either fits inside v1 (new section ids and encodings 4-255 are reserved) or bumps `NEST_FORMAT_VERSION` and ships as v2.
+the format is frozen at v1. any byte-level change either fits inside v1 (new section ids and encodings 4-255 are reserved) or bumps `URNA_FORMAT_VERSION` and ships as v2.
 
 ## tests
 
@@ -96,21 +96,21 @@ python tests/test_search_text_model_hash.py
 
 `release_check.sh` is the source of truth. if it passes locally, ci passes.
 
-two lints are denied workspace-wide and will fail the build: `clippy::unwrap_used` (tests are exempt; parse paths read fields through `nest_format::bytes`) and `clippy::undocumented_unsafe_blocks` (every `unsafe` block states its invariant in a `// SAFETY:` comment). a change to any section decoder or search path should also run the mutation harness, and a new codec gets an arm in `fuzz/fuzz_targets/section_decoders.rs`:
+two lints are denied workspace-wide and will fail the build: `clippy::unwrap_used` (tests are exempt; parse paths read fields through `urna_format::bytes`) and `clippy::undocumented_unsafe_blocks` (every `unsafe` block states its invariant in a `// SAFETY:` comment). a change to any section decoder or search path should also run the mutation harness, and a new codec gets an arm in `fuzz/fuzz_targets/section_decoders.rs`:
 
 ```
-cargo test -p nest-format --test mutation_fuzz -p nest-runtime --test mutation_fuzz
-NEST_MUTATION_ITERS=25000 cargo test --release -p nest-format --test mutation_fuzz
-cargo +nightly fuzz run nest-view -- -max_total_time=600      # needs cargo-fuzz, see fuzz/README.md
+cargo test -p urna-format --test mutation_fuzz -p urna-runtime --test mutation_fuzz
+URNA_MUTATION_ITERS=25000 cargo test --release -p urna-format --test mutation_fuzz
+cargo +nightly fuzz run urna-view -- -max_total_time=600      # needs cargo-fuzz, see fuzz/README.md
 ```
 
 ## reporting issues
 
-- bugs and feature requests: [github issues](https://github.com/hoffresearch/nest/issues).
+- bugs and feature requests: [github issues](https://github.com/hoffresearch/urna/issues).
 - security vulns: do not open a public issue. email [brenner@hoffresearch.com](mailto:brenner@hoffresearch.com). target ack within 72 hours.
 - questions about the format: open a discussion, or read `doc/arc/arc.yaml` and `doc/arc/arc.mmd`.
 
-bug reports should include the `.nest` `file_hash` and `content_hash` (from `nest stats <file>`), the runtime `simd_backend` (also in `nest stats`), the exact cli or python invocation, and the error output.
+bug reports should include the `.urna` `file_hash` and `content_hash` (from `urna stats <file>`), the runtime `simd_backend` (also in `urna stats`), the exact cli or python invocation, and the error output.
 
 ## code of conduct
 

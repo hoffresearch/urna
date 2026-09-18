@@ -1,22 +1,22 @@
-"""Build a searchable `.nest` corpus from an image directory or from PDFs.
+"""Build a searchable `.urna` corpus from an image directory or from PDFs.
 
     images (or rendered pdf pages)
       -> one fixed canvas
       -> one AV1 stream (optionally sharded, optionally similarity-ordered)
       -> vision embeddings of the encoded frames
-      -> .nest, one chunk per image or page
+      -> .urna, one chunk per image or page
 
 The index describes what a reader can actually get back, so when the corpus
 is compressed the vectors are taken from the DECODED frames, not from the
 source pixels. Building from the source pixels and shipping the compressed
 stream would report a quality the corpus does not have.
 
-A corpus is a directory: `corpus.nest` next to `corpus.media/`. Frame URIs
+A corpus is a directory: `corpus.urna` next to `corpus.media/`. Frame URIs
 are relative to that pair, so the corpus can be copied elsewhere and still
 resolve. `corpus.manifest.json` records what went in, for audit and for
-`nest_image_eval.py`.
+`urna_image_eval.py`.
 
-The CLI wrapper is `python/tools/nest_build_image_corpus.py`.
+The CLI wrapper is `python/tools/urna_build_image_corpus.py`.
 """
 
 from __future__ import annotations
@@ -88,7 +88,7 @@ def build_corpus(
         if is_pdf:
             # the rendered pages must outlive the encode and the embed, so the
             # temp dir is bound to the whole build, not to the render call.
-            tmp_dir = Path(stack.enter_context(TemporaryDirectory(prefix="nest-pdf-")))
+            tmp_dir = Path(stack.enter_context(TemporaryDirectory(prefix="urna-pdf-")))
             items = image_items.render_pdf_pages(input_dir, tmp_dir)
         else:
             items = image_items.collect_images(input_dir, labels)
@@ -183,7 +183,7 @@ def build_corpus(
 
     manifest = {
         "dataset": dataset_name,
-        "nest": output_path.name,
+        "urna": output_path.name,
         "compressed": compress,
         # the durable way back to a query image. for pdfs the rendered pages
         # are build-time temporaries, so `input_dir` + `origin` + `page` is
@@ -214,7 +214,7 @@ def build_corpus(
     manifest_path.write_text(json.dumps(manifest, indent=2))
     result = {
         "dataset": dataset_name,
-        "nest": str(output_path),
+        "urna": str(output_path),
         "manifest": str(manifest_path),
         "n_items": len(items),
         "compressed": compress,

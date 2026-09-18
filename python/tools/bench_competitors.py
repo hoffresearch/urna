@@ -1,7 +1,7 @@
-"""nest vs the embedded vector stores it gets compared to, one table.
+"""urna vs the embedded vector stores it gets compared to, one table.
 
 same rows, same queries, same machine, same process; every number is
-measured here, including the ones that make nest look ordinary. synthetic
+measured here, including the ones that make urna look ordinary. synthetic
 l2-normalized rows (seeded) so anyone can reproduce it without a dataset;
 the recall ruler is brute-force top-k over the same rows.
 
@@ -38,21 +38,21 @@ NOTES = (
     "\n".join(
         [
             "- `cold open + 1st query`: wall time of a fresh interpreter that opens the store and"
-            " answers one query, minus an interpreter doing nothing (3 runs, min). nest's number"
+            " answers one query, minus an interpreter doing nothing (3 runs, min). urna's number"
             " is dominated by `open` verifying every section checksum and the footer hash over"
             " the whole file before serving anything; the other stores trust their bytes.",
             "- `build (s)`: single-threaded everywhere (hnswlib and usearch are told threads=1);"
-            " nest's hnsw build is the slow row.",
+            " urna's hnsw build is the slow row.",
             "- `p50 / p99`: warm, single-threaded, one query at a time, from python. python call"
             " overhead is inside every number.",
             "- `recall@k` is against brute force over the same rows; exact paths are asserted"
             " at 1.0.",
             "- `rebuild byte-identical`: two builds from the same rows compared by sha256 over the"
             " artefact (a directory is hashed file by file).",
-            "- `integrity check`: whether the store can prove its own bytes. nest verifies sha256"
+            "- `integrity check`: whether the store can prove its own bytes. urna verifies sha256"
             " per section, per file and over the decoded content on `validate()`.",
             "- the same rows written with raw text and with zstd text share one `content_hash`:"
-            " {same_citation}. re-encoding never moves a `nest://content_hash/chunk_id` citation;"
+            " {same_citation}. re-encoding never moves a `urna://content_hash/chunk_id` citation;"
             " the other stores have no equivalent notion.",
         ]
     )
@@ -172,8 +172,8 @@ def main() -> None:
     truth = brute_force(rows, queries, args.k)
 
     candidates = [
-        ("nest_exact.nest", lambda: systems.NestSystem("exact", ann=False)),
-        ("nest_hybrid.nest", lambda: systems.NestSystem("hybrid", ann=True)),
+        ("urna_exact.urna", lambda: systems.UrnaSystem("exact", ann=False)),
+        ("urna_hybrid.urna", lambda: systems.UrnaSystem("hybrid", ann=True)),
         ("usearch.usearch", systems.UsearchSystem),
         ("hnswlib.bin", systems.HnswlibSystem),
         ("sqlite_vec.db", systems.SqliteVecSystem),
@@ -213,10 +213,10 @@ def main() -> None:
     # (index type is part of the canonical search_contract, so exact vs
     # hybrid legitimately differ; that is not what the claim is about.)
     same_citation = None
-    exact_rows = [r for r in results if r["system"] == "nest (exact)"]
+    exact_rows = [r for r in results if r["system"] == "urna (exact)"]
     if exact_rows:
-        z = systems.NestSystem("exact", ann=False, text_encoding="zstd")
-        zpath = os.path.join(args.work, "nest_exact_zstd.nest")
+        z = systems.UrnaSystem("exact", ann=False, text_encoding="zstd")
+        zpath = os.path.join(args.work, "urna_exact_zstd.urna")
         z.build(rows, zpath)
         z.open(zpath)
         same_citation = z.content_hash() == exact_rows[0]["content_hash"]
@@ -231,7 +231,7 @@ def main() -> None:
     )
     notes = NOTES.format(same_citation=same_citation).strip("\n").splitlines()
     limits = (
-        "what nest does NOT do that some of these do: in-place updates or deletes, metadata "
+        "what urna does NOT do that some of these do: in-place updates or deletes, metadata "
         "filtering, concurrent writers, a query language. it is a build-once, ship-and-query "
         "file; the table says nothing about workloads that need those."
     )

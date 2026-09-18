@@ -1,7 +1,7 @@
 {
   "baseline_content_hash": "sha256:b1aac2268deddb2c3d503d4e0e75bf596277c9809671399e6b636a454f6e1ae8",
   "baseline_file_hash": "sha256:b61b03dd95d9a7c387c2abeaa60e1f4f4ec76ec4a81c5f7d0dc73dbe2050371e",
-  "baseline_path": "dat/corpus_next.v1.nest",
+  "baseline_path": "dat/corpus_next.v1.urna",
   "embedding_dim": 384,
   "k": 10,
   "n_chunks": 30725,

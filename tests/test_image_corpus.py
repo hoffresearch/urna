@@ -115,7 +115,7 @@ class ImageCorpusTest(unittest.TestCase):
             import PIL  # noqa: F401
         except ImportError:
             self.skipTest("Pillow not available")
-        self.tmp = Path(tempfile.mkdtemp(prefix="nest-image-test-"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="urna-image-test-"))
         self.src = make_dataset(self.tmp / "src")
 
     def tearDown(self):
@@ -141,13 +141,13 @@ class ImageCorpusTest(unittest.TestCase):
         src=None,
         speed=8,
     ) -> dict:
-        from tools import nest_build_image_corpus as builder
+        from tools import urna_build_image_corpus as builder
 
         return builder.build_corpus(
             all_intra=all_intra,
             speed=speed,
             input_dir=src or self.src,
-            output_path=self.tmp / name / f"{name}.nest",
+            output_path=self.tmp / name / f"{name}.urna",
             dataset_name=dataset or name,
             embedder=StubEmbedder(),
             compress=compress,
@@ -169,7 +169,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_compressed_frames_align_with_items(self):
         if not have_ffmpeg():
             self.skipTest("ffmpeg with libsvtav1 not available")
-        import nest
+        import urna
 
         result = self._build("aligned", compress=True)
         media = result["media"]
@@ -180,7 +180,7 @@ class ImageCorpusTest(unittest.TestCase):
         for item in manifest["items"]:
             self.assertEqual(item["source_uri"], f"media://aligned-av1.mp4#frame={item['ordinal']}")
 
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         self.assertEqual(db.n_embeddings, result["n_items"])
         db.validate()
 
@@ -193,12 +193,12 @@ class ImageCorpusTest(unittest.TestCase):
         """
         if not have_ffmpeg():
             self.skipTest("ffmpeg with libsvtav1 not available")
-        import nest
+        import urna
 
         result = self._build("intra", compress=True, all_intra=True)
         self.assertEqual(result["media"]["keyint"], 1)
         self.assertEqual(result["media"]["frame_count"], result["n_items"])
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         self.assertEqual(db.n_embeddings, result["n_items"])
         db.validate()
 
@@ -247,7 +247,7 @@ class ImageCorpusTest(unittest.TestCase):
         """Same seed, same subset: otherwise a rebuild is a different corpus."""
         first = self._build("s1", compress=False, sample=6, dataset="sampletest")
         second = self._build("s2", compress=False, sample=6, dataset="sampletest")
-        self.assertEqual(Path(first["nest"]).read_bytes(), Path(second["nest"]).read_bytes())
+        self.assertEqual(Path(first["urna"]).read_bytes(), Path(second["urna"]).read_bytes())
 
     # ---- the cache bug: a warm scratch db must not reshuffle vectors ----
 
@@ -280,19 +280,19 @@ class ImageCorpusTest(unittest.TestCase):
 
         warm = self._build("warm", compress=False, scratch_db=cache, dataset="cachetest")
         self.assertEqual(
-            Path(cold["nest"]).read_bytes(),
-            Path(warm["nest"]).read_bytes(),
+            Path(cold["urna"]).read_bytes(),
+            Path(warm["urna"]).read_bytes(),
             "partly-warm rebuild diverged: cached vectors were mismatched to chunks",
         )
 
     def test_search_finds_the_query_itself(self):
-        import nest
+        import urna
 
         result = self._build("selftest", compress=False)
         manifest = json.loads(Path(result["manifest"]).read_text())
         target = manifest["items"][5]
         vec = StubEmbedder().embed_one(target["render_path"]).tolist()
-        hits = nest.open(result["nest"]).search(vec, 3)
+        hits = urna.open(result["urna"]).search(vec, 3)
         self.assertEqual(hits[0].offset_start, target["ordinal"])
 
     # ---- portability: a corpus must survive being moved ----
@@ -310,11 +310,11 @@ class ImageCorpusTest(unittest.TestCase):
 
         moved = self.tmp / "elsewhere"
         moved.mkdir()
-        shutil.copy(result["nest"], moved / "portable.nest")
-        shutil.copytree(image_media.media_dir_for(Path(result["nest"])), moved / "portable.media")
+        shutil.copy(result["urna"], moved / "portable.urna")
+        shutil.copytree(image_media.media_dir_for(Path(result["urna"])), moved / "portable.media")
         name, ordinal = image_media.parse_media_uri(manifest["items"][3]["source_uri"])
         frame = image_decode.decode_frame(
-            image_media.media_dir_for(moved / "portable.nest") / name,
+            image_media.media_dir_for(moved / "portable.urna") / name,
             tuple(manifest["media"]["canvas"]),
             ordinal,
         )
@@ -323,10 +323,10 @@ class ImageCorpusTest(unittest.TestCase):
     # ---- the manifest gate has to hold for image corpora too ----
 
     def test_wrong_model_hash_is_rejected(self):
-        import nest
+        import urna
 
         result = self._build("gated", compress=False)
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         vec = StubEmbedder().embed_one(sorted(self.src.glob("*.png"))[0]).tolist()
         db.retrieve(vec, 3, expected_model_hash=StubEmbedder().model_hash)
         with self.assertRaises(ValueError):
@@ -353,8 +353,8 @@ class ImageCorpusTest(unittest.TestCase):
         except ImportError:
             self.skipTest("PyMuPDF not available")
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
-        import nest_image_eval as ev
-        from tools import nest_build_image_corpus as builder
+        import urna_image_eval as ev
+        from tools import urna_build_image_corpus as builder
 
         pdf_dir = self.tmp / "pdfs"
         pdf_dir.mkdir()
@@ -366,7 +366,7 @@ class ImageCorpusTest(unittest.TestCase):
 
         result = builder.build_corpus(
             input_dir=pdf_dir,
-            output_path=self.tmp / "pdfcorpus" / "guide.nest",
+            output_path=self.tmp / "pdfcorpus" / "guide.urna",
             dataset_name="guide",
             embedder=StubEmbedder(),
             is_pdf=True,
@@ -409,7 +409,7 @@ class ImageCorpusTest(unittest.TestCase):
         interval and says so, so the same claim cannot be made twice.
         """
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
-        import nest_image_eval as ev
+        import urna_image_eval as ev
 
         rng = np.random.default_rng(0)
         same = rng.normal(0.6, 0.2, 400)
@@ -528,11 +528,11 @@ class ImageCorpusTest(unittest.TestCase):
         self.assertIn("ffmpeg", media["toolchain"])
         self.assertTrue(media["provenance_sha256"].startswith("sha256:"))
 
-        from tools import nest_build_image_corpus as builder
+        from tools import urna_build_image_corpus as builder
 
         second = builder.build_corpus(
             input_dir=self.src,
-            output_path=self.tmp / "prov2" / "prov2.nest",
+            output_path=self.tmp / "prov2" / "prov2.urna",
             dataset_name="prov2",
             embedder=StubEmbedder(),
             compress=True,
@@ -559,7 +559,7 @@ class ImageCorpusTest(unittest.TestCase):
         self.assertEqual(len(hashes), result["n_items"])
         self.assertTrue(all(h.startswith("sha256:") for h in hashes))
 
-        video = image_media.media_dir_for(Path(result["nest"])) / "hashed-av1.mp4"
+        video = image_media.media_dir_for(Path(result["urna"])) / "hashed-av1.mp4"
         canvas = tuple(manifest["media"]["canvas"])
         image_decode.verify_frame_hashes(video, canvas, hashes)
 
@@ -681,7 +681,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_avif_backend_roundtrip_and_relocates(self):
         if not have_avif():
             self.skipTest("avifenc/avifdec not available")
-        import nest
+        import urna
 
         result = self._build("avicorpus", compress=True, backend="avif", speed=9)
         manifest = json.loads(Path(result["manifest"]).read_text())
@@ -702,16 +702,16 @@ class ImageCorpusTest(unittest.TestCase):
             self.assertTrue(item["source_uri"].startswith("media://avicorpus-avif/"))
             self.assertNotIn(str(self.tmp), item["source_uri"])
 
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         self.assertEqual(db.n_embeddings, result["n_items"])
         db.validate()
 
         # a hit resolves to real pixels out of the per-image media
-        from tools import nest_search_image as search
+        from tools import urna_search_image as search
 
         out_dir = self.tmp / "hits"
         saved = search.save_frame(
-            Path(result["nest"]), manifest, manifest["items"][2]["source_uri"], out_dir
+            Path(result["urna"]), manifest, manifest["items"][2]["source_uri"], out_dir
         )
         self.assertTrue(saved and Path(saved).exists())
 
@@ -726,13 +726,13 @@ class ImageCorpusTest(unittest.TestCase):
         """
         if not have_ffmpeg():
             self.skipTest("PIL decode only, but keep the skip symmetric")
-        import nest
+        import urna
         from forge import image_media
 
         result = self._build("ctrlcorpus", compress=True, control=True)
         manifest = json.loads(Path(result["manifest"]).read_text())
         self.assertEqual(manifest["media"]["backend"], "png-lossless")
-        media_dir = image_media.media_dir_for(Path(result["nest"]))
+        media_dir = image_media.media_dir_for(Path(result["urna"]))
         pngs = sorted(media_dir.rglob("*.png"))
         self.assertEqual(len(pngs), result["n_items"])
 
@@ -743,27 +743,27 @@ class ImageCorpusTest(unittest.TestCase):
         with Image.open(manifest["items"][4]["render_path"]) as img:
             query = image_media.letterbox(img, canvas)
         vec = StubEmbedder()._vector(query).tolist()
-        hits = nest.open(result["nest"]).search(vec, 3)
+        hits = urna.open(result["urna"]).search(vec, 3)
         self.assertEqual(hits[0].offset_start, 4)
 
     # ---- F2.6: the text tower is plumbed through the search cli ----
 
     def test_query_text_and_query_image_are_exclusive(self):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
-        import nest_search_image as search
+        import urna_search_image as search
 
         with self.assertRaises(SystemExit):
             search.parse_args(
                 [
                     "--index",
-                    "x.nest",
+                    "x.urna",
                     "--query-image",
                     "a.png",
                     "--query-text",
                     "blue nevus",
                 ]
             )
-        args = search.parse_args(["--index", "x.nest", "--query-text", "blue nevus"])
+        args = search.parse_args(["--index", "x.urna", "--query-text", "blue nevus"])
         self.assertEqual(args.query_text, "blue nevus")
 
     # ---- fase 5: gop policy probe, similarity order, sharding, dtype ladder ----
@@ -846,7 +846,7 @@ class ImageCorpusTest(unittest.TestCase):
         result = self._build("ordered", compress=True, order_similarity=True)
         manifest = json.loads(Path(result["manifest"]).read_text())
         media = manifest["media"]
-        media_dir = image_media.media_dir_for(Path(result["nest"]))
+        media_dir = image_media.media_dir_for(Path(result["urna"]))
         canvas = tuple(media["canvas"])
         frame_ids = []
         for item in manifest["items"]:
@@ -868,7 +868,7 @@ class ImageCorpusTest(unittest.TestCase):
         """Segments of ~`shard_size` frames, indexed in the manifest."""
         if not have_ffmpeg():
             self.skipTest("ffmpeg with libsvtav1 not available")
-        import nest
+        import urna
         from forge import image_decode, image_media
 
         result = self._build("sharded", compress=True, shard_size=5)
@@ -878,7 +878,7 @@ class ImageCorpusTest(unittest.TestCase):
         self.assertEqual(len(segments), 3, "12 frames at shard_size 5")
         self.assertEqual(sum(s["n_frames"] for s in segments), result["n_items"])
         self.assertEqual(media["frame_count"], result["n_items"])
-        media_dir = image_media.media_dir_for(Path(result["nest"]))
+        media_dir = image_media.media_dir_for(Path(result["urna"]))
         canvas = tuple(media["canvas"])
         for seg in segments:
             self.assertTrue((media_dir / seg["uri"]).exists(), seg["uri"])
@@ -891,7 +891,7 @@ class ImageCorpusTest(unittest.TestCase):
                 manifest["frame_sha256"][item["ordinal"]],
                 f"item {item['ordinal']} resolved to another item's frame",
             )
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         self.assertEqual(db.n_embeddings, result["n_items"])
         db.validate()
 
@@ -905,7 +905,7 @@ class ImageCorpusTest(unittest.TestCase):
         manifest = json.loads(Path(result["manifest"]).read_text())
         media = manifest["media"]
         self.assertEqual(len(media["segments"]), 3)
-        media_dir = image_media.media_dir_for(Path(result["nest"]))
+        media_dir = image_media.media_dir_for(Path(result["urna"]))
         canvas = tuple(media["canvas"])
         seen = []
         for item in manifest["items"]:
@@ -1016,17 +1016,17 @@ class ImageCorpusTest(unittest.TestCase):
 
     def test_dtype_override_reaches_the_built_corpus(self):
         """The dtype lever (F5.3) is a build kwarg, not a preset swap."""
-        import nest
+        import urna
 
         result = self._build("int8corpus", compress=False, dtype="int8", preset="exact")
-        db = nest.open(result["nest"])
+        db = urna.open(result["urna"])
         self.assertEqual(db.n_embeddings, result["n_items"])
         db.validate()
 
     def test_sweep_dtype_ladder_and_gop_kinds(self):
         """`dtype:` variants isolate quantization; av1 kinds pin the policy."""
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
-        import nest_image_sweep as sweep
+        import urna_image_sweep as sweep
 
         variants = sweep.parse_variants("dtype:f16,int8,int4")
         self.assertEqual([v["dtype"] for v in variants], ["float16", "int8", "int4"])
@@ -1106,7 +1106,7 @@ class ImageCorpusTest(unittest.TestCase):
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
         import argparse
 
-        import nest_image_sweep as sweep
+        import urna_image_sweep as sweep
 
         labels_csv = self.tmp / "labels.csv"
         labels_csv.write_text(
@@ -1136,7 +1136,7 @@ class ImageCorpusTest(unittest.TestCase):
         # variant's index size, must be reported or a published number
         # cannot be reproduced.
         self.assertGreater(report["control"]["media_bytes"], 0)
-        self.assertGreater(report["control"]["nest_bytes"], 0)
+        self.assertGreater(report["control"]["urna_bytes"], 0)
         for variant in report["variants"].values():
             self.assertIn("bootstrap", variant["delta_vs_control"]["precision@10"])
             self.assertIn("sign_test", variant["delta_vs_control"]["precision@10"])
@@ -1144,7 +1144,7 @@ class ImageCorpusTest(unittest.TestCase):
             self.assertIn("kendall_tau_b", variant["delta_vs_control"]["ranking"])
             self.assertIn("median", variant["drift"])
             self.assertGreater(variant["media_bytes"], 0)
-            self.assertGreater(variant["nest_bytes"], 0)
+            self.assertGreater(variant["urna_bytes"], 0)
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 """Acceptance harness: measure file size, recall@k, score drift, and
-latency for the four presets against a baseline `dat/corpus_next.v1.nest`.
+latency for the four presets against a baseline `dat/corpus_next.v1.urna`.
 
 Pipeline:
 
   1. Open the baseline (`exact` preset) — this is the recall=1.0 ground
      truth for both ranking and score.
   2. Decode embeddings + canonical texts + chunk_ids out of the baseline.
-  3. For each variant in {compressed, tiny, hybrid}, rebuild a .nest with
+  3. For each variant in {compressed, tiny, hybrid}, rebuild a .urna with
      the same corpus and the variant preset.
   4. For N random queries (sampled from the corpus' own embeddings —
      deterministic given a seed):
@@ -44,7 +44,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(REPO / "python"))
 
-import nest  # noqa: E402
+import urna  # noqa: E402
 from _baseline_decoder import DEFAULT_BASELINE, OUT_DIR, decode_baseline  # noqa: E402
 from _bench_runner import build_variant, percentile, run_bench  # noqa: E402
 
@@ -222,7 +222,7 @@ def main():
         "--reuse",
         action="store_true",
         help=(
-            "Reuse an existing variant build when the .nest opens and validates "
+            "Reuse an existing variant build when the .urna opens and validates "
             "cleanly (builds are deterministic, so the bytes are identical). "
             "build_s is recorded as 0.0 and the log line says reused=true. "
             "Default off: every variant is rebuilt."
@@ -239,7 +239,7 @@ def main():
     chunks, meta = decode_baseline(base_path)
     queries = _sample_queries(chunks, args.n_queries, args.seed)
 
-    db_exact = nest.open(str(base_path))
+    db_exact = urna.open(str(base_path))
     base_size = base_path.stat().st_size
     t_exact, hits_exact = run_bench(db_exact, queries, args.k, mode="exact")
     base_top_score = [h[0].score for h in hits_exact]
@@ -278,13 +278,13 @@ def main():
         preset = preset.strip()
         if not preset:
             continue
-        out_path = OUT_DIR / f"corpus_{preset}.nest"
+        out_path = OUT_DIR / f"corpus_{preset}.urna"
         print(f"\n→ building preset={preset} → {out_path}", file=log)
         reused = False
         build_time = 0.0
         if args.reuse and out_path.exists():
             try:
-                probe = nest.open(str(out_path))
+                probe = urna.open(str(out_path))
                 probe.validate()
                 reused = True
             except Exception:
@@ -292,7 +292,7 @@ def main():
         if not reused:
             build_time = build_variant(chunks, meta, preset, out_path)
         size = out_path.stat().st_size
-        db_v = nest.open(str(out_path))
+        db_v = urna.open(str(out_path))
         db_v.validate()
 
         if db_v.has_ann and db_v.has_bm25 and preset == "hybrid":

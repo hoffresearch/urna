@@ -2,7 +2,7 @@
 
 forge is the ingestion layer. it turns messy, heterogeneous inputs such as
 pdfs, plain text, datasets, and archives into a deterministic canonical
-intermediate that the nest build path already understands.
+intermediate that the urna build path already understands.
 
 forge lives outside the sovereign core so its heavier dependencies never touch
 the small, frozen format and runtime crates. the rule that keeps builds

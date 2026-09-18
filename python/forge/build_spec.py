@@ -169,11 +169,11 @@ class OutputSpec:
     dir: str = "out"
     provenance: str = "standard"  # minimal | standard | full
     allow_remote_code: list[str] = field(default_factory=list)
-    # inline the media bytes into the .nest (0x17): one self-contained file,
+    # inline the media bytes into the .urna (0x17): one self-contained file,
     # no sidecar needed at read time. the media dir remains as build cache.
     embed_media: bool = False
     # root of the shared, content-addressed embed cache (embed/<preset>/<triad>.npz
-    # and models/ probes). "" = NEST_CACHE_DIR, else ${XDG_CACHE_HOME:-~/.cache}/nest.
+    # and models/ probes). "" = URNA_CACHE_DIR, else ${XDG_CACHE_HOME:-~/.cache}/urna.
     # `.forge-state/` and `.tmp/` stay in `dir` (transactional, same filesystem).
     cache_dir: str = ""
 

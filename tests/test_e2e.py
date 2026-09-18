@@ -1,10 +1,11 @@
 """end-to-end test of the Python (PyO3) path.
 
-the CLI binary is exhaustively tested in `crates/nest-cli/tests/cli_e2e.rs`.
+the CLI binary is exhaustively tested in `crates/urna-cli/tests/cli_e2e.rs`.
 This file stays on a single Python entry point: PyO3 only. No subprocess
-shell-out — `nest validate / stats / search / cite / inspect` all have
-in-process equivalents through `nest.NestFile`.
+shell-out — `urna validate / stats / search / cite / inspect` all have
+in-process equivalents through `urna.UrnaFile`.
 """
+
 import math
 import os
 import random
@@ -13,7 +14,7 @@ import tempfile
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 
-import nest
+import urna
 
 
 def _unit_vec(rng: random.Random, dim: int) -> list[float]:
@@ -22,7 +23,7 @@ def _unit_vec(rng: random.Random, dim: int) -> list[float]:
     return [x / n for x in v]
 
 
-def make_nest(path: str, dim: int, n: int, *, reproducible: bool = False, seed: int = 0):
+def make_urna(path: str, dim: int, n: int, *, reproducible: bool = False, seed: int = 0):
     rng = random.Random(seed)
     chunks = []
     cursor = 0
@@ -38,7 +39,7 @@ def make_nest(path: str, dim: int, n: int, *, reproducible: bool = False, seed: 
             )
         )
         cursor += len(text)
-    nest.build(
+    urna.build(
         output_path=path,
         embedding_model="test-model",
         embedding_dim=dim,
@@ -50,11 +51,11 @@ def make_nest(path: str, dim: int, n: int, *, reproducible: bool = False, seed: 
 
 
 def test_python_build_then_python_search():
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".nest") as f:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".urna") as f:
         path = f.name
     try:
-        make_nest(path, dim=8, n=10)
-        db = nest.open(path)
+        make_urna(path, dim=8, n=10)
+        db = urna.open(path)
         assert db.embedding_dim == 8
         assert db.n_embeddings == 10
         assert db.file_hash.startswith("sha256:")
@@ -69,21 +70,21 @@ def test_python_build_then_python_search():
         assert h.reranked is False
         assert h.file_hash == db.file_hash
         assert h.content_hash == db.content_hash
-        assert h.citation_id.startswith(f"nest://{db.content_hash}/")
+        assert h.citation_id.startswith(f"urna://{db.content_hash}/")
         print("python build/search OK:", path)
     finally:
         os.unlink(path)
 
 
 def test_validate_via_pyo3():
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".nest") as f:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".urna") as f:
         path = f.name
     try:
-        make_nest(path, dim=4, n=5)
-        db = nest.open(path)
+        make_urna(path, dim=4, n=5)
+        db = urna.open(path)
         assert db.validate() is True
         info = db.inspect()
-        assert info["magic"] == "NEST"
+        assert info["magic"] == "URNA"
         assert info["n_chunks"] == 5
         assert info["manifest"]["dtype"] == "float32"
         assert info["manifest"]["metric"] == "ip"
@@ -106,29 +107,29 @@ def test_validate_via_pyo3():
 
 def test_reproducible_builds_match_byte_for_byte():
     with tempfile.TemporaryDirectory() as d:
-        a = os.path.join(d, "a.nest")
-        b = os.path.join(d, "b.nest")
-        make_nest(a, dim=4, n=3, reproducible=True, seed=7)
-        make_nest(b, dim=4, n=3, reproducible=True, seed=7)
+        a = os.path.join(d, "a.urna")
+        b = os.path.join(d, "b.urna")
+        make_urna(a, dim=4, n=3, reproducible=True, seed=7)
+        make_urna(b, dim=4, n=3, reproducible=True, seed=7)
         with open(a, "rb") as fa, open(b, "rb") as fb:
             data_a = fa.read()
             data_b = fb.read()
         assert data_a == data_b, "reproducible builds diverged"
 
         # And the file_hash from a third in-process open must match too.
-        ha = nest.open(a).file_hash
-        hb = nest.open(b).file_hash
+        ha = urna.open(a).file_hash
+        hb = urna.open(b).file_hash
         assert ha == hb
         print("reproducible build OK:", len(data_a), "bytes,", ha[:32])
 
 
 def test_search_hit_carries_full_contract():
     """Every required SearchHit field in the documented contract is populated and stable."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".nest") as f:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".urna") as f:
         path = f.name
     try:
-        make_nest(path, dim=4, n=3)
-        db = nest.open(path)
+        make_urna(path, dim=4, n=3)
+        db = urna.open(path)
         h = db.search([1.0, 0.0, 0.0, 0.0], 1)[0]
 
         # Required fields
@@ -143,22 +144,22 @@ def test_search_hit_carries_full_contract():
         assert h.reranked is False
         assert h.file_hash.startswith("sha256:")
         assert h.content_hash.startswith("sha256:")
-        assert h.citation_id == f"nest://{h.content_hash}/{h.chunk_id}"
+        assert h.citation_id == f"urna://{h.content_hash}/{h.chunk_id}"
         print("search hit contract OK")
     finally:
         os.unlink(path)
 
 
 def test_retrieve_score_equals_search_score_exactly():
-    """The flagship-is-a-lie guard in python: NestFile.retrieve(q, k) must
-    return cited spans whose `score` equals NestFile.search(q, k) byte-for-byte
+    """The flagship-is-a-lie guard in python: UrnaFile.retrieve(q, k) must
+    return cited spans whose `score` equals UrnaFile.search(q, k) byte-for-byte
     (the retrieve score IS the exact rerank value, never a candidate proxy),
-    and each hit carries the tier-1 text + a well-formed nest:// citation."""
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".nest") as f:
+    and each hit carries the tier-1 text + a well-formed urna:// citation."""
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".urna") as f:
         path = f.name
     try:
-        make_nest(path, dim=8, n=12, seed=3)
-        db = nest.open(path)
+        make_urna(path, dim=8, n=12, seed=3)
+        db = urna.open(path)
         q = _unit_vec(random.Random(99), 8)
 
         search_hits = db.search(q, 5)
@@ -169,7 +170,7 @@ def test_retrieve_score_equals_search_score_exactly():
             # the load-bearing guard: identical bits, not "close".
             assert r.score == s.score, (r.score, s.score)
             assert r.score_type == "cosine"
-            assert r.citation_id == f"nest://{db.content_hash}/{r.chunk_id}"
+            assert r.citation_id == f"urna://{db.content_hash}/{r.chunk_id}"
             assert r.content_hash == db.content_hash
             assert r.file_hash == db.file_hash
             # tier-1 stored canonical text is attached and non-empty.
