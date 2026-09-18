@@ -461,6 +461,33 @@ status: the release pipeline (`.github/workflows/release.yml` via cargo-dist, `.
 
 the product is offline by construction: the installers are the only thing that ever opens a socket. after install, `urna doctor` validates the surface without network.
 
+### environment variables
+
+every `URNA_*` variable read anywhere in the codebase (installers, cli, forge, dev scripts), in one place. channel sections below mention the ones relevant to that channel; this table is the source of truth.
+
+| variable | scope | default | what it does |
+|---|---|---|---|
+| `URNA_RELEASE_BASE` | install | github release url | url prefix `install.sh` / `install.ps1` fetch the four release files from (`file://` works for air-gapped installs) |
+| `URNA_BIN_DIR` | install | `~/.local/bin` (`~\.local\bin` on windows) | where the installer puts the `urna` binary |
+| `URNA_DATA_DIR` | install | `${XDG_DATA_HOME:-~/.local/share}` (`%LOCALAPPDATA%` on windows) | parent dir for the embedder payload the installer extracts |
+| `URNA_PYTHON` | runtime, dev | `python3`, or `./.venv/bin/python` if present (`release_check.sh`) | python interpreter the cli, `urna doctor`, and the dev scripts shell out to; must carry the forge deps (numpy, tokenizers) |
+| `URNA_FORCE_SCALAR` | runtime | unset | forces the scalar simd kernel over avx2 / neon, for a/b benchmarking |
+| `URNA_ALLOW_DOWNLOAD` | runtime, build | unset (offline) | lets `search-text`, `embed_query.py`, `model_fingerprint.py`, and the corpus builder fetch a sentence-transformers model instead of failing offline |
+| `URNA_ALLOW_REMOTE_CODE` | runtime, build | unset (empty) | comma-separated preset names allowed to load `trust_remote_code` model-repo code (`ask` / `retrieve` routing, `urna_model_bench.py`, `urna_ui_bridge.py`) |
+| `URNA_ALLOW_HEAVY` | runtime | unset | allows an executable / heavy embedder preset in `embed_query_model.py` |
+| `URNA_CACHE_DIR` | build | `${XDG_CACHE_HOME:-~/.cache}/urna` | forge's triad-addressed embed cache root (declarative builds, section 13) |
+| `URNA_ST_DEVICE` | build | `auto` | sentence-transformers device override (`cpu`, `mps`, `cuda`) for the forge embed workers |
+| `URNA_ST_DTYPE` | build | unset (model default) | sentence-transformers dtype override for the forge embed workers |
+| `URNA_MODEL_DIR_<NAME>` | build | unset | local dir override for a registry preset, e.g. `URNA_MODEL_DIR_WEMM_2B`; wins over the hf cache, loses to an explicit `--model-path` |
+| `URNA_ENABLE_FAKE_PRESET` | test-only | unset | unlocks the `fake-test` model preset used by the registry's own test suite |
+| `URNA_MUTATION_ITERS` | dev | `1500` | iteration count for the mutation-fuzz harness; raise for a soak run |
+| `URNA_FUZZ_SEED_DIR` | dev | unset | seed corpus dir override for the mutation-fuzz harness |
+| `URNA_FUZZ_TARGETS` | dev | `urna-view section-decoders runtime-indexes mmap-open-search` | space-separated cargo-fuzz targets `scripts/fuzz_soak.sh` runs |
+| `URNA_BASELINE` | dev | `dat/measure/baseline.json` | regression baseline `release_check.sh` compares against |
+| `URNA_QUERIES` | dev | `100` | query count `measure_presets.py` uses via `release_check.sh` |
+| `URNA_K` | dev | `10` | top-k `measure_presets.py` uses via `release_check.sh` |
+| `URNA_OUT` | dev | `/tmp/release_check_post.json` | where `release_check.sh` writes the post-run measurement json |
+
 <details>
 <summary>one-liner (linux, macos)</summary>
 
@@ -477,14 +504,12 @@ urna doctor
 4. installs the binary to `~/.local/bin/urna` and extracts the payload to `${XDG_DATA_HOME:-~/.local/share}/urna/forge/` (the potion embedder script plus its vendored table).
 5. warns if `~/.local/bin` is not on `PATH`.
 
-| flag / env | effect |
+| flag | effect |
 |---|---|
 | `--version vX.Y.Z` | pin a release (default: latest). a bare `X.Y.Z` gets the `v` prepended |
 | `--uninstall` | remove the binary and the payload dir |
-| `URNA_RELEASE_BASE` | url prefix that serves the four files (any url `curl` accepts, `file://` included) |
-| `URNA_BIN_DIR` | binary dir, default `~/.local/bin` |
-| `URNA_DATA_DIR` | payload parent, default `${XDG_DATA_HOME:-~/.local/share}` |
-| `URNA_CACHE_DIR` | forge embed cache root (build time, section 13), default `${XDG_CACHE_HOME:-~/.cache}/urna` |
+
+`URNA_RELEASE_BASE`, `URNA_BIN_DIR`, and `URNA_DATA_DIR` override the install paths; see the environment variables reference above.
 
 the linux binaries are static musl, so they run on any distro and inside `scratch` containers. `urna doctor` needs a python 3.12+ interpreter with `numpy` and `tokenizers` for the offline embed probe (`URNA_PYTHON` selects the interpreter); everything else in the cli runs without python.
 
