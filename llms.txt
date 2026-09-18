@@ -86,7 +86,7 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 - doc/usage.md
 - doc/benchmarks.md
 - doc/CHANGELOG
-- https://github.com/brennercruvinel/mtg-nest-benchmark (the image-corpus benchmark: code, specs, corpora, results; the .urna artifacts on the hugging face dataset of the same name; private for now)
+- https://github.com/brennercruvinel/mtg-urna-benchmark (the image-corpus benchmark: code, specs, corpora, results; the .urna artifacts on the hugging face dataset of the same name; private for now)
 
 made it simple, but signifcant.
 Hoff Research - hoffresearch.com
