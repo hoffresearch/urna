@@ -5,7 +5,7 @@
 use super::UrnaView;
 use crate::error::UrnaError;
 use crate::layout::{
-    SECTION_ALIGNMENT, SectionEntry, URNA_FOOTER_SIZE, URNA_HEADER_SIZE, URNA_MAGIC,
+    LEGACY_MAGIC, SECTION_ALIGNMENT, SectionEntry, URNA_FOOTER_SIZE, URNA_HEADER_SIZE, URNA_MAGIC,
     URNA_SECTION_ENTRY_SIZE, URNA_VERSION_MAJOR, URNA_VERSION_MINOR, UrnaFooter, UrnaHeader,
 };
 use crate::manifest::Manifest;
@@ -22,7 +22,7 @@ impl<'a> UrnaView<'a> {
             .as_bytes_mut()
             .copy_from_slice(&data[..URNA_HEADER_SIZE]);
 
-        if &header.magic != URNA_MAGIC {
+        if &header.magic != URNA_MAGIC && &header.magic != LEGACY_MAGIC {
             return Err(UrnaError::MagicMismatch {
                 expected: *URNA_MAGIC,
                 got: header.magic,
