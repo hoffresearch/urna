@@ -1,14 +1,14 @@
 # urna architecture reference: single consolidated file.
-# merged 2026-09-18 from the former doc/arc/arc.yaml (machine + human
-# reference), doc/arc/arc.mmd (mermaid visual map), and doc/arc/arc.schema.json
+# merged 2026-09-18 from the former docs/arc/arc.yaml (machine + human
+# reference), docs/arc/arc.mmd (mermaid visual map), and docs/arc/arc.schema.json
 # (the arc.yaml ide-validation schema). doc-location change only; no
 # architecture, format, or runtime change. there is no separate
 # human-prose architecture doc: this file is it.
 
 project = "urna"
-last-updated = "2026-09-18"
+last-updated = "2026-09-22"
 domain = "architecture"
-summary = "single-file semantic knowledge stack: rust owns format, runtime, cli, and bindings; python owns ingestion, model fingerprinting, and support tooling. p1#07 (G1) added the optional chunk-to-chunk graph_adjacency (0x0C) csr + search-graph. p1#08 stood up the agent-native flagship over the EXISTING engine: cli `ask`/`retrieve` + python UrnaFile.retrieve (offline potion embed, model_hash gate, capability route, tier-1 cited spans whose score IS the exact rerank value) + the additive SearchExplain honesty backbone (rerank_source: real cosine vs real cosine at stored precision). 2026-08-10: the media blob pillar (F4b) brought codec-backed media INTO the container (blob_refs 0x14 + blob_span_overlay 0x16, capabilities_ext.blobs_present) and the multimodal space pillar (F4c) added the space_table 0x15 registry plus per-space embedding slabs in the 0x20-0x2F band behind capabilities_ext.supports_multimodal, each space gated by its own model_hash in isolation; F5 added the build-time levers gop_policy=auto probe, sharding, similarity ordering, and the dtype ladder for image corpora. all additive, content_hash-excluded, zero format bytes changed for text corpora, no URNA_FORMAT_VERSION bump; verb-collapse / urna dev / urna-profile deferred. 2026-08-11: the distribution surface (issue #75) landed: cargo-dist cli releases (5 targets, sha256, sigstore attestations, homebrew tap), the maturin `urna` wheel with the bundled potion table (abi3 cp312, OIDC trusted publishing), one-liner installers, `urna doctor` with typed exit codes, the minimal docker image, and offline integration examples. 2026-08-31: declarative builds + model registry + compression levers (rfcs 0-5, no format change): `urna build --spec corpus.toml` launches python/tools/urna_forge.py -> forge/build_spec.py (toml contract, SpecError names the key, total-order enforcement) -> forge/corpus_sources.py (sqlite/csv/jsonl/image_dir rows with per-item input_hash) -> forge/forge_pipeline.py (transactional stages, dedup via shared 0x16 spans, triad-keyed embed caches model_hash+recipe_hash+input_hash, single/per-model/both outputs from one embed pass, manifest_schema_version=1 + build.lock.json); forge/model_registry.py holds the model presets (potion/clip-vit-b32/siglip2/jina-v5-omni/wemm-2b|4b|9b/fake-test) with validated mrl ladders, remote-code opt-in + pinned hash allowlist, and subprocess-isolated st adapters (one worker per model via forge/embed_st_worker.py -- two trust_remote_code ST models in one process collide in transformers dynamic modules, measured); forge/quality_gate.py is the dual crf=auto gate (stratified ssimulacra2 floors + embedding-drift floor); jxl/jxl-transcode backends are the lossless modes (round-trip verified); cli grew search-space, build, stats/inspect spaces, benchmark --space, and cmd/embed_gate.rs (the ONE copy of the three-layer model gate, routing ask/retrieve by manifest model through forge/embed_query_model.py); python/tools/urna_model_bench.py compares models in three never-aggregated tiers. 2026-09-03: single-asset access + frontend bridge (no format change): UrnaFile.chunk_ids() (chunk identity in file order) and UrnaFile.blob_bytes(i) (one inlined 0x17 blob without exporting the store) landed in urna-python; python/tools/urna_ui_bridge.py is the json bridge any frontend drives a corpus through (browse with media resolved to blob uri + shard-local frame via sha256 segment matching, search in every mode with hits matched by chunk_id, single-blob extraction); the bench now matches by chunk_id (ordinal==offset only held for single-shard unordered video; cluster and per-image corpora silently zeroed) and expands ${ENV} placeholders in redacted manifest paths. measured full-corpus: retrieval-only av1 crf50 = 7.8x with hit@k parity against the lossless twin while the drift floor would have vetoed it (drift is stability, not utility; a hit@k gate floor is the registered follow-up, landed 2026-09-12 as the utility leg); avif q48 = the crf35 still class's drift at -20% bytes; the av1/avif twins share one content_hash across a backend swap. 2026-09-05: hardening pass driven by an external review: workspace deny lints unwrap_used + undocumented_unsafe_blocks, urna_format::bytes typed field readers, bytemuck views replacing the layout/int8 raw-parts casts (urna-format has zero unsafe), release-kept asserts at the simd safe/unsafe boundary, allocation-free int4 rerank (caller scratch), deterministic mutation-fuzz harnesses in both crates + four cargo-fuzz targets under fuzz/ (first runs found and fixed four malformed-file panic classes: unchecked n*dim, NaN reaching a partial_cmp sort, wrapping cursor bounds checks, unvalidated bm25 postings), .github/workflows/ci.yml (the first workflow to run cargo test on a pull request), the cli regrouped into engine verbs (cmd/*) and agent verbs (cmd/agent/*), and doc/benchmarks.md measured against usearch / hnswlib / sqlite-vec / lancedb. 2026-09-18: doc/arc consolidated into a single doc/arc/arc.toml (previously the arc.yaml + arc.mmd pair plus the arc.schema.json IDE-validation schema); doc-location change only, no architecture, format, or runtime change."
+summary = "single-file semantic knowledge stack: rust owns format, runtime, cli, and bindings; python owns ingestion, model fingerprinting, and support tooling. p1#07 (G1) added the optional chunk-to-chunk graph_adjacency (0x0C) csr + search-graph. p1#08 stood up the agent-native flagship over the EXISTING engine: cli `ask`/`retrieve` + python UrnaFile.retrieve (offline potion embed, model_hash gate, capability route, tier-1 cited spans whose score IS the exact rerank value) + the additive SearchExplain honesty backbone (rerank_source: real cosine vs real cosine at stored precision). 2026-08-10: the media blob pillar (F4b) brought codec-backed media INTO the container (blob_refs 0x14 + blob_span_overlay 0x16, capabilities_ext.blobs_present) and the multimodal space pillar (F4c) added the space_table 0x15 registry plus per-space embedding slabs in the 0x20-0x2F band behind capabilities_ext.supports_multimodal, each space gated by its own model_hash in isolation; F5 added the build-time levers gop_policy=auto probe, sharding, similarity ordering, and the dtype ladder for image corpora. all additive, content_hash-excluded, zero format bytes changed for text corpora, no URNA_FORMAT_VERSION bump; verb-collapse / urna dev / urna-profile deferred. 2026-08-11: the distribution surface (issue #75) landed: cargo-dist cli releases (5 targets, sha256, sigstore attestations, homebrew tap), the maturin `urna` wheel with the bundled potion table (abi3 cp312, OIDC trusted publishing), one-liner installers, `urna doctor` with typed exit codes, the minimal docker image, and offline integration examples. 2026-08-31: declarative builds + model registry + compression levers (rfcs 0-5, no format change): `urna build --spec corpus.toml` launches python/tools/urna_forge.py -> forge/build_spec.py (toml contract, SpecError names the key, total-order enforcement) -> forge/corpus_sources.py (sqlite/csv/jsonl/image_dir rows with per-item input_hash) -> forge/forge_pipeline.py (transactional stages, dedup via shared 0x16 spans, triad-keyed embed caches model_hash+recipe_hash+input_hash, single/per-model/both outputs from one embed pass, manifest_schema_version=1 + build.lock.json); forge/model_registry.py holds the model presets (potion/clip-vit-b32/siglip2/jina-v5-omni/wemm-2b|4b|9b/fake-test) with validated mrl ladders, remote-code opt-in + pinned hash allowlist, and subprocess-isolated st adapters (one worker per model via forge/embed_st_worker.py -- two trust_remote_code ST models in one process collide in transformers dynamic modules, measured); forge/quality_gate.py is the dual crf=auto gate (stratified ssimulacra2 floors + embedding-drift floor); jxl/jxl-transcode backends are the lossless modes (round-trip verified); cli grew search-space, build, stats/inspect spaces, benchmark --space, and cmd/embed_gate.rs (the ONE copy of the three-layer model gate, routing ask/retrieve by manifest model through forge/embed_query_model.py); python/tools/urna_model_bench.py compares models in three never-aggregated tiers. 2026-09-03: single-asset access + frontend bridge (no format change): UrnaFile.chunk_ids() (chunk identity in file order) and UrnaFile.blob_bytes(i) (one inlined 0x17 blob without exporting the store) landed in urna-python; python/tools/urna_ui_bridge.py is the json bridge any frontend drives a corpus through (browse with media resolved to blob uri + shard-local frame via sha256 segment matching, search in every mode with hits matched by chunk_id, single-blob extraction); the bench now matches by chunk_id (ordinal==offset only held for single-shard unordered video; cluster and per-image corpora silently zeroed) and expands ${ENV} placeholders in redacted manifest paths. measured full-corpus: retrieval-only av1 crf50 = 7.8x with hit@k parity against the lossless twin while the drift floor would have vetoed it (drift is stability, not utility; a hit@k gate floor is the registered follow-up, landed 2026-09-12 as the utility leg); avif q48 = the crf35 still class's drift at -20% bytes; the av1/avif twins share one content_hash across a backend swap. 2026-09-05: hardening pass driven by an external review: workspace deny lints unwrap_used + undocumented_unsafe_blocks, urna_format::bytes typed field readers, bytemuck views replacing the layout/int8 raw-parts casts (urna-format has zero unsafe), release-kept asserts at the simd safe/unsafe boundary, allocation-free int4 rerank (caller scratch), deterministic mutation-fuzz harnesses in both crates + four cargo-fuzz targets under fuzz/ (first runs found and fixed four malformed-file panic classes: unchecked n*dim, NaN reaching a partial_cmp sort, wrapping cursor bounds checks, unvalidated bm25 postings), .github/workflows/ci.yml (the first workflow to run cargo test on a pull request), the cli regrouped into engine verbs (cmd/*) and agent verbs (cmd/agent/*), and docs/benchmarks.md measured against usearch / hnswlib / sqlite-vec / lancedb. 2026-09-18: docs/arc consolidated into a single docs/arc/arc.toml (previously the arc.yaml + arc.mmd pair plus the arc.schema.json IDE-validation schema); doc-location change only, no architecture, format, or runtime change. 2026-09-22: `doc/` renamed to `docs/` and `dat/` to `data/` (paths only); examples/quickstart/ added (jsonl + potion spec + python twin, the five-verb loop from a clean checkout)."
 
 system_view = [
     "urna-format is the frozen v1 container contract. it owns layout, manifest, reader, writer, canonical sections, hashes, and wire encodings. embeddings stay raw float32, float16, int8, or int4 (fixed-stride quant only); zstd is reserved for non-embedding sections.",
@@ -51,7 +51,7 @@ quality = [
 ]
 
 risks = [
-    "doc/arc/arc.toml is the single architecture reference (narrative, contract, quality, risks, inventory, and the mermaid diagram, merged 2026-09-18 from the former arc.yaml + arc.mmd + arc.schema.json) and must be updated in the same change as any edit to boundaries, data flow, module layout, or runtime contract. there is no separate human-prose architecture doc.",
+    "docs/arc/arc.toml is the single architecture reference (narrative, contract, quality, risks, inventory, and the mermaid diagram, merged 2026-09-18 from the former arc.yaml + arc.mmd + arc.schema.json) and must be updated in the same change as any edit to boundaries, data flow, module layout, or runtime contract. there is no separate human-prose architecture doc.",
     "bm25 tokenization is intentionally simple and documented as weak for CJK, thai, and lao.",
     "python/_urna.so must be rebuilt after Rust changes that touch urna-format, urna-runtime, or urna-python.",
     "forge-core is a separate cargo workspace OUTSIDE crates/ and must stay that way: its (eventually heavy) ingestion deps must never enter the sovereign workspace, and it is not built by the sovereign release gate, so it carries its own cargo build/test/fmt/clippy.",
@@ -191,7 +191,7 @@ entrypoints = [
     "scripts/stage_embedder_payload.py",
 ]
 links = [
-    "doc/usage.md",
+    "docs/usage.md",
     "Cargo.toml",
     ".github/workflows/release.yml",
     ".github/workflows/pypi.yml",
@@ -328,7 +328,7 @@ entry = "python/tools/bench_competitors.py"
 path = [
     "python/tools/_bench_systems.py",
     "python/urna.py",
-    "doc/benchmarks.md",
+    "docs/benchmarks.md",
 ]
 summary = "same synthetic rows, same queries, same machine: urna exact / hybrid against usearch, hnswlib, sqlite-vec and lancedb on build time, bytes on disk, cold open + first query, warm p50/p99, recall@10 vs brute force, byte-identical rebuild, integrity check, citation stability across text re-encoding; every hnsw path at m=16 / ef_c=200 / ef=100"
 
@@ -513,10 +513,10 @@ links = ["crates/urna-python/src/urna_file.rs"]
 [[inventory.root]]
 path = "python/tools/bench_competitors.py"
 kind = "python-tool"
-purpose = "the competitor benchmark driver: synthetic seeded rows, brute-force recall ruler, one markdown table (doc/benchmarks.md) with build time, bytes, cold open, p50/p99, recall, byte-identical rebuild, integrity check, citation stability"
+purpose = "the competitor benchmark driver: synthetic seeded rows, brute-force recall ruler, one markdown table (docs/benchmarks.md) with build time, bytes, cold open, p50/p99, recall, byte-identical rebuild, integrity check, citation stability"
 links = [
     "python/tools/_bench_systems.py",
-    "doc/benchmarks.md",
+    "docs/benchmarks.md",
 ]
 
 [[inventory.root]]
@@ -526,7 +526,7 @@ purpose = "one adapter per system (urna, usearch, hnswlib, sqlite-vec, lancedb) 
 links = ["python/tools/bench_competitors.py"]
 
 [[inventory.root]]
-path = "doc/benchmarks.md"
+path = "docs/benchmarks.md"
 kind = "benchmark-doc"
 purpose = "the measured competitor table and how to read each column; regenerated by bench_competitors.py --out"
 links = ["python/tools/bench_competitors.py"]
@@ -537,7 +537,7 @@ kind = "metadata"
 purpose = "concise llm and agent guidance"
 links = [
     ".contracts/.agents/AGENTS.md",
-    "doc/CONTRIBUTING.md",
+    "docs/CONTRIBUTING.md",
     "README.md",
 ]
 
@@ -555,8 +555,8 @@ path = "README.md"
 kind = "overview-doc"
 purpose = "project overview plus pointers to the architecture maps and usage docs"
 links = [
-    "doc/arc/arc.toml",
-    "doc/usage.md",
+    "docs/arc/arc.toml",
+    "docs/usage.md",
 ]
 
 [[inventory.root]]
@@ -737,26 +737,26 @@ links = [
 ]
 
 [[inventory.workspace]]
-path = "dat"
+path = "data"
 kind = "directory"
 purpose = "lfs corpora, demo datasets, and measurement outputs"
-links = ["dat/demo/Instructions.md"]
+links = ["data/demo/Instructions.md"]
 
 [[inventory.workspace]]
-path = "doc"
+path = "docs"
 kind = "directory"
 purpose = "human-facing docs, changelog, usage guide, and architecture maps"
 links = [
-    "doc/arc/arc.toml",
-    "doc/usage.md",
-    "doc/CHANGELOG",
+    "docs/arc/arc.toml",
+    "docs/usage.md",
+    "docs/CHANGELOG",
 ]
 
 [[inventory.workspace]]
-path = "doc/arc"
+path = "docs/arc"
 kind = "directory"
 purpose = "single architecture reference for humans, agents, and visual review: narrative, contract, inventory, and the mermaid diagram, all in arc.toml"
-links = ["doc/arc/arc.toml"]
+links = ["docs/arc/arc.toml"]
 
 [[inventory.workspace]]
 path = "python"
@@ -2158,25 +2158,25 @@ purpose = "routing by manifest model observable via the fake preset; --mrl-dim p
 links = ["crates/urna-cli/src/cmd/embed_gate.rs"]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/arc/arc.toml"
+path = "docs/arc/arc.toml"
 kind = "toml-doc"
 purpose = "the single architecture reference: machine-readable for agents and tooling, the human-readable narrative (system_view, contract, quality, risks), the file inventory, and the mermaid visual map of the build and query flows, all in one file (merged 2026-09-18 from the former arc.yaml + arc.mmd + arc.schema.json pair-plus-schema)"
 links = []
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/CODE_OF_CONDUCT.md"
+path = "docs/CODE_OF_CONDUCT.md"
 kind = "governance-doc"
 purpose = "project conduct policy"
 links = []
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/CONTRIBUTING.md"
+path = "docs/CONTRIBUTING.md"
 kind = "contributor-doc"
 purpose = "setup, branching, testing, and style guidance"
 links = ["scripts/release_check.sh"]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/usage.md"
+path = "docs/usage.md"
 kind = "usage-doc"
 purpose = "the operator guide: every verb with examples, presets and the recall ladder, model_hash and offline operation, benchmark, citations, release verification, urna doctor, the model registry, declarative builds, compression levers, media blobs, and the collapsed reference section: every install channel (one-liner, windows, urna wheel, homebrew tap, cargo binstall, docker, dev build), verification (sha256, sigstore attestations, sbom, install-test), offline and air-gapped notes, and the maintainer one-time checklist"
 links = [
@@ -2185,41 +2185,41 @@ links = [
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/CHANGELOG"
+path = "docs/CHANGELOG"
 kind = "changelog"
 purpose = "keep-a-changelog record: released versions and the unreleased deltas, with measured numbers where a change was measured"
 links = ["README.md"]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/LICENSE"
+path = "docs/LICENSE"
 kind = "legal"
 purpose = "mit license text"
 links = []
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc/SECURITY.md"
+path = "docs/SECURITY.md"
 kind = "security-doc"
 purpose = "reporting channel, supported versions, security scope, the hardening notes (unsafe inventory, deny lints, fuzzing, the harness findings, release provenance), and the data-governance posture of a shipped .urna as a personal-data store (cleartext canonical text, right to erasure and rectification under lgpd / gdpr, provenance and build integrity as compliance assets, corpus licensing)"
 links = [
-    "dat/demo/Instructions.md",
+    "data/demo/Instructions.md",
     "crates/urna-runtime/src/mmap_file.rs",
     "crates/urna-runtime/src/simd/mod.rs",
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "dat"
+path = "data"
 kind = "directory"
 purpose = "data root for corpora and demo sources"
-links = ["dat/demo/Instructions.md"]
+links = ["data/demo/Instructions.md"]
 
 [[inventory.data_docs_python_scripts_tests]]
-path = "doc"
+path = "docs"
 kind = "directory"
 purpose = "top-level documentation root"
 links = [
-    "doc/arc/arc.toml",
-    "doc/usage.md",
-    "doc/CHANGELOG",
+    "docs/arc/arc.toml",
+    "docs/usage.md",
+    "docs/CHANGELOG",
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
@@ -2485,7 +2485,7 @@ kind = "python-source"
 purpose = "dataset loader registry and normalization"
 links = [
     "python/tools/urna_build_corpus.py",
-    "dat/demo/Instructions.md",
+    "data/demo/Instructions.md",
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
@@ -2533,17 +2533,17 @@ kind = "python-source"
 purpose = "regression gate over preset metrics (incl conditional sub-int8 gates that fire only when present: nano size_ratio <= 0.25 recall_at_k >= 0.85; micro and the underlying mrl256-int8 size_ratio <= 0.25 recall_at_k >= 0.78)"
 links = [
     "python/tools/measure_presets.py",
-    "dat/measure/baseline.json",
+    "data/measure/baseline.json",
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
 path = "python/tools/measure_presets.py"
 kind = "python-source"
-purpose = "build and benchmark the published preset ladder (compressed/tiny/micro/nano/hybrid plus the matryoshka mrl<DIM>-<dtype> curve; micro is the mrl256-int8 alias, nano is int4 full-dim) over the LFS baseline; recall@10 vs the full-dim f32 exact top-k (mrl points truncate the query to the prefix + renorm to match the build); publishes dat/measure/ladder.json (the whole curve) and refreshes dat/measure/baseline.json; every sub-int8 row carries the machine-checkable net-of-fp disclosure (dtype, stored_precision, has_fp_source=false, net_of_fp_ratio==stored ratio) and matryoshka rows carry mrl_dim/full_dim"
+purpose = "build and benchmark the published preset ladder (compressed/tiny/micro/nano/hybrid plus the matryoshka mrl<DIM>-<dtype> curve; micro is the mrl256-int8 alias, nano is int4 full-dim) over the LFS baseline; recall@10 vs the full-dim f32 exact top-k (mrl points truncate the query to the prefix + renorm to match the build); publishes data/measure/ladder.json (the whole curve) and refreshes data/measure/baseline.json; every sub-int8 row carries the machine-checkable net-of-fp disclosure (dtype, stored_precision, has_fp_source=false, net_of_fp_ratio==stored ratio) and matryoshka rows carry mrl_dim/full_dim"
 links = [
     "python/tools/_baseline_decoder.py",
     "python/tools/_bench_runner.py",
-    "dat/measure/ladder.json",
+    "data/measure/ladder.json",
 ]
 
 [[inventory.data_docs_python_scripts_tests]]
@@ -2737,7 +2737,7 @@ links = ["crates/urna-cli"]
 [[inventory.distribution]]
 path = "examples"
 kind = "directory"
-purpose = "offline integration examples: fastapi, flask, jupyter (potion-embedded, cited answers)"
+purpose = "quickstart (docs.jsonl + corpus.toml + quickstart.py: build/ask/retrieve/cite/validate from a clean checkout) and offline integration examples: fastapi, flask, jupyter (potion-embedded, cited answers)"
 links = [
     "python/urna.py",
     "python/forge/embed_potion.py",
@@ -2805,7 +2805,7 @@ format = "mermaid"
 kind = "sequenceDiagram"
 description = "visual architecture map: the build and query flows across the rust/python language boundary. the .urna file is the only artifact that crosses it. renders on github inside a ```mermaid fenced block; extract the `source` string verbatim to feed mermaid-cli or any mermaid live editor."
 source = '''%% urna visual architecture reference
-%% the diagram.source field of doc/arc/arc.toml (the single architecture
+%% the diagram.source field of docs/arc/arc.toml (the single architecture
 %% reference: narrative, contract, inventory, and this diagram, merged
 %% 2026-09-18 from the former arc.yaml + arc.mmd + arc.schema.json). there
 %% is no separate human-prose architecture doc.

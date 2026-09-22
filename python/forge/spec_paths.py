@@ -44,7 +44,7 @@ def _expand_str(value: str, where: str) -> str:
             state = "is empty" if found is not None else "is not set"
             raise SpecError(
                 f"{where}: ${{{name}}} {state}; export {name}=/path "
-                "(spec paths stay portable, see doc/usage.md section 13)"
+                "(spec paths stay portable, see docs/usage.md section 13)"
             )
         return found
 

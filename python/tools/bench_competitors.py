@@ -6,7 +6,7 @@ l2-normalized rows (seeded) so anyone can reproduce it without a dataset;
 the recall ruler is brute-force top-k over the same rows.
 
     .venv/bin/python python/tools/bench_competitors.py --n 100000 --dim 384 \
-        --queries 200 --out doc/benchmarks.md
+        --queries 200 --out docs/benchmarks.md
 
 columns: build time, bytes on disk, cold open + first query in a fresh
 process (python startup subtracted), warm p50/p99 latency, recall@10 (exact

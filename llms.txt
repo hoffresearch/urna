@@ -9,7 +9,7 @@ single-file sovereign vector database. the .urna file IS the database: chunks, e
 ## project snapshot
 
 - language stack: rust workspace (format, runtime, cli, pyo3 bindings) + python tooling (builder, embedders, measurement).
-- architecture docs: doc/arc/arc.toml (human and machine reference, plus the visual mermaid diagram in `diagram.source`). the single source of truth.
+- architecture docs: docs/arc/arc.toml (human and machine reference, plus the visual mermaid diagram in `diagram.source`). the single source of truth.
 - .contracts/.agents/AGENTS.md is the agent and contributor operating contract and the single agent instruction source; use/update/init only .contracts/.agents/AGENTS.md, no per-tool instruction files.
 - forge-core/ is a SEPARATE cargo workspace (ingestion layer, frozen .fci schema); not in the sovereign --workspace set, build it via --manifest-path forge-core/Cargo.toml.
 
@@ -21,6 +21,8 @@ text query in, cited answer out. offline by construction: the verbs embed with t
 - urna retrieve <file> "query" -k 3 --format jsonl: json/jsonl answer-pack; every hit's score IS the exact-cosine rerank value, with the tier-1 stored canonical text + verifying hashes + the citation.
 
 engine subcommands (file + vector in, never run python): inspect, validate, stats, media, search, search-ann, search-graph, search-space, search-text, benchmark, cite, doctor. agent verbs (text or spec in, shell out to the offline python embedder / forge): ask, retrieve, build. `urna --help` groups them the same way; implementations live in crates/urna-cli/src/cmd/ (engine) and cmd/agent/ (agent).
+
+a corpus that builds from a clean checkout with no download: examples/quickstart/ (urna build --spec examples/quickstart/corpus.toml, then ask/retrieve/cite/validate on examples/quickstart/out/quickstart.urna; quickstart.py is the python twin).
 
 ## python entry
 
@@ -58,33 +60,33 @@ prefer release_check.sh before merge, it is the project gate; .github/workflows/
 
 ## dataset policy
 
-- dat/corpus_next.v1.urna is tracked with git lfs.
-- dat/demo datasets are local-only and gitignored.
-- dataset fetch commands and provenance are documented in dat/demo/Instructions.md.
+- data/corpus_next.v1.urna is tracked with git lfs.
+- data/demo datasets are local-only and gitignored.
+- dataset fetch commands and provenance are documented in data/demo/Instructions.md.
 - the offline one-gif demo needs no datasets: python python/forge/retrieve.py.
 
 ## branch and release flow
 
 - feature work happens on short-lived branches off main; every change reaches main through a pull request, squash-merged.
 - main requires pull requests, verified (ssh-signed) commits, and linear history; delete the branch after merge and start the next one from origin/main.
-- releases are tags on main (v*); the tag drives the release, pypi and install-test workflows (doc/usage.md, reference section).
+- releases are tags on main (v*); the tag drives the release, pypi and install-test workflows (docs/usage.md, reference section).
 
 ## do not
 
 - do not force-push main.
 - do not bypass release_check.sh.
 - do not bump URNA_FORMAT_VERSION for additive changes.
-- do not commit local demo datasets under dat/demo.
+- do not commit local demo datasets under data/demo.
 
 ## references
 
 - README.md
 - .contracts/.agents/AGENTS.md (the single agent instruction source)
-- doc/CONTRIBUTING.md
-- doc/arc/arc.toml
-- doc/usage.md
-- doc/benchmarks.md
-- doc/CHANGELOG
+- docs/CONTRIBUTING.md
+- docs/arc/arc.toml
+- docs/usage.md
+- docs/benchmarks.md
+- docs/CHANGELOG
 - https://github.com/brennercruvinel/mtg-urna-benchmark (the image-corpus benchmark: code, specs, corpora, results; the .urna artifacts on the hugging face dataset of the same name; private for now)
 
 made it simple, but signifcant.

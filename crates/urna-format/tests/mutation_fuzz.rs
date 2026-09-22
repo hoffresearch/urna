@@ -2,7 +2,7 @@
 //! every stored-dtype / text-encoding combination the writer supports,
 //! then hammer `UrnaView::from_bytes` and every section decoder with
 //! thousands of corrupted variants. The contract under test is the one in
-//! doc/SECURITY.md: a malformed file may be REJECTED with a typed error but
+//! docs/SECURITY.md: a malformed file may be REJECTED with a typed error but
 //! must never panic, loop, or read out of bounds.
 //!
 //! Two mutation regimes, both seeded, so a failure is reproducible from

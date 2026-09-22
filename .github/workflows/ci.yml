@@ -47,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-24.04, macos-latest]
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v7
@@ -86,7 +86,7 @@ jobs:
   fuzz:
     name: cargo-fuzz smoke
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - name: nightly toolchain
@@ -120,7 +120,7 @@ jobs:
 
   deny:
     name: cargo deny
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - name: workspace (advisories, licenses, bans, sources)
@@ -143,7 +143,7 @@ jobs:
   semver:
     name: semver (urna-format public api)
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
         with:
@@ -174,7 +174,7 @@ jobs:
   fuzz-soak:
     name: cargo-fuzz soak ${{ matrix.target }}
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 50
     strategy:
       fail-fast: false
@@ -192,7 +192,7 @@ jobs:
       # the corpus accumulates across nights: restore the newest one, seed
       # only when nothing was restored, minimize before saving.
       - name: restore corpus
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: fuzz/corpus/${{ matrix.target }}
           key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
@@ -224,7 +224,7 @@ jobs:
   miri:
     name: miri (urna-format)
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
@@ -249,7 +249,7 @@ jobs:
   python:
     name: python
     if: github.event_name != 'schedule'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v7

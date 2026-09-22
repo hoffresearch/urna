@@ -8,7 +8,7 @@
 
 Usage:
     python/tools/urna_build_image_corpus.py \\
-        --input-dir dat/demo/derm/ph2/images --dataset ph2 \\
+        --input-dir data/demo/derm/ph2/images --dataset ph2 \\
         --output tmp/ph2/ph2.urna --labels tmp/ph2/labels.json
 """
 

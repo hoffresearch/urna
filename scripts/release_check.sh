@@ -6,14 +6,14 @@
 #   2. rebuild PyO3 extension (.so)
 #   3. python tests: e2e, builder, search-text model_hash, image corpus
 #   4. measure_presets --json on the LFS-tracked corpus
-#   5. compare_measure regression gates vs dat/measure/baseline.json
+#   5. compare_measure regression gates vs data/measure/baseline.json
 #
 # Exits non-zero on the first failure. Total runtime ≈ 2–3 min on a
 # warm cache (most of it is the measure_presets re-build of the four
 # presets).
 #
 # Override knobs (env vars):
-#   URNA_BASELINE  — baseline JSON to compare against (default: dat/measure/baseline.json)
+#   URNA_BASELINE  — baseline JSON to compare against (default: data/measure/baseline.json)
 #   URNA_QUERIES   — measure_presets query count (default: 100)
 #   URNA_K         — measure_presets top-k (default: 10)
 #   URNA_PYTHON    — python interpreter (default: ./.venv/bin/python if present, else python3)
@@ -25,7 +25,7 @@ cd "$(dirname "$0")/.."
 ROOT="$(pwd)"
 
 # ---- knobs ----
-BASELINE="${URNA_BASELINE:-dat/measure/baseline.json}"
+BASELINE="${URNA_BASELINE:-data/measure/baseline.json}"
 QUERIES="${URNA_QUERIES:-100}"
 K="${URNA_K:-10}"
 OUT="${URNA_OUT:-/tmp/release_check_post.json}"

@@ -8,7 +8,7 @@
 2. branch from `main`: `git checkout -b feature/short-description origin/main`.
 3. keep each pr focused on one concern. small is better.
 4. add or update tests for the change. new behavior needs a new test. write real tests against real artifacts (built .urna files, golden fixtures, real corpora), no mocks; cover the happy path, the error path, and one edge case.
-5. if the change alters architecture, module boundaries, data flow, or doc locations, update `doc/arc/arc.toml` in the same pr. keep it concise and pragmatic. do not add a separate human architecture doc; `arc.toml` is the machine map, the human reference, and the mermaid diagram all in one file.
+5. if the change alters architecture, module boundaries, data flow, or doc locations, update `docs/arc/arc.toml` in the same pr. keep it concise and pragmatic. do not add a separate human architecture doc; `arc.toml` is the machine map, the human reference, and the mermaid diagram all in one file.
 6. run `./scripts/release_check.sh` locally before pushing. `.github/workflows/ci.yml` runs the same gate on the pr (minus the lfs corpus measurement), plus the mutation-fuzz harnesses and a cargo-fuzz smoke.
 7. commit with a clear message in plain english. no conventional commits prefix.
 8. open a pr against `main`. the maintainer squash merges it; `main` requires verified (ssh-signed) commits and linear history, so sign your commits (`git config commit.gpgsign true` with an ssh or gpg key registered on github).
@@ -29,7 +29,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install ruff sentence-transformers pandas zstandard pyarrow
 ```
 
-`dat/corpus_next.v1.urna` is tracked via git lfs. demo datasets under `dat/demo/` are local-only and gitignored; fetch them with the commands documented in `dat/demo/Instructions.md`. without those datasets, runtime unit tests still pass.
+`data/corpus_next.v1.urna` is tracked via git lfs. demo datasets under `data/demo/` are local-only and gitignored; fetch them with the commands documented in `data/demo/Instructions.md`. without those datasets, runtime unit tests still pass.
 
 ## conventions and writing style
 
@@ -108,7 +108,7 @@ cargo +nightly fuzz run urna-view -- -max_total_time=600      # needs cargo-fuzz
 
 - bugs and feature requests: [github issues](https://github.com/hoffresearch/urna/issues).
 - security vulns: do not open a public issue. email [brenner@hoffresearch.com](mailto:brenner@hoffresearch.com). target ack within 72 hours.
-- questions about the format: open a discussion, or read `doc/arc/arc.toml`.
+- questions about the format: open a discussion, or read `docs/arc/arc.toml`.
 
 bug reports should include the `.urna` `file_hash` and `content_hash` (from `urna stats <file>`), the runtime `simd_backend` (also in `urna stats`), the exact cli or python invocation, and the error output.
 

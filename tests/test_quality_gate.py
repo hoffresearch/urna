@@ -23,6 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "python"))
 
 import numpy as np
+
 from forge.build_spec import MediaSpec, QualitySpec
 from forge.image_encode_still import encode_jxl_dir
 

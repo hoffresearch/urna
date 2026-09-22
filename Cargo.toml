@@ -11,7 +11,7 @@ repository = "https://github.com/hoffresearch/urna"
 homepage = "https://github.com/hoffresearch/urna"
 
 # workspace-wide lint policy (every crate opts in with `[lints] workspace =
-# true`). the two `deny`s are the hardening contract of doc/SECURITY.md made
+# true`). the two `deny`s are the hardening contract of docs/SECURITY.md made
 # mechanical: a runtime that opens third-party files may not panic on an
 # `unwrap`, and every `unsafe` block must state the invariant that makes it
 # sound (`// SAFETY:`). tests are exempt from `unwrap_used` via clippy.toml.

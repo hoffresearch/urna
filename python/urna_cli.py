@@ -6,7 +6,7 @@ api: validate / inspect / stats / search. the full verb set (ask, retrieve,
 search-text, benchmark, cite, doctor) lives in the rust `urna` binary,
 installed by scripts/install.sh.
 
-dev repo usage:  python3 python/urna_cli.py validate dat/corpus_next.v1.urna
+dev repo usage:  python3 python/urna_cli.py validate data/corpus_next.v1.urna
 installed usage: urna validate corpus.urna
 """
 

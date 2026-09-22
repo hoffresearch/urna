@@ -1,4 +1,4 @@
-# cargo-deny policy (doc/SECURITY.md supply-chain items).
+# cargo-deny policy (docs/SECURITY.md supply-chain items).
 # run: `cargo deny check` (workspace), and with `--manifest-path
 # forge-core/Cargo.toml` / `fuzz/Cargo.toml` for the two side workspaces.
 # ci.yml runs all three on every push and pull request, and on the nightly

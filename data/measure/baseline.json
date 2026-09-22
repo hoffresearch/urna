@@ -1,7 +1,7 @@
 {
   "baseline_content_hash": "sha256:0ef1cf8f5d682f4614a0c4ea38f093a432c352de3a350362d09fcef2ff05917e",
   "baseline_file_hash": "sha256:4229b7b3abfb85ddd75ebf183e0518acf60b8c4c7816c2f1df4c9041ef9b3233",
-  "baseline_path": "dat/corpus_next.v1.urna",
+  "baseline_path": "data/corpus_next.v1.urna",
   "embedding_dim": 384,
   "k": 10,
   "n_chunks": 30725,
@@ -139,7 +139,7 @@
     "kind": "self-perturbation",
     "measures": "rank-stability of a preset under quantization, NOT real-query retrieval quality",
     "query": "each query is a corpus chunk's own embedding plus deterministic per-dim noise (up to 8e-5 per dim), re-l2-normalized; it is a near-duplicate of an corpus point",
-    "real_ruler": "pending gate-zero (real-query labeled harness); see the ruler note in doc/CHANGELOG"
+    "real_ruler": "pending gate-zero (real-query labeled harness); see the ruler note in docs/CHANGELOG"
   },
   "schema_version": 1,
   "seed": 0,

@@ -1,4 +1,4 @@
-![urna](/doc/urna-hoff-research-db.png)
+![urna](/docs/urna-hoff-research-db.png)
 
 # urna
 
@@ -8,7 +8,7 @@ one `.urna` file carries chunks, embeddings, source spans, media, indices, and a
 
 python builds. rust serves. urna ships.
 
-> renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier still opens: the reader accepts the old `NEST` magic, the writer only emits `URNA`. details in `doc/CHANGELOG`.
+> renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier still opens: the reader accepts the old `NEST` magic, the writer only emits `URNA`. details in `docs/CHANGELOG`.
 
 no server to run, no api call, no central index to audit. ship a curated knowledge base inside the application; every answer points at a chunk you can verify.
 
@@ -54,7 +54,7 @@ quadrantChart
     "sqlite-vec": [0.92, 0.76] radius: 5, color: #8E44AD
 ```
 
-the two urna points verify every byte before the first answer and return recall@10 = 1.000. numbers per point: [doc/benchmarks.md](doc/benchmarks.md).
+the two urna points verify every byte before the first answer and return recall@10 = 1.000. numbers per point: [docs/benchmarks.md](docs/benchmarks.md).
 
 ## sovereign, enforced by the format
 
@@ -81,7 +81,7 @@ urna doctor
 pip install "urna[embed]"     # python; offline embedding via the bundled potion table
 ```
 
-also windows (`install.ps1`), homebrew tap, `cargo binstall urna-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [doc/usage.md](doc/usage.md#reference). the release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
+also windows (`install.ps1`), homebrew tap, `cargo binstall urna-cli`, docker. artifacts carry sha256 + sigstore attestations. channels, verification, offline notes, and the maintainer checklist: the reference section of [docs/usage.md](docs/usage.md#reference). the release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
 
 <details>
 <summary>dev build (rust edition 2024, python 3.12+)</summary>
@@ -103,6 +103,42 @@ cp target/release/lib_urna.so python/_urna.so      # linux
 ```
 
 </details>
+
+## quickstart
+
+five verbs, one file, no network. from a repo checkout (`build` runs the forge in `python/`; the other four need only the binary):
+
+| verb | what it does | in one line |
+|------|--------------|-------------|
+| `build` | creates the base | rows + embedding model in, one `.urna` out |
+| `ask` | queries it from the terminal | text in, one cited answer out |
+| `retrieve` | hands results to another program | json/jsonl of cited spans, `score` is the exact rerank |
+| `cite` | resolves the source | a `urna://` citation back to the stored text and its hashes |
+| `validate` | proves the file | every checksum, every hash, the manifest contract |
+
+`examples/quickstart/` ships twelve paragraphs of cc0 prose about urna itself (`docs.jsonl`) and the smallest spec that builds them (`corpus.toml`):
+
+```sh
+urna build --spec examples/quickstart/corpus.toml
+```
+
+```sh
+urna ask examples/quickstart/out/quickstart.urna "can I use this offline" -k 1
+```
+
+```sh
+urna retrieve examples/quickstart/out/quickstart.urna "how do citations work" -k 2 --format jsonl
+```
+
+```sh
+urna cite examples/quickstart/out/quickstart.urna 'urna://sha256:1147b256.../sha256:b5dfeb09...'
+```
+
+```sh
+urna validate examples/quickstart/out/quickstart.urna
+```
+
+`ask` prints the paragraph and its citation; `retrieve` prints one json object per hit, and the `citation_id` in it is what `cite` takes. the same flow on the python surface, with the embedder visible, is `python examples/quickstart/quickstart.py` (below). to build your own corpus, point the spec at your rows: [docs/usage.md](docs/usage.md) section 13.
 
 ## cli
 
@@ -140,7 +176,7 @@ plan and dependency status without loading anything:
 urna build --spec corpus.toml --dry-run
 ```
 
-`build` takes one toml describing the source (sqlite query, csv/jsonl, image dir), the media (av1/avif/jxl, dedup, `crf="auto"` dual quality gate), and one or several embedding models from the registry (`potion`, `clip-vit-b32`, `siglip2`, `wemm-2b`, ...), each a named vector space in the same file. `ask`/`retrieve` embed offline and validate `model_hash` against the manifest. contract and knobs, with a full worked spec: [doc/usage.md](doc/usage.md) section 13.
+`build` takes one toml describing the source (sqlite query, csv/jsonl, image dir), the media (av1/avif/jxl, dedup, `crf="auto"` dual quality gate), and one or several embedding models from the registry (`potion`, `clip-vit-b32`, `siglip2`, `wemm-2b`, ...), each a named vector space in the same file. `ask`/`retrieve` embed offline and validate `model_hash` against the manifest. contract and knobs, with a full worked spec: [docs/usage.md](docs/usage.md) section 13.
 
 </details>
 
@@ -245,13 +281,15 @@ urna doctor
 <details>
 <summary>open and retrieve</summary>
 
+the query has to be a vector in the same space as the corpus. the wheel bundles potion, an offline static embedder, so `pip install "urna[embed]"` is the whole setup:
+
 ```python
-import sys
-
-sys.path.insert(0, "python")
 import urna
+from urna.embed_potion import potion_embedder   # dev checkout: from forge.embed_potion import potion_embedder
 
+emb = potion_embedder()
 db = urna.open("my_corpus.urna")
+qvec = emb.embed_texts(["can I use this offline"])[0]
 ```
 
 cited hits, routed by manifest capability (exact, hnsw, hybrid, graph):
@@ -261,10 +299,18 @@ hits = db.retrieve(qvec, 5)
 print(hits[0].citation_id, hits[0].score, hits[0].text)
 ```
 
-same, refusing a corpus built with another model:
+same, refusing a corpus built with another model (the hash the file was built with must match the embedder's):
 
 ```python
-hits = db.retrieve(qvec, 5, expected_model_hash=embedder.model_hash)
+hits = db.retrieve(qvec, 5, expected_model_hash=emb.model_hash())
+```
+
+a corpus built with a sentence-transformers model needs that model for the query instead; `python/embed_query.py` is the reference embedder and `search-text` is the cli path.
+
+end to end (build twelve paragraphs, ask, print cited hits), no network:
+
+```sh
+python examples/quickstart/quickstart.py
 ```
 
 </details>
@@ -341,11 +387,7 @@ matryoshka prefix truncation is a build-time kwarg, valid for int4 at 256, 192, 
 urna.build(..., preset="micro", mrl_dim=256)
 ```
 
-or `Pipeline` in `python/builder.py` (chunker, sqlite cache, auto-validate). offline demo, builds from the cc0 demo corpus and asks one question:
-
-```sh
-python python/forge/retrieve.py
-```
+`model_hash` comes from the embedder that produced the vectors (`emb.model_hash()` above); a zero placeholder is rejected at write time. or `Pipeline` in `python/builder.py` (chunker, sqlite cache, auto-validate). `examples/quickstart/quickstart.py` is the shortest complete build.
 
 </details>
 
@@ -354,7 +396,7 @@ python python/forge/retrieve.py
 <details>
 <summary>urna vs usearch, hnswlib, sqlite-vec, lancedb, and the preset ladder</summary>
 
-[doc/benchmarks.md](doc/benchmarks.md): urna against usearch, hnswlib, sqlite-vec and lancedb on the same 100,000 x 384 rows, same machine, same ruler. urna hybrid answers at recall@10 = 1.000 with p50 0.72 ms (hnsw candidates, exact-cosine rerank), rebuilds byte-identically, and is the only store in the table that proves its own bytes; the price is a cold open of ~290 ms (every checksum is verified before the first query) and an hnsw build 2.1x slower than hnswlib single-threaded (was 2.4x before the build loop was tuned). the table also lists what urna does not do (updates, filters, concurrent writers).
+[docs/benchmarks.md](docs/benchmarks.md): urna against usearch, hnswlib, sqlite-vec and lancedb on the same 100,000 x 384 rows, same machine, same ruler. urna hybrid answers at recall@10 = 1.000 with p50 0.72 ms (hnsw candidates, exact-cosine rerank), rebuilds byte-identically, and is the only store in the table that proves its own bytes; the price is a cold open of ~290 ms (every checksum is verified before the first query) and an hnsw build 2.1x slower than hnswlib single-threaded (was 2.4x before the build loop was tuned). the table also lists what urna does not do (updates, filters, concurrent writers).
 
 <details>
 <summary>preset ladder: size vs recall</summary>
@@ -583,7 +625,7 @@ what the benchmark put into urna: `${VAR}` in spec paths and the `retrieval` / `
 | `nano`       | zstd | int4        | yes | no   |     0.209  |   0.9130  |
 | `hybrid`     | zstd | float32     | yes | yes  |     0.609  |   1.0000  |
 
-measured on a 30,725-chunk pt-br corpus (`dat/measure/ladder.json`, gated in ci). the recall ruler is self-perturbation, so it reports rank stability under quantization, not real-query quality; sub-int8 scores are real cosine at the stored precision, disclosed on every result. full honesty notes, the mrl curve, and the lever guide: [doc/usage.md](doc/usage.md) section 6.
+measured on a 30,725-chunk pt-br corpus (`data/measure/ladder.json`, gated in ci). the recall ruler is self-perturbation, so it reports rank stability under quantization, not real-query quality; sub-int8 scores are real cosine at the stored precision, disclosed on every result. full honesty notes, the mrl curve, and the lever guide: [docs/usage.md](docs/usage.md) section 6.
 
 </details>
 
@@ -592,11 +634,11 @@ measured on a 30,725-chunk pt-br corpus (`dat/measure/ladder.json`, gated in ci)
 <details>
 <summary>docs</summary>
 
-- [doc/usage.md](doc/usage.md): every verb, presets, offline mode, model registry, declarative builds, compression levers, and the install reference (channels, verification, maintainer checklist)
-- [doc/benchmarks.md](doc/benchmarks.md): the competitor table, the charts, and how it was measured
-- [doc/SECURITY.md](doc/SECURITY.md): reporting, scope, hardening notes (denied lints, the mutation-fuzz harness, the nightly soak), and the data-governance posture for distributed `.urna` files
-- [doc/CHANGELOG](doc/CHANGELOG): releases and unreleased deltas, with measured numbers
-- [dat/demo/Instructions.md](dat/demo/Instructions.md): the pt-br demo corpus sources and rebuild
+- [docs/usage.md](docs/usage.md): every verb, presets, offline mode, model registry, declarative builds, compression levers, and the install reference (channels, verification, maintainer checklist)
+- [docs/benchmarks.md](docs/benchmarks.md): the competitor table, the charts, and how it was measured
+- [docs/SECURITY.md](docs/SECURITY.md): reporting, scope, hardening notes (denied lints, the mutation-fuzz harness, the nightly soak), and the data-governance posture for distributed `.urna` files
+- [docs/CHANGELOG](docs/CHANGELOG): releases and unreleased deltas, with measured numbers
+- [data/demo/Instructions.md](data/demo/Instructions.md): the pt-br demo corpus sources and rebuild
 - [brennercruvinel/mtg-urna-benchmark](https://github.com/brennercruvinel/mtg-urna-benchmark): the image-corpus benchmark (38,627 card scans in single-file `.urna` containers): code, specs, corpora as id lists, results per experiment; the `.urna` artifacts are on the hugging face dataset of the same name. private for now
 
 </details>
@@ -612,7 +654,7 @@ python builds a deterministic container; a rust runtime mmaps it and answers exa
 - `urna-python`: pyo3 bridge (`urna.open`, `urna.build`, `UrnaFile.retrieve`)
 - `python/`: writer pipeline, model registry, offline embedders, forge tooling
 
-the full map (flows, contracts, inventory, and the visual sequence diagram) lives in [doc/arc/arc.toml](doc/arc/arc.toml).
+the full map (flows, contracts, inventory, and the visual sequence diagram) lives in [docs/arc/arc.toml](docs/arc/arc.toml).
 
 </details>
 
@@ -622,13 +664,13 @@ the full map (flows, contracts, inventory, and the visual sequence diagram) live
 - [.contracts/.agents/AGENTS.md](.contracts/.agents/AGENTS.md): the single instruction source for agents and contributors
 - `./scripts/release_check.sh`: the merge gate; it documents itself by being the gate
 - binary format v1 is frozen; encodings 4-255 and section ids 0x09+ are reserved inside v1, and `content_hash` is excluded from every additive section
-- a malformed `.urna` that panics the runtime is a security bug: [doc/SECURITY.md](doc/SECURITY.md)
+- a malformed `.urna` that panics the runtime is a security bug: [docs/SECURITY.md](docs/SECURITY.md)
 
 </details>
 
 ## license
 
-MIT, see [doc/LICENSE](doc/LICENSE). [Hoff Research](https://hoffresearch.com)
+MIT, see [docs/LICENSE](docs/LICENSE). [Hoff Research](https://hoffresearch.com)
 
 made it simple, but significant (∂μfμν = jν)
 

@@ -4,42 +4,60 @@
 
 this guide covers the commands you'll actually use: the agent verbs `ask`, `retrieve` and `build` (the front door; they shell out to the offline python embedder or the forge), and the engine subcommands beneath them (validate, stats, inspect, media, search/search-ann/search-graph/search-space/search-text, benchmark, cite, doctor), which take a file and a vector and never run python. `urna --help` lists them in the same two groups. getting the binary onto a machine (every install channel, verification, offline notes, the maintainer checklist) is the reference section at the end of this document; the short form is `curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/scripts/install.sh | sh` followed by `urna doctor`.
 
+## quickstart
+
+five verbs cover the whole loop. what each one is for:
+
+| verb | what it does | in one line |
+|------|--------------|-------------|
+| `build` | creates the base | rows + embedding model in, one `.urna` out |
+| `ask` | queries it from the terminal | text in, one cited answer out |
+| `retrieve` | hands results to another program | json/jsonl of cited spans, `score` is the exact rerank |
+| `cite` | resolves the source | a `urna://` citation back to the stored text and its hashes |
+| `validate` | proves the file | every checksum, every hash, the manifest contract |
+
+`examples/quickstart/` ships a corpus that needs nothing downloaded: twelve paragraphs of cc0 prose about urna (`docs.jsonl`) and the smallest spec that builds them (`corpus.toml`, one jsonl source, the bundled potion model). from the repo root:
+
+```sh
+urna build --spec examples/quickstart/corpus.toml
+urna ask examples/quickstart/out/quickstart.urna "can I use this offline" -k 1
+urna retrieve examples/quickstart/out/quickstart.urna "how do citations work" -k 2 --format jsonl
+urna cite examples/quickstart/out/quickstart.urna 'urna://<content_hash>/<chunk_id>'   # a citation_id from ask or retrieve
+urna validate examples/quickstart/out/quickstart.urna
+```
+
+`build` runs the forge in `python/`, so it needs the repo checkout (the installed payload carries the query embedder only); the other four verbs work with the installed binary alone. the python version of the same loop, with the embedder in plain sight, is `python examples/quickstart/quickstart.py`. to build your own corpus, swap `docs.jsonl` for your rows (jsonl, csv, sqlite, an image dir) in the spec: §13 has the full contract.
+
 ## 1. build a `.urna` from chunks
 
-the python pipeline owns chunking, embedding, caching, and the final emit. the rust writer owns reproducibility, hashing, and deterministic byte layout.
+the python pipeline owns chunking, embedding, caching, and the final emit. the rust writer owns reproducibility, hashing, and deterministic byte layout. the one thing every build needs that is easy to miss: the embedder's `model_hash`, written into the file so a query embedded by another model fails loudly instead of returning plausible wrong hits. the bundled potion embedder carries its own (`emb.model_hash()`); for a sentence-transformers model, §7 has the fingerprint.
 
 ```python
 import sys
 
 sys.path.insert(0, "python")
-from builder import BuildConfig, ChunkSpec, Pipeline, chunk_text
+from builder import BuildConfig, Pipeline, chunk_text
+from forge.embed_potion import potion_embedder
 
-
-def embed(specs):
-    # plug in your sentence-transformers or candle / onnxruntime here
-    from sentence_transformers import SentenceTransformer
-
-    m = SentenceTransformer(cfg.embedding_model)
-    return m.encode([s.canonical_text for s in specs], normalize_embeddings=True).tolist()
-
+emb = potion_embedder()  # offline static table; swap for python/embed_query.py's ST path if you need a bigger model
 
 cfg = BuildConfig(
     output_path="my_corpus.urna",
-    embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-    embedding_dim=384,
+    embedding_model=emb.embedding_model,
+    embedding_dim=emb.embedding_dim,
     chunker_version="my-chunker/v1",
-    model_hash="sha256:" + "0" * 64,  # see §7 for the real fingerprint
+    model_hash=emb.model_hash(),  # a zero placeholder is rejected at write time
     preset="exact",  # see §6 for preset choices
     reproducible=True,
 )
-pipe = Pipeline(cfg, embedder=embed, scratch_db="cache.sqlite")
-for source_uri, text in documents:
+pipe = Pipeline(cfg, embedder=emb, scratch_db="cache.sqlite")
+for source_uri, text in documents:  # your (uri, text) pairs
     for spec in chunk_text(text, source_uri):
         pipe.add(spec)
 pipe.emit()
 ```
 
-for real-world examples: `python/convert_legacy.py` (SQLite to `.urna`) and `python/tools/urna_build_corpus.py` (7 PT-BR datasets to a unified `.urna`).
+the embedder is any callable that takes the chunk specs and returns one l2-normalized vector per spec; `potion_embedder()` is one, and a sentence-transformers wrapper is a few lines (`m.encode([s.canonical_text for s in specs], normalize_embeddings=True).tolist()`). for real-world examples: `python/convert_legacy.py` (SQLite to `.urna`), `python/tools/urna_build_corpus.py` (7 PT-BR datasets to a unified `.urna`), and `examples/quickstart/quickstart.py` (the shortest complete build, on `urna.build` directly).
 
 ### image and pdf corpora
 
@@ -97,7 +115,7 @@ neither means much alone. pass `--baseline` with the uncompressed control index 
     -k 1 5 10 --out eval.json
 ```
 
-measured in phase 6 (full matrix and intervals in `doc/CHANGELOG`): on ph2 (n=200) av1-intra crf35 compresses the media 86x for a mean label `precision@10` delta of -3.4 to -4.7 points whose interval crosses zero, but the melanoma class alone drops 16.9 points with a significant interval ([-25, -10]); on ham10000 (2000-sample) the media shrinks 151x for a mean delta of -1.5 [-3.5, +0.6], again with a significant melanoma cost (-10.7). the text-to-image ruler is harsher and honest: 44/60 correct top-10 clinical queries on the control falls to 22/60 at crf35, and the loss does not recover with rate. per-class floors matter more than the mean: report the interval and the worst class, not just the point.
+measured in phase 6 (full matrix and intervals in `docs/CHANGELOG`): on ph2 (n=200) av1-intra crf35 compresses the media 86x for a mean label `precision@10` delta of -3.4 to -4.7 points whose interval crosses zero, but the melanoma class alone drops 16.9 points with a significant interval ([-25, -10]); on ham10000 (2000-sample) the media shrinks 151x for a mean delta of -1.5 [-3.5, +0.6], again with a significant melanoma cost (-10.7). the text-to-image ruler is harsher and honest: 44/60 correct top-10 clinical queries on the control falls to 22/60 at crf35, and the loss does not recover with rate. per-class floors matter more than the mean: report the interval and the worst class, not just the point.
 
 `python/tools/urna_image_sweep.py` runs the variant matrix for you (av1-intra crf ladder, avif444, control, `dtype:` rungs, `av1-order`), records `urna_bytes` and the control's `media_bytes` per variant, and writes one consolidated comparison json:
 
@@ -221,7 +239,7 @@ the python convenience is `python python/forge/retrieve.py`: it builds a `.urna`
 | `nano`       | zstd          | int4        | yes | no   |      0.209 |    0.9130 |
 | `hybrid`     | zstd          | float32     | yes | yes  |      0.609 |    1.0000 |
 
-numbers measured on the project's PT-BR fake-news corpus (n=30,725, dim=384), 100 queries, k=10 vs the float32 exact baseline (the published ladder `dat/measure/ladder.json`, gated against `dat/measure/baseline.json`). RULER CAVEAT: these `recall@10` figures use a SELF-PERTURBATION ruler (each query is a corpus vector plus tiny noise), so they measure rank-stability under quantization, NOT real-query retrieval, and are likely inflated; see the `ruler` field in `ladder.json`/`baseline.json` and the pending real-query (mteb-style) ruler (gate-zero). these are the honest current sizes after the text-codec repack (intpack chunk_ids/spans, bitpacked hnsw/bm25 payloads) shrank the indexed presets below the v0.2 figures: `tiny` 0.283 -> 0.256, `compressed` 0.350 -> 0.339, `hybrid` 0.668 -> 0.609. latency ranges (NEON, hot cache): exact p50 ~3.1 ms, tiny p50 ~1.2 ms, micro p50 ~0.8 ms, nano p50 ~2.1 ms, hybrid p50 ~4.0 ms.
+numbers measured on the project's PT-BR fake-news corpus (n=30,725, dim=384), 100 queries, k=10 vs the float32 exact baseline (the published ladder `data/measure/ladder.json`, gated against `data/measure/baseline.json`). RULER CAVEAT: these `recall@10` figures use a SELF-PERTURBATION ruler (each query is a corpus vector plus tiny noise), so they measure rank-stability under quantization, NOT real-query retrieval, and are likely inflated; see the `ruler` field in `ladder.json`/`baseline.json` and the pending real-query (mteb-style) ruler (gate-zero). these are the honest current sizes after the text-codec repack (intpack chunk_ids/spans, bitpacked hnsw/bm25 payloads) shrank the indexed presets below the v0.2 figures: `tiny` 0.283 -> 0.256, `compressed` 0.350 -> 0.339, `hybrid` 0.668 -> 0.609. latency ranges (NEON, hot cache): exact p50 ~3.1 ms, tiny p50 ~1.2 ms, micro p50 ~0.8 ms, nano p50 ~2.1 ms, hybrid p50 ~4.0 ms.
 
 the `exact`/`compressed`/`tiny`/`nano`/`hybrid` rows are direct `preset=` values; `micro` is the published name for the matryoshka size lever (the documented honest point `mrl256-int8`), built with `urna.build(text_encoding="zstd", dtype="int8", mrl_dim=256, with_hnsw=True)` and emitted by `measure_presets.py --variants ...,micro,...`.
 
@@ -231,7 +249,7 @@ pick `nano` for the smallest distributable file with recall above the nano floor
 
 `urna.build(..., mrl_dim=K)` (or `BuildConfig.mrl_dim`) slices each l2-normalized vector to its first `K` components and re-l2-normalizes the prefix BEFORE quantization (Qwen3/ST/BGE truncate-then-renormalize). this is the dimension axis: orthogonal to and multiplicative with the dtype levers. the stored `embedding_dim` becomes `K`, the source dim is recorded as `full_dim`, and both appear in `urna stats`. queries are striped at `K` too, so a full-dim query against a truncated file is a dimension mismatch; slice + renorm the query to `K` first. truncation is a pure deterministic op, so builds stay byte-identical; `content_hash` is over the truncated embeddings, so a citation is tied to its `mrl_dim` (never claimed stable across dims). int4 still needs the effective dim divisible by 64, so `mrl_dim` in {256, 192, 128} works with int4 but 96 does not (use int8/f16/f32 at 96).
 
-matryoshka pays off on a model trained for it (information front-loads into the prefix). the shipped MiniLM corpus is NOT mrl-trained, so truncation costs real recall@10 there; the published ladder in `dat/measure/ladder.json` (100 queries, k=10) reports the honest curve (same self-perturbation ruler as above, see the RULER CAVEAT) and `python/tools/measure_presets.py` emits it (the default `--variants` are `compressed,tiny,micro,nano,hybrid` plus `mrl256/192/128-int8`, `mrl96-int8`, `mrl256/192/128-int4`):
+matryoshka pays off on a model trained for it (information front-loads into the prefix). the shipped MiniLM corpus is NOT mrl-trained, so truncation costs real recall@10 there; the published ladder in `data/measure/ladder.json` (100 queries, k=10) reports the honest curve (same self-perturbation ruler as above, see the RULER CAVEAT) and `python/tools/measure_presets.py` emits it (the default `--variants` are `compressed,tiny,micro,nano,hybrid` plus `mrl256/192/128-int8`, `mrl96-int8`, `mrl256/192/128-int4`):
 
 | ladder        | size ratio | recall@10 |
 |---------------|-----------:|----------:|
@@ -483,7 +501,7 @@ every `URNA_*` variable read anywhere in the codebase (installers, cli, forge, d
 | `URNA_MUTATION_ITERS` | dev | `1500` | iteration count for the mutation-fuzz harness; raise for a soak run |
 | `URNA_FUZZ_SEED_DIR` | dev | unset | seed corpus dir override for the mutation-fuzz harness |
 | `URNA_FUZZ_TARGETS` | dev | `urna-view section-decoders runtime-indexes mmap-open-search` | space-separated cargo-fuzz targets `scripts/fuzz_soak.sh` runs |
-| `URNA_BASELINE` | dev | `dat/measure/baseline.json` | regression baseline `release_check.sh` compares against |
+| `URNA_BASELINE` | dev | `data/measure/baseline.json` | regression baseline `release_check.sh` compares against |
 | `URNA_QUERIES` | dev | `100` | query count `measure_presets.py` uses via `release_check.sh` |
 | `URNA_K` | dev | `10` | top-k `measure_presets.py` uses via `release_check.sh` |
 | `URNA_OUT` | dev | `/tmp/release_check_post.json` | where `release_check.sh` writes the post-run measurement json |
@@ -570,7 +588,7 @@ cargo binstall urna-cli
 
 ```sh
 docker build --platform=linux/amd64 -f docker/Dockerfile -t urna .
-docker run --rm -v "$PWD/dat:/dat:ro" urna validate /dat/corpus_next.v1.urna
+docker run --rm -v "$PWD/data:/data:ro" urna validate /data/corpus_next.v1.urna
 ```
 
 `docker/Dockerfile` builds the static musl binary in a throwaway toolchain stage and copies it into `scratch`: no shell, no package manager, no network at runtime. the corpus arrives as a mounted volume, so the same image serves air-gapped hosts. on apple silicon build the aarch64 variant natively (`--build-arg TARGET=aarch64-unknown-linux-musl`); qemu user emulation crashes rustc mid-build. the image has no python, so `ask` / `retrieve` are not available inside it; the engine verbs (file + vector in) are.
@@ -586,7 +604,7 @@ cargo build --release -p urna-python --features pyo3/extension-module
 cp target/release/lib_urna.dylib python/_urna.so   # macos (.so on linux)
 ```
 
-rust edition 2024 (`rustc >= 1.85`), python 3.12+. the potion table is git-lfs: `git lfs pull` before `urna doctor` or any `ask` / `retrieve`, a pointer file is rejected with exit `5`. setup details, hooks and the merge gate are in `doc/CONTRIBUTING.md`.
+rust edition 2024 (`rustc >= 1.85`), python 3.12+. the potion table is git-lfs: `git lfs pull` before `urna doctor` or any `ask` / `retrieve`, a pointer file is rejected with exit `5`. setup details, hooks and the merge gate are in `docs/CONTRIBUTING.md`.
 
 </details>
 
@@ -635,7 +653,7 @@ the release workflows assume external state that a fresh org does not have. as o
 3. **git-lfs**: release and wheel builds pull the potion table (`.github/dist-build-setup.yml`, `lfs: true` in `pypi.yml`). check the lfs bandwidth quota before a release; five targets plus four wheels each fetch the ~30 mb table.
 4. **attestations**: nothing to configure. `release.yml` already requests `attestations: write`, `pypi.yml` requests `id-token: write`.
 5. **short url**: `get.hoffresearch.com` is not registered (nxdomain). the scripts and the README use the raw github url. if the short form is wanted, point the dns at a 302 to the raw script and update the README plus both script headers in the same change.
-6. **cutting a release**: bump `version` in `Cargo.toml` (the workspace version tracks the latest tag), move the `[Unreleased]` block in `doc/CHANGELOG` under the new version, merge to `main`, then `git tag -s vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z` (annotated and signed; `git config tag.gpgsign true` makes `-s` the default with the ssh key already used for commits). the tag drives `release.yml` and `pypi.yml`, both of which verify the signature first; the published release triggers `install-test.yml`. if that trigger does not fire, run it by hand with `workflow_dispatch` and the tag.
+6. **cutting a release**: bump `version` in `Cargo.toml` (the workspace version tracks the latest tag), move the `[Unreleased]` block in `docs/CHANGELOG` under the new version, merge to `main`, then `git tag -s vX.Y.Z -m vX.Y.Z && git push origin vX.Y.Z` (annotated and signed; `git config tag.gpgsign true` makes `-s` the default with the ssh key already used for commits). the tag drives `release.yml` and `pypi.yml`, both of which verify the signature first; the published release triggers `install-test.yml`. if that trigger does not fire, run it by hand with `workflow_dispatch` and the tag.
 7. **release signers**: `.github/allowed_signers` lists the keys allowed to sign release tags (one line per principal). a new maintainer key is a pull request that appends a line there; the verify step reads the file from the tagged commit.
 8. **changing the dist config**: after editing `[workspace.metadata.dist]` run `dist generate` and commit the regenerated `release.yml`; never hand-edit it. `pr-run-mode = "plan"` keeps pull requests on the plan step only.
 

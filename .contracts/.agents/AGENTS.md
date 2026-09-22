@@ -9,7 +9,7 @@ operating notes for ai agents and human contributors working in this repo. the p
 - `cargo fmt --all --check`: formatting check
 - `cargo clippy --workspace --all-targets -- -D warnings`: linting (warnings are errors)
 - `ruff check .` / `ruff format --check .`: python linting and formatting (config in `pyproject.toml`)
-- `./scripts/release_check.sh`: full pipeline + regression gates against `dat/measure/baseline.json`. single source of truth for "PR-ready". exits non-zero on any failure.
+- `./scripts/release_check.sh`: full pipeline + regression gates against `data/measure/baseline.json`. single source of truth for "PR-ready". exits non-zero on any failure.
 - `forge-core` (the ingestion layer) is a SEPARATE cargo workspace OUTSIDE `crates/`; the sovereign `--workspace` commands and `release_check.sh` do not touch it. build and test it on its own manifest: `cargo build --manifest-path forge-core/Cargo.toml`, `cargo test --manifest-path forge-core/Cargo.toml`, `cargo clippy --manifest-path forge-core/Cargo.toml --all-targets -- -D warnings`, `cargo fmt --manifest-path forge-core/Cargo.toml --all --check`. the <=300-line rule applies there too (release_check's guard only scans `crates/`).
 
 # pyo3 extension
@@ -84,26 +84,26 @@ python/                writer pipeline (builder.py), model fingerprint, query em
                        the model registry (model_registry + model_adapters + embed_st +
                        embed_st_worker) and the dual quality gate (quality_gate)
 tests/                 python test scripts (plain scripts, not pytest)
-doc/                   arc/ architecture pair, usage.md (with the install reference), CHANGELOG, SECURITY.md (with the data-governance posture)
-dat/                   corpus_next.v1.urna (LFS demo corpus), measure/ regression baselines, demo/ sources
+docs/                  arc/ architecture pair, usage.md (with the install reference), CHANGELOG, SECURITY.md (with the data-governance posture)
+data/                  corpus_next.v1.urna (LFS demo corpus), measure/ regression baselines, demo/ sources
 scripts/               release_check.sh (the merge gate), pre-commit (PHI/data backstop hook),
                        install.sh / install.ps1, stage_wheel.py, stage_embedder_payload.py
 packaging/             pyproject.toml, single source for the published wheel (staging/ is generated)
 docker/                minimal image: static musl urna binary on scratch
-examples/              fastapi, flask, jupyter integration examples
+examples/              quickstart (the five-verb loop on twelve cc0 paragraphs), fastapi, flask, jupyter
 .contracts/.agents/    AGENTS.md, the single agent instruction source
 ```
 
 key rust deps: memmap2 (mmap), rayon (parallel build), zstd / half / bytemuck (encodings), sha2 (hashing), thiserror (typed errors), clap (cli), serde / serde_json (manifest).
 
-CLI binary: `urna`. twelve engine subcommands (file + vector in, never run python): `inspect`, `validate`, `stats`, `media` (list / export the inlined 0x17 blobs, sha256-verified), `search`, `search-ann`, `search-graph`, `search-space` (exact search over one named multimodal band), `search-text`, `benchmark` (incl `--space`), `cite`, `doctor`. plus three agent verbs layered over the same engine, under `cmd/agent/`: `build` (declarative corpus build, a launcher over `python/tools/urna_forge.py`), `ask` (text query in, cited answer out, `--disclose answer|explain`) and `retrieve` (json/jsonl answer-pack of cited spans where score IS the exact rerank value). the flagship embeds offline and routes the query embedder BY THE MANIFEST MODEL: potion corpora keep the potion script, any registry model goes through `python/forge/embed_query_model.py` (with `--mrl-dim` for truncated default spaces). one or several embedding models per build come from the preset registry (`python/forge/model_registry.py`); the build contract with every user-selectable knob is `doc/usage.md` sections 12-14 (section 13 carries a complete working spec). verb-collapse, the `urna dev` namespace, and the urna-profile crate stay deferred.
+CLI binary: `urna`. twelve engine subcommands (file + vector in, never run python): `inspect`, `validate`, `stats`, `media` (list / export the inlined 0x17 blobs, sha256-verified), `search`, `search-ann`, `search-graph`, `search-space` (exact search over one named multimodal band), `search-text`, `benchmark` (incl `--space`), `cite`, `doctor`. plus three agent verbs layered over the same engine, under `cmd/agent/`: `build` (declarative corpus build, a launcher over `python/tools/urna_forge.py`), `ask` (text query in, cited answer out, `--disclose answer|explain`) and `retrieve` (json/jsonl answer-pack of cited spans where score IS the exact rerank value). the flagship embeds offline and routes the query embedder BY THE MANIFEST MODEL: potion corpora keep the potion script, any registry model goes through `python/forge/embed_query_model.py` (with `--mrl-dim` for truncated default spaces). one or several embedding models per build come from the preset registry (`python/forge/model_registry.py`); the build contract with every user-selectable knob is `docs/usage.md` sections 12-14 (section 13 carries a complete working spec). verb-collapse, the `urna dev` namespace, and the urna-profile crate stay deferred.
 
 python entry: `sys.path.insert(0, "python"); import urna`. dynamic loader finds `_urna.so` or `lib_urna.dylib`.
 
 # format and runtime contract
 
 - rust edition 2024, resolver 3, `thiserror` for errors (never panic in library code). `repr(C)` + `bytemuck::Pod` structs for binary layout; all integers LE unsigned. every `unsafe` block needs a `// SAFETY:` comment naming the invariant it relies on, and clippy denies undocumented ones (`[workspace.lints]`: `undocumented_unsafe_blocks`, `unwrap_used`; tests exempt). read fixed-width fields through `urna_format::bytes::{le_u32, le_u64, le_f32, array32}` (typed `UnexpectedEof`, no `try_into().unwrap()`); compute header-derived sizes with checked arithmetic (`expected_embeddings_size`); write cursor bounds checks as `need > remaining`, never `pos + need > len`; sort f32 scores through `urna_runtime::order` (NaN-last total order), never `partial_cmp(..).unwrap_or(Equal)`.
-- binary format v1 is frozen. v0.2 added encodings 1/2/3 (zstd, float16, int8) and optional sections 0x07 (HNSW) and 0x08 (BM25). v0.3 added encoding 7 (int4) and the graph pillar (section 0x0C). since then the media blob pillar (0x14 blob_refs, 0x16 blob_span_overlay) and the multimodal space pillar (0x15 space_table + the 0x20-0x2F embedding band) shipped, all additive and content_hash-excluded; see `doc/arc/arc.toml`'s `contract` array for the full section-id map.
+- binary format v1 is frozen. v0.2 added encodings 1/2/3 (zstd, float16, int8) and optional sections 0x07 (HNSW) and 0x08 (BM25). v0.3 added encoding 7 (int4) and the graph pillar (section 0x0C). since then the media blob pillar (0x14 blob_refs, 0x16 blob_span_overlay) and the multimodal space pillar (0x15 space_table + the 0x20-0x2F embedding band) shipped, all additive and content_hash-excluded; see `docs/arc/arc.toml`'s `contract` array for the full section-id map.
 - hash format: always `sha256:<64 lowercase hex>`. four hashes: `header_checksum`, per-section `checksum` (physical bytes), `file_hash` (whole file), `content_hash` (decoded canonical sections, stable across encodings). same chunks + same model fingerprint + `reproducible=True` produce byte-identical files, so the `urna://content_hash/chunk_id` citation URI points at content, not at a copy.
 - `UrnaFileBuilder` is a consuming builder (`add_chunk(self) -> Self`). presets via `.text_encoding()` + `.embedding_dtype()`, or the bundled levers: `exact`, `compressed` (zstd + f16), `tiny` (int8 + hnsw), `micro` (mrl256-int8), `nano` (int4 block-64), `hybrid` (f32 + hnsw + bm25).
 - matryoshka prefix truncation is a build-time kwarg (`urna.build(mrl_dim=K)` / `BuildConfig.mrl_dim`): the python builder slices each l2-normalized row to its first K components and re-l2-normalizes the prefix BEFORE quantization, sets the header/manifest `embedding_dim` to K, and records the source dim as `full_dim`. additive optional manifest fields (`mrl_dim`/`full_dim`, omitted when unset so existing files stay byte-identical). NO runtime kernel change: the reader strides by `header.embedding_dim`. int4 needs the EFFECTIVE dim %64==0, so the int4 ladder is valid only at mrl_dim in {256,192,128}. truncation is a pure deterministic slice => byte-identical builds; content_hash is over the truncated embeddings so citations are tied to a given mrl_dim. the shipped MiniLM corpus is NOT mrl-trained, so truncation costs measured recall: `measure_presets.py --variants mrl<DIM>-<dtype>` reports the curve, gated conditionally in `compare_measure.py`.
@@ -122,11 +122,11 @@ python entry: `sys.path.insert(0, "python"); import urna`. dynamic loader finds 
 - PRs target `main` and are squash merged (the ruleset requires pull requests, verified ssh-signed commits, and linear history). delete the branch after merge and start the next one from `origin/main`.
 - tags on `main` only (`v0.4.0` is current). `Cargo.toml` workspace version tracks the latest released tag.
 - every push and pull request runs `.github/workflows/ci.yml`: fmt, clippy with the workspace deny lints, build + test on ubuntu (avx2) and macos (neon), the mutation-fuzz harnesses at a higher iteration count, the 300-line guard, forge-core's own gate, ruff via `scripts/ruff_check.sh` (the ONE python file list, shared with release_check.sh), and a bounded cargo-fuzz smoke on nightly. it is release_check.sh minus the lfs corpus measurement.
-- pushing a `v*` tag on `main` runs the full release: `.github/workflows/release.yml` (cargo-dist: cli tarballs for 5 targets, checksums, sigstore attestations, homebrew formula, the embedder payload artifact) and `.github/workflows/pypi.yml` (maturin abi3 wheels for 4 platforms, OIDC trusted publishing). `.github/workflows/install-test.yml` then tests the INSTALLED product per platform. maintainer one-time setup for these channels is the maintainer checklist in the reference section of `doc/usage.md`.
-- git lfs tracks `*.urna`, `*.safetensors`, datasets, and the vendored potion table (including `dat/corpus_next.v1.urna`); golden fixtures under `crates/urna-format/tests/fixtures/` stay in regular git. run `git lfs pull` if a binary is a pointer.
-- demo datasets under `dat/demo/` are intentionally gitignored and downloaded locally from upstream sources listed in `dat/demo/Instructions.md`.
+- pushing a `v*` tag on `main` runs the full release: `.github/workflows/release.yml` (cargo-dist: cli tarballs for 5 targets, checksums, sigstore attestations, homebrew formula, the embedder payload artifact) and `.github/workflows/pypi.yml` (maturin abi3 wheels for 4 platforms, OIDC trusted publishing). `.github/workflows/install-test.yml` then tests the INSTALLED product per platform. maintainer one-time setup for these channels is the maintainer checklist in the reference section of `docs/usage.md`.
+- git lfs tracks `*.urna`, `*.safetensors`, datasets, and the vendored potion table (including `data/corpus_next.v1.urna`); golden fixtures under `crates/urna-format/tests/fixtures/` stay in regular git. run `git lfs pull` if a binary is a pointer.
+- demo datasets under `data/demo/` are intentionally gitignored and downloaded locally from upstream sources listed in `data/demo/Instructions.md`.
 - tests run without the demo datasets (the unit and golden-fixture tests avoid depend on them); only `measure_presets.py` and `release_check.sh` need the baseline corpus.
-- `dat/measure/corpus_*.urna` and `*.urna-*` are gitignored: regeneration artifacts, not assets. the JSON files next to them ARE tracked (regression baselines).
+- `data/measure/corpus_*.urna` and `*.urna-*` are gitignored: regeneration artifacts, not assets. the JSON files next to them ARE tracked (regression baselines).
 - `scripts/pre-commit` is a PHI/data backstop that aborts commits staging non-allow-listed data artifacts; install per clone with `cp scripts/pre-commit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit` (copy, not `core.hooksPath`, so git-lfs hooks keep working).
 
 # conventions
@@ -134,7 +134,7 @@ python entry: `sys.path.insert(0, "python"); import urna`. dynamic loader finds 
 - every change ships with real tests, no mocks: happy path, error path, one edge case minimum.
 - test against real artifacts (built .urna files, golden fixtures, real corpora), never mocked interfaces.
 - applies to every contributor, human or agent; nothing merges without executable proof.
-- keep the doc/CHANGELOG test-surface count in sync when adding suites.
+- keep the docs/CHANGELOG test-surface count in sync when adding suites.
 - base formatting via `.editorconfig`: utf-8, lf, 4-space indent (2 for toml/yaml/json), final newline.
 
 # naming
@@ -147,9 +147,9 @@ build folders, files, and codebase items following apl-style 3-char tokens that 
 
 write in diataxis style. all lowercase. no emojis. no em-dash. no decorative markdown. pragmatic, professional, objective. every doc starts with a yaml header for semantic resolution (helps llm, agentic, vector search): project, audience, status, last-updated, domain. design notes that turn out wrong get a note on top. they are not deleted.
 
-`doc/arc/arc.toml` is the single architecture reference, machine-readable for agents and tooling: the narrative (system_view, contract, quality, risks), the file inventory, and the mermaid visual map of the build and query flows (`diagram.source`, byte-equal to a `.mmd` file; extract it verbatim to feed mermaid-cli or any mermaid live editor) all in one file. a `schema` table documents the shape (former IDE-side validation via `arc.schema.json` + a yaml-language-server modeline has no toml equivalent, so the contract is documentation, not enforced).
+`docs/arc/arc.toml` is the single architecture reference, machine-readable for agents and tooling: the narrative (system_view, contract, quality, risks), the file inventory, and the mermaid visual map of the build and query flows (`diagram.source`, byte-equal to a `.mmd` file; extract it verbatim to feed mermaid-cli or any mermaid live editor) all in one file. a `schema` table documents the shape (former IDE-side validation via `arc.schema.json` + a yaml-language-server modeline has no toml equivalent, so the contract is documentation, not enforced).
 
-at task start, read `doc/arc/arc.toml` in a short pass to preserve structure and naming pattern. after any implementation, refactor, rename, or doc move that changes architecture, boundaries, data flow, module layout, public contracts, storage, or runtime behavior, update `arc.toml` in the same change (bump `last-updated`, append a dated note to `summary`). keep it concise and pragmatic. do not keep a parallel second architecture document.
+at task start, read `docs/arc/arc.toml` in a short pass to preserve structure and naming pattern. after any implementation, refactor, rename, or doc move that changes architecture, boundaries, data flow, module layout, public contracts, storage, or runtime behavior, update `arc.toml` in the same change (bump `last-updated`, append a dated note to `summary`). keep it concise and pragmatic. do not keep a parallel second architecture document.
 
 # file hygiene
 
@@ -161,7 +161,7 @@ every file created or modified in a session that exceeds 333 lines must be read 
 
 run a full audit over every change made in the session, no summarizing, from devops, code quality, and secops angles. write a temporary manifest in markdown under your tmp folder to track tasks executed.
 
-identify every trace of dead code, generated scripts and files no longer useful, items needing update, and items to be moved to the correct location per architecture and design pattern. if the project lacks documented conventions, create them: design notes in `doc/CHANGELOG` for architectural decisions, `.editorconfig` for stack-agnostic base formatting, and an idiomatic linter config per language used.
+identify every trace of dead code, generated scripts and files no longer useful, items needing update, and items to be moved to the correct location per architecture and design pattern. if the project lacks documented conventions, create them: design notes in `docs/CHANGELOG` for architectural decisions, `.editorconfig` for stack-agnostic base formatting, and an idiomatic linter config per language used.
 
 identify temporary scripts and possible dead-code files in incorrect folders. understand how each works, preserve application integrity, test and validate that no imports or responsibilities are left orphan. run tests after execution.
 
@@ -190,7 +190,7 @@ documentation, comments, and commit messages follow the README's tone.
 
 these are documented honest limitations of the current code, not bugs to silently fix. user-visible behavior; flag them in any work that interacts with these areas.
 
-- **`search-text` boot overhead (~300-500ms)**: each invocation forks a python process, imports sentence-transformers, embeds the query, then exits. the latency table in the README and `doc/usage.md` measures the search path AFTER the vector is ready, not end-to-end. python-driven workloads (`urna.UrnaFile.search` in a loop) avoid this.
+- **`search-text` boot overhead (~300-500ms)**: each invocation forks a python process, imports sentence-transformers, embeds the query, then exits. the latency table in the README and `docs/usage.md` measures the search path AFTER the vector is ready, not end-to-end. python-driven workloads (`urna.UrnaFile.search` in a loop) avoid this.
 - **BM25 tokenizer is word-segmented-only**: `crates/urna-runtime/src/bm25/tokenize.rs` splits on non-alphanumeric Unicode boundaries. correct for latin, cyrillic, greek, devanagari. degrades for CJK, thai, lao (each character becomes a token, posting lists explode, recall drops). hybrid search on those languages should disable BM25 (`with_bm25=False`) until a language-aware tokenizer ships.
 - **homebrew formula installs the binary only**: the dist-generated formula in the `hoffresearch/homebrew-urna` tap does not lay down the embedder payload, so a brew-installed `urna` reports exit 4 from `urna doctor` until the user also runs the one-liner (or copies `python/forge/` into the data dir by hand). fixing this means a custom formula, deferred until the tap sees real use.
 - **st registry models have measured cost cliffs**: wemm-2b runs fp16 on mps with `image_max_side=768` (~0.6 img/s); jina-v5-omni-nano has no `image_max_side` default yet and embeds at native resolution (~0.3 img/s); changing either invalidates that model's cache by design (the knob is recipe-hashed). the siglip2 TEXT tower resolves an hf tokenizer whose optional-file probes can fail in strict offline mode even with the snapshot cached (usage section 12 has the workaround); its image tower is unaffected.
@@ -211,15 +211,15 @@ these are documented honest limitations of the current code, not bugs to silentl
 # documentation
 
 - `README.md`: project overview, install, CLI summary, python surface, benchmarks, hardening, presets, reference index.
-- `doc/arc/arc.toml`: the single architecture reference, machine-readable for agents and tooling: the human-readable inventory plus runtime contract summary, and the mermaid sequence diagram of the build and query flows (`diagram.source`). a `schema` table documents its shape.
-- `doc/usage.md`: how-to for the twelve engine subcommands (incl `media`, section 15) plus the ask/retrieve/build agent verbs, presets, offline mode, citations, the model registry and multi-model spaces (section 12), declarative builds (section 13), and the compression levers with the dual quality gate (section 14), and the collapsed reference section: every install channel (one-liner, pypi `urna`, brew, binstall, docker, dev build), verification (sha256 + attestations + sbom), offline notes, and the maintainer one-time checklist.
-- `doc/CHANGELOG`: 0.1.0 through 0.4.0 and the unreleased deltas, with measured numbers.
-- `doc/benchmarks.md`: urna vs usearch / hnswlib / sqlite-vec / lancedb, one table, regenerated by `python/tools/bench_competitors.py`.
-- `dat/demo/Instructions.md`: what each upstream PT-BR dataset is and how to rebuild the unified corpus.
-- `doc/CONTRIBUTING.md`: external contributor flow.
-- `doc/CODE_OF_CONDUCT.md`: contributor covenant 2.1, lowercase plain-style.
-- `doc/SECURITY.md`: reporting channel, supported versions, security scope, hardening notes, and the data-governance posture (cleartext datastore, erasure and rectification, provenance as a compliance asset, corpus licensing).
-- `doc/LICENSE`: mit license text.
+- `docs/arc/arc.toml`: the single architecture reference, machine-readable for agents and tooling: the human-readable inventory plus runtime contract summary, and the mermaid sequence diagram of the build and query flows (`diagram.source`). a `schema` table documents its shape.
+- `docs/usage.md`: how-to for the twelve engine subcommands (incl `media`, section 15) plus the ask/retrieve/build agent verbs, presets, offline mode, citations, the model registry and multi-model spaces (section 12), declarative builds (section 13), and the compression levers with the dual quality gate (section 14), and the collapsed reference section: every install channel (one-liner, pypi `urna`, brew, binstall, docker, dev build), verification (sha256 + attestations + sbom), offline notes, and the maintainer one-time checklist.
+- `docs/CHANGELOG`: 0.1.0 through 0.4.0 and the unreleased deltas, with measured numbers.
+- `docs/benchmarks.md`: urna vs usearch / hnswlib / sqlite-vec / lancedb, one table, regenerated by `python/tools/bench_competitors.py`.
+- `data/demo/Instructions.md`: what each upstream PT-BR dataset is and how to rebuild the unified corpus.
+- `docs/CONTRIBUTING.md`: external contributor flow.
+- `docs/CODE_OF_CONDUCT.md`: contributor covenant 2.1, lowercase plain-style.
+- `docs/SECURITY.md`: reporting channel, supported versions, security scope, hardening notes, and the data-governance posture (cleartext datastore, erasure and rectification, provenance as a compliance asset, corpus licensing).
+- `docs/LICENSE`: mit license text.
 - `scripts/release_check.sh`: read it. it documents the gate by being the gate.
 
 # agent instructions

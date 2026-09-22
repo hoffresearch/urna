@@ -19,7 +19,7 @@ use crate::cmd;
 #[command(
     about = "urna: single-file, memory-mapped, hash-verified vector database with stable citations",
     long_about = None,
-    after_help = "verb groups:\n  engine  inspect, validate, stats, media, search, search-ann, search-graph,\n          search-space, search-text, benchmark, cite, doctor  (file + vector in, hits out; no python)\n  agent   ask, retrieve, build  (text or spec in, cited answers out; shells out to the offline python embedder / forge)"
+    after_help = "start here (the five verbs that cover the loop):\n  build     creates the base       rows + embedding model in, one .urna out     urna build --spec corpus.toml\n  ask       queries it             text in, one cited answer out                urna ask corpus.urna \"question\"\n  retrieve  results for a program  json/jsonl of cited spans, exact score       urna retrieve corpus.urna \"question\" --format jsonl\n  cite      resolves the source    a urna:// citation back to its stored text   urna cite corpus.urna 'urna://...'\n  validate  proves the file        every checksum, every hash, the contract     urna validate corpus.urna\n\nverb groups:\n  engine  inspect, validate, stats, media, search, search-ann, search-graph,\n          search-space, search-text, benchmark, cite, doctor  (file + vector in, hits out; no python)\n  agent   ask, retrieve, build  (text or spec in, cited answers out; shells out to the offline python embedder / forge)\n\na corpus to try: examples/quickstart/ in the repo (urna build --spec examples/quickstart/corpus.toml)"
 )]
 pub struct Cli {
     #[command(subcommand)]

@@ -38,7 +38,7 @@ from pathlib import Path
 # (lazy) sentence_transformers import ever runs. A hostile or misconfigured
 # corpus model name must never trigger a hub download mid-run — especially
 # while the box is handling PHI (see the data governance section of
-# doc/SECURITY.md). Opt into the
+# docs/SECURITY.md). Opt into the
 # first-time model fetch explicitly with URNA_ALLOW_DOWNLOAD=1.
 if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
     for _k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):

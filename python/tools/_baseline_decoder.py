@@ -128,8 +128,8 @@ def _decode_spans(buf: bytes, expected: int) -> list[tuple[str, int, int]]:
 
 
 # Re-export the path constant some callers want.
-DEFAULT_BASELINE = REPO / "dat" / "corpus_next.v1.urna"
-OUT_DIR = REPO / "dat" / "measure"
+DEFAULT_BASELINE = REPO / "data" / "corpus_next.v1.urna"
+OUT_DIR = REPO / "data" / "measure"
 
 # Silence the "imported but unused" warning when this module is loaded
 # for its side effects (sys.path insertion).
