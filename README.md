@@ -13,7 +13,7 @@ python builds. rust serves. urna ships.
 no server to run, no api call, no central index to audit. ship a curated knowledge base inside the application; every answer points at a chunk you can verify.
 
 warm p50 vs p99 per store, 100k x 384 rows, log scale, bottom-left is fastest and flattest
-
+  
 ```mermaid
 ---
 config:
@@ -674,4 +674,4 @@ MIT, see [docs/LICENSE](docs/LICENSE). [Hoff Research](https://hoffresearch.com)
 
 made it simple, but significant (∂μfμν = jν)
 
-author: brenner cruvinel 
+author: brenner cruvinel
