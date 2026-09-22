@@ -6,7 +6,7 @@ single-file, memory-mapped, hash-verified vector database with stable citations.
 
 one `.urna` file carries chunks, embeddings, source spans, media, indices, and a search contract. a rust runtime mmaps it and answers with exact-cosine scores and `urna://content_hash/chunk_id` citations that survive re-encoding. reproducible byte for byte, offline by construction: the file is the whole database and nothing phones home.
 
-python builds. rust serves. urna ships.
+python builds, rust serves.
 
 > renamed from `nest` after v0.4.0. same container, new name: file magic `URNA`, extension `.urna`, citations `urna://`, crates `urna-*`, wheel `urna`, env vars `URNA_*`. a `.nest` written by 0.4.0 or earlier still opens: the reader accepts the old `NEST` magic, the writer only emits `URNA`. details in `docs/CHANGELOG`.
 
@@ -58,7 +58,7 @@ the two urna points verify every byte before the first answer and return recall@
 
 ## sovereign, enforced by the format
 
-four properties, held by the bytes, not by policy.
+four properties, held by the bytes.
 
 | property       | what the format enforces |
 |----------------|--------------------------|
@@ -145,7 +145,7 @@ urna validate examples/quickstart/out/quickstart.urna
 <details>
 <summary>one binary, two groups of verbs</summary>
 
-one binary, two groups of verbs. the engine takes a file and a vector and never runs python; the agent verbs take text or a build spec, shell out to the offline python embedder or the forge, and speak in cited answers. every printed score is the exact-cosine rerank value.
+the engine takes a file and a vector and never runs python; the agent verbs take text or a build spec, shell out to the offline python embedder or the forge, and speak in cited answers. every printed score is the exact-cosine rerank value.
 
 </details>
 
