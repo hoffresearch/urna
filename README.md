@@ -1,4 +1,4 @@
-![urna](https://raw.githubusercontent.com/hoffresearch/urna/main/docs/urna-hoff-research-db.png)
+![urna](https://raw.githubusercontent.com/hoffresearch/urna/ec842eef9c1dc699bdbc7f65cafe03838ab110e6/docs/urna-hoff-research-db.png)
 
 # urna
 
