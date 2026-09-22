@@ -4,7 +4,7 @@
 # volume, so the same image serves air-gapped environments.
 #
 # build:  docker build --platform=linux/amd64 -f docker/Dockerfile -t urna .
-# run:    docker run --rm -v "$PWD/dat:/dat:ro" urna validate /dat/corpus_next.v1.urna
+# run:    docker run --rm -v "$PWD/data:/data:ro" urna validate /data/corpus_next.v1.urna
 #
 # TARGET is a build arg: x86_64-unknown-linux-musl (default) or
 # aarch64-unknown-linux-musl. on apple silicon, build the aarch64 variant

@@ -27,6 +27,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import numpy as np
+
 from builder import BuildConfig, ChunkSpec, Pipeline
 
 from . import embed_image, image_backends, image_items, image_media, image_order

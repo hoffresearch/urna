@@ -1,5 +1,5 @@
 """Acceptance harness: measure file size, recall@k, score drift, and
-latency for the four presets against a baseline `dat/corpus_next.v1.urna`.
+latency for the four presets against a baseline `data/corpus_next.v1.urna`.
 
 Pipeline:
 
@@ -24,7 +24,7 @@ WEAK RULER: queries are corpus vectors plus tiny noise (self-perturbation),
 so recall@10 here measures rank-stability under quantization, NOT real-query
 retrieval. the JSON dump carries a `ruler` provenance block saying so. the
 real-query (mteb-style) ruler is gate-zero; see the ruler note in
-doc/CHANGELOG.
+docs/CHANGELOG.
 
 Helpers live in private siblings:
   `_baseline_decoder.py`  — section-table parser
@@ -44,16 +44,17 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(REPO / "python"))
 
-import urna  # noqa: E402
 from _baseline_decoder import DEFAULT_BASELINE, OUT_DIR, decode_baseline  # noqa: E402
 from _bench_runner import build_variant, percentile, run_bench  # noqa: E402
+
+import urna  # noqa: E402
 
 # RULER PROVENANCE (machine-readable, emitted into the JSON dump). every recall
 # number this harness reports comes from the self-perturbation ruler below: the
 # query is a corpus vector plus tiny deterministic noise, so the figure measures
 # rank-stability under quantization, NOT real-query retrieval. the real-query
 # (mteb-style) ruler is gate-zero; until it exists these numbers are likely
-# inflated. see the ruler note in doc/CHANGELOG.
+# inflated. see the ruler note in docs/CHANGELOG.
 _RULER_PROVENANCE = {
     "kind": "self-perturbation",
     "query": (
@@ -68,7 +69,7 @@ _RULER_PROVENANCE = {
         "recall@10 here is easier than real retrieval and is likely inflated"
     ),
     "real_ruler": (
-        "pending gate-zero (real-query labeled harness); see the ruler note in doc/CHANGELOG"
+        "pending gate-zero (real-query labeled harness); see the ruler note in docs/CHANGELOG"
     ),
 }
 

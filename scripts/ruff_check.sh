@@ -28,6 +28,7 @@ python/forge/image_backends_av1.py
 python/forge/image_order.py
 python/forge/image_corpus.py
 python/tools/urna_build_image_corpus.py
+examples/quickstart/quickstart.py
 python/tools/urna_search_image.py
 python/tools/urna_image_eval.py
 python/tools/_image_metrics.py

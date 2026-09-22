@@ -8,7 +8,7 @@ identity
     frame came back. this measures RANK STABILITY UNDER THE CODEC, not
     retrieval quality. it is a self-retrieval ruler and it is inflated by
     construction: the corpus contains the answer, lightly perturbed. it is
-    the same class of ruler the repo already flags in `dat/measure/*.json`.
+    the same class of ruler the repo already flags in `data/measure/*.json`.
 
 label
     the query's own frame is REMOVED from its results, and the score is how
@@ -40,8 +40,9 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-import urna
 from _image_metrics import bootstrap_delta
+
+import urna
 from forge import embed_image, image_items
 
 __all__ = ["bootstrap_delta"]

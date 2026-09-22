@@ -31,8 +31,9 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "python"))
 
 import numpy as np
-import urna
 from _model_bench_report import print_table
+
+import urna
 from forge import model_registry
 from forge.forge_manifest import manifest_items
 

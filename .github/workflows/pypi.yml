@@ -9,7 +9,7 @@
 # trigger: pushing a v* tag on main (same tag that drives the dist release);
 # the tag's signature is verified first (tag-verify.yml).
 # prerequisite (one-time, external): the `pypi` environment and the trusted
-# publisher entry for this repo must exist on PyPI; see the maintainer checklist in doc/usage.md.
+# publisher entry for this repo must exist on PyPI; see the maintainer checklist in docs/usage.md.
 
 name: pypi
 
@@ -36,7 +36,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
           - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
           - { os: macos-latest, target: universal2-apple-darwin }
           - { os: windows-latest, target: x86_64-pc-windows-msvc }
@@ -63,7 +63,7 @@ jobs:
   publish:
     name: publish urna to pypi
     needs: [wheels]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment: pypi
     permissions:
       id-token: write # trusted publishing + pep 740 attestations

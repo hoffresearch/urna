@@ -18,7 +18,7 @@ wheels/
 .mypy_cache/
 .ruff_cache/
 .python-version
-dat/demos/
+data/demos/
 
 # Virtual environments
 .venv
@@ -38,35 +38,35 @@ Thumbs.db
 
 # Project specific
 # demo datasets are local-only and intentionally not tracked.
-dat/demo/corpus-combined/
-dat/demo/corpus-next/
-dat/demo/factck-br/
-dat/demo/Fake.br-Corpus/
-dat/demo/FakeBr-hf/
-dat/demo/FakeRecogna/
-dat/demo/FakeTrue.Br/
-dat/demo/FakeTrue.Br-hf/
-dat/demo/portuguese-fake-news-classifier-bilstm-combined/
-dat/demo/truw-built/
+data/demo/corpus-combined/
+data/demo/corpus-next/
+data/demo/factck-br/
+data/demo/Fake.br-Corpus/
+data/demo/FakeBr-hf/
+data/demo/FakeRecogna/
+data/demo/FakeTrue.Br/
+data/demo/FakeTrue.Br-hf/
+data/demo/portuguese-fake-news-classifier-bilstm-combined/
+data/demo/truw-built/
 
-# dat/corpus_next.v1.urna remains tracked via Git LFS.
-# Per-phase preset .urna files (dat/measure/corpus_*.urna) are
+# data/corpus_next.v1.urna remains tracked via Git LFS.
+# Per-phase preset .urna files (data/measure/corpus_*.urna) are
 # regeneration artifacts: re-derivable in minutes by measure_presets.py
 # from the LFS-tracked baseline. Do NOT commit them — they'd inflate the
 # LFS bandwidth quota every phase. We commit only the JSON checksums and
 # metrics next to them.
-dat/measure/corpus_*.urna
-dat/measure/*.urna-*
+data/measure/corpus_*.urna
+data/measure/*.urna-*
 
 
 # Temporary workspace for agent sessions.
 tmp/
 
 # Dermatology demo datasets downloaded for local benchmarking.
-dat/demo/derm/
+data/demo/derm/
 
 # Local symlink to external hoff database (not part of this repo)
-dat/hoff.db
+data/hoff.db
 
 # PHI / clinical artifacts — NEVER commit. clinical data lives OUTSIDE this repo
 # (e.g. /Volumes/<redacted>/dat/psy/work, which is NOT under any git repo). these
@@ -79,21 +79,21 @@ dat/hoff.db
 *.urna
 *.sidecar.jsonl
 **/pairs/
-!dat/corpus_next.v1.urna
+!data/corpus_next.v1.urna
 !crates/urna-format/tests/fixtures/golden_v1_minimal.urna
-!dat/measure/fakerecogna_exact.urna
+!data/measure/fakerecogna_exact.urna
 
-dat/demo/
-!dat/demo/Instructions.md
+data/demo/*
+!data/demo/Instructions.md
 .env
 
 # wheel staging (scripts/stage_wheel.py output)
 packaging/staging/
 # mtg corpus artifacts (specs/scripts/results stay tracked)
-dat/mtg/release/
-dat/mtg/benchmark/sample-2048/runs/
-dat/mtg/benchmark/sample-2048/iframe/samples/
-dat/mtg/
+data/mtg/release/
+data/mtg/benchmark/sample-2048/runs/
+data/mtg/benchmark/sample-2048/iframe/samples/
+data/mtg/
 
 # cargo-fuzz working state (seeds/ stays tracked)
 fuzz/target/
@@ -103,7 +103,11 @@ fuzz/coverage/
 
 # competitor benchmark scratch stores (python/tools/bench_competitors.py --work)
 .bench-competitors/
-tools/
+/tools/
 
 # local-only planning notes, never published
-doc/hardening-plan.md
+docs/hardening-plan.md
+TMP/
+
+# quickstart build output (examples/quickstart/corpus.toml)
+examples/quickstart/out/

@@ -1,7 +1,7 @@
 {
   "baseline_content_hash": "sha256:1aa9ea8a0df9cbd9de26fcbe10cc0a4e036f9f4cfac8834f11bded43ec3ef413",
   "baseline_file_hash": "sha256:d9ec433a868f9a45006756c862c4d6353103128cc1988691d3dd7d3fafbe4324",
-  "baseline_path": "dat/corpus_next.v1.urna",
+  "baseline_path": "data/corpus_next.v1.urna",
   "embedding_dim": 384,
   "k": 10,
   "n_chunks": 30725,
@@ -307,7 +307,7 @@
     "ground_truth": "the same float32 baseline's own top-k on that perturbed query",
     "measures": "rank-stability of a preset under quantization, NOT real-query retrieval quality",
     "caveat": "this is NOT a real-query (mteb-style) labeled query-to-doc ruler; recall@10 here is easier than real retrieval and is likely inflated",
-    "real_ruler": "pending gate-zero (real-query labeled harness); see doc/plan/compression-honest-plan.txt"
+    "real_ruler": "pending gate-zero (real-query labeled harness); see docs/plan/compression-honest-plan.txt"
   },
   "schema_version": 1,
   "seed": 0,

@@ -1,0 +1,29 @@
+# the smallest build spec that works: twelve paragraphs of cc0 prose about
+# urna itself (docs.jsonl), embedded offline with the bundled potion table,
+# emitted as ONE self-contained .urna. paths resolve from the CWD, so run
+# it from the repo root:
+#
+#   urna build --spec examples/quickstart/corpus.toml
+#
+# the full contract (sqlite/csv/image sources, media, several models):
+# docs/usage.md section 13.
+
+[corpus]
+name = "quickstart"
+chunker_version = "quickstart/1"   # changes => every chunk_id (citation) changes
+
+[source]
+kind = "jsonl"
+path = "examples/quickstart/docs.jsonl"
+order_by = ["id"]                    # must be a total order (verified at build)
+
+[source.text]
+template = "{text}"                  # one row = one chunk; source_uri comes from the row
+
+[[models]]
+preset = "potion"                    # offline static table, no torch, no download
+text = "default"
+
+[output]
+mode = "single"
+dir = "examples/quickstart/out"

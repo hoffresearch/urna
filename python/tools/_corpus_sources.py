@@ -15,7 +15,7 @@ from pathlib import Path
 import pandas as pd
 
 REPO = Path(__file__).resolve().parents[2]
-DB = REPO / "dat" / "demo"
+DB = REPO / "data" / "demo"
 
 MIN_TEXT_LEN = 20
 

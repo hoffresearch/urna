@@ -1,6 +1,6 @@
 //! hnsw build throughput: `HnswIndex::build` over
 //! 20k x 384 synthetic l2-normalized rows at m=16 / ef_construction=200,
-//! the same knobs `doc/benchmarks.md` uses against hnswlib and usearch
+//! the same knobs `docs/benchmarks.md` uses against hnswlib and usearch
 //! (there at 100k). one sample is one full build, so the run is minutes,
 //! not seconds. the build is deterministic for the seed, which is what
 //! makes a before/after comparison meaningful.

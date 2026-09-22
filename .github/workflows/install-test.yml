@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, macos-13, windows-latest]
     env:
       TAG: ${{ github.event.release.tag_name || inputs.tag }}
     steps:
@@ -79,7 +79,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v6 # golden fixture
       - uses: actions/setup-python@v7

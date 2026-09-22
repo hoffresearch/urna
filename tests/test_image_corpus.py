@@ -354,6 +354,7 @@ class ImageCorpusTest(unittest.TestCase):
             self.skipTest("PyMuPDF not available")
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python", "tools"))
         import urna_image_eval as ev
+
         from tools import urna_build_image_corpus as builder
 
         pdf_dir = self.tmp / "pdfs"
@@ -385,8 +386,9 @@ class ImageCorpusTest(unittest.TestCase):
         self.assertTrue(rendered.exists())
 
     def test_canvas_is_even_and_letterbox_does_not_distort(self):
-        from forge import image_media
         from PIL import Image
+
+        from forge import image_media
 
         paths = sorted(self.src.glob("*.png"))
         canvas = image_media.canvas_size(paths, 256)
@@ -451,8 +453,9 @@ class ImageCorpusTest(unittest.TestCase):
         The cap follows the median source width for the same reason the
         aspect does: one outlier should not set the geometry for the corpus.
         """
-        from forge import image_media
         from PIL import Image
+
+        from forge import image_media
 
         mixed = self.tmp / "mixed"
         mixed.mkdir()
@@ -590,8 +593,9 @@ class ImageCorpusTest(unittest.TestCase):
         """Red edge on black: chroma subsampling blurs it, 444 blurs less."""
         if not have_avif():
             self.skipTest("avifenc/avifdec not available")
-        from forge import image_decode, image_encode_still
         from PIL import Image
+
+        from forge import image_decode, image_encode_still
 
         pattern = self.tmp / "edge.png"
         img = Image.new("RGB", (128, 128), (0, 0, 0))
@@ -628,8 +632,9 @@ class ImageCorpusTest(unittest.TestCase):
         """
         if not have_avif():
             self.skipTest("avifenc/avifdec not available")
-        from forge import image_encode_still
         from PIL import Image
+
+        from forge import image_encode_still
 
         png = self.tmp / "pinned.png"
         rng = np.random.default_rng(3)

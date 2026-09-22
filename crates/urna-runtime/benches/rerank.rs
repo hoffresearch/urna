@@ -1,5 +1,5 @@
 //! end-to-end search benchmarks through the public api (the
-//! reproducible version of the doc/benchmarks.md numbers): one `.urna` per stored dtype,
+//! reproducible version of the docs/benchmarks.md numbers): one `.urna` per stored dtype,
 //! 20k x 384 synthetic l2-normalized rows, the same hnsw graph in every
 //! file (the graph is dtype-independent; the runtime materializes f32
 //! vectors from the stored section), then per query:

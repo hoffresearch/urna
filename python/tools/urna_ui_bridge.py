@@ -19,6 +19,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "python"))
 
 import _urna  # noqa: E402
+
 from forge.forge_manifest import frame_resolver, manifest_items  # noqa: E402
 
 

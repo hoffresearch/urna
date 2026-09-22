@@ -7,7 +7,7 @@
 #
 # The PUBLISHED package is the `urna` wheel, a maturin project owned by
 # `packaging/pyproject.toml` and staged by `scripts/stage_wheel.py` (see
-# the reference section of doc/usage.md). This root file stays the dev-tooling config: it exists
+# the reference section of docs/usage.md). This root file stays the dev-tooling config: it exists
 # so `ruff` (and any other PEP 518 tool) finds a canonical config at the
 # workspace root.
 #
@@ -53,3 +53,8 @@ ignore = ["E402"]
 quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
+
+[tool.ruff.lint.isort]
+# first-party = what lives under python/ (sys.path.insert bootstrap), declared
+# so the section split never depends on which dirs exist beside pyproject.
+known-first-party = ["urna", "builder", "forge", "tools", "embed_query", "model_fingerprint", "convert_legacy", "urna_cli"]

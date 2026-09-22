@@ -4,7 +4,7 @@
 //! runtime does with a file: the HNSW / BM25 / graph codecs, the blob store,
 //! the multimodal spaces, and every search entry point, all through a real
 //! `mmap` of a real file. Same rules: a corrupted file may be rejected with
-//! a typed error, never with a panic (doc/SECURITY.md scope).
+//! a typed error, never with a panic (docs/SECURITY.md scope).
 //!
 //! `URNA_MUTATION_ITERS` overrides the per-fixture count (default 250, it is
 //! file-backed so slower than the format twin). `URNA_FUZZ_SEED_DIR` dumps

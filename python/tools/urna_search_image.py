@@ -38,6 +38,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
+
 import urna
 from forge import embed_image, image_decode, image_media
 

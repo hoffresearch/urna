@@ -11,4 +11,4 @@
 # Golden test fixtures stay in regular git (small, byte-frozen — they
 # must round-trip through golden_file_size_unchanged etc.).
 crates/urna-format/tests/fixtures/** -filter -diff -merge -text
-dat/corpus_next.v1.urna filter=lfs diff=lfs merge=lfs -text
+data/corpus_next.v1.urna filter=lfs diff=lfs merge=lfs -text

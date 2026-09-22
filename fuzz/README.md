@@ -2,7 +2,7 @@
 
 coverage-guided fuzzing of every byte-level entry point in `urna-format` and
 `urna-runtime` with [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz)
-(libFuzzer + AddressSanitizer). the contract is doc/SECURITY.md: a malformed
+(libFuzzer + AddressSanitizer). the contract is docs/SECURITY.md: a malformed
 `.urna` may be rejected with a typed error, never with a panic, a hang, or an
 out-of-bounds read.
 

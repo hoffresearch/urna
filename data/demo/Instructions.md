@@ -2,14 +2,14 @@
 
 raw and intermediate data used to build the truw corpus that ships with `urna`. each subdirectory is either a public PT-BR fake-news dataset (kept verbatim from its upstream distribution, license intact) or a derived artifact produced from those sources.
 
-nothing in here is required to use `urna` itself. `urna` reads `.urna` files and only `.urna` files. this directory exists so that the corpus shipped with the project is reproducible: anyone can re-run `python python/tools/urna_build_corpus.py` and get a byte-identical `dat/corpus_next.v1.urna`.
+nothing in here is required to use `urna` itself. `urna` reads `.urna` files and only `.urna` files. this directory exists so that the corpus shipped with the project is reproducible: anyone can re-run `python python/tools/urna_build_corpus.py` and get a byte-identical `data/corpus_next.v1.urna`.
 
 this directory is local-only and gitignored. datasets are fetched on demand from the upstream links below.
 
 ## contents
 
 ```
-dat/demo/
+data/demo/
 ├── FakeBr-hf/                                            7.2k rows  (csv, train+test)
 ├── FakeTrue.Br-hf/                                       3.6k rows  (csv, train+test)
 ├── Fake.br-Corpus/                                       7.2k rows  (preprocessed + full_texts)
@@ -29,16 +29,16 @@ each upstream dataset keeps its original license file and structure. see the REA
 
 ## image corpora
 
-`dat/demo/derm/` holds the dermatology images used to measure the image corpus path. like everything else here it is local-only and gitignored.
+`data/demo/derm/` holds the dermatology images used to measure the image corpus path. like everything else here it is local-only and gitignored.
 
 ```
-dat/demo/derm/
+data/demo/derm/
 ├── ph2/images/              200 dermoscopy images + PH2_simple_dataset.csv (diagnosis labels)
 └── ham10000/images/         10,015 dermatoscopic images + labels.csv (dx labels), phase 6 used a 2000-sample seed 42
-dat/demo/wsi/
+data/demo/wsi/
 ├── CMU-1.svs                aperio whole-slide scan (openslide test data)
 └── cmu1-tiles/              1210 tiles rendered from CMU-1.svs
-dat/demo/pdf/
+data/demo/pdf/
 └── birdcraft-1907.pdf       508-page scanned book, public domain (published 1907)
 ```
 
@@ -53,17 +53,17 @@ rebuild the benchmark (the control index is not optional: the compressed numbers
 
 ```sh
 .venv/bin/python python/tools/urna_build_image_corpus.py \
-    --input-dir dat/demo/derm/ph2/images --dataset ph2 \
-    --output tmp/ph2/ph2.urna --labels dat/demo/derm/ph2/PH2_simple_dataset.csv
+    --input-dir data/demo/derm/ph2/images --dataset ph2 \
+    --output tmp/ph2/ph2.urna --labels data/demo/derm/ph2/PH2_simple_dataset.csv
 .venv/bin/python python/tools/urna_build_image_corpus.py \
-    --input-dir dat/demo/derm/ph2/images --dataset ph2 \
-    --output tmp/ph2-control/ph2-control.urna --labels dat/demo/derm/ph2/PH2_simple_dataset.csv \
+    --input-dir data/demo/derm/ph2/images --dataset ph2 \
+    --output tmp/ph2-control/ph2-control.urna --labels data/demo/derm/ph2/PH2_simple_dataset.csv \
     --control
 .venv/bin/python python/tools/urna_image_eval.py \
     --index tmp/ph2/ph2.urna --baseline tmp/ph2-control/ph2-control.urna -k 1 5 10
 ```
 
-the full variant matrix (av1 crf ladder, avif444, control, dtype rungs, ordering) is one command per dataset with `python/tools/urna_image_sweep.py`; see `doc/usage.md` for the flags and `doc/CHANGELOG` for the measured matrix with confidence intervals.
+the full variant matrix (av1 crf ladder, avif444, control, dtype rungs, ordering) is one command per dataset with `python/tools/urna_image_sweep.py`; see `docs/usage.md` for the flags and `docs/CHANGELOG` for the measured matrix with confidence intervals.
 
 ## offline demo (no downloads)
 
@@ -85,15 +85,15 @@ the folders in this directory are vendored snapshots. if you need to rehydrate t
 example pull commands:
 
 ```sh
-huggingface-cli download vzani/corpus-fake-br --repo-type dataset --local-dir dat/demo/FakeBr-hf
-huggingface-cli download vzani/corpus-faketrue-br --repo-type dataset --local-dir dat/demo/FakeTrue.Br-hf
-huggingface-cli download vzani/corpus-combined --repo-type dataset --local-dir dat/demo/corpus-combined
-huggingface-cli download vzani/portuguese-fake-news-classifier-bilstm-combined --local-dir dat/demo/portuguese-fake-news-classifier-bilstm-combined
+huggingface-cli download vzani/corpus-fake-br --repo-type dataset --local-dir data/demo/FakeBr-hf
+huggingface-cli download vzani/corpus-faketrue-br --repo-type dataset --local-dir data/demo/FakeTrue.Br-hf
+huggingface-cli download vzani/corpus-combined --repo-type dataset --local-dir data/demo/corpus-combined
+huggingface-cli download vzani/portuguese-fake-news-classifier-bilstm-combined --local-dir data/demo/portuguese-fake-news-classifier-bilstm-combined
 
-git clone https://github.com/roneysco/Fake.br-Corpus dat/demo/Fake.br-Corpus
-git clone https://github.com/jpchav98/FakeTrue.Br dat/demo/FakeTrue.Br
-git clone https://github.com/Gabriel-Lino-Garcia/FakeRecogna dat/demo/FakeRecogna
-git clone https://github.com/opit-research/factck-br dat/demo/factck-br
+git clone https://github.com/roneysco/Fake.br-Corpus data/demo/Fake.br-Corpus
+git clone https://github.com/jpchav98/FakeTrue.Br data/demo/FakeTrue.Br
+git clone https://github.com/Gabriel-Lino-Garcia/FakeRecogna data/demo/FakeRecogna
+git clone https://github.com/opit-research/factck-br data/demo/factck-br
 ```
 
 ## what truw uses this for
@@ -107,7 +107,7 @@ truw is a fact-checking pipeline that scores brazilian-portuguese claims against
 5. embed with `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (dim 384, L2-normalized)
 6. emit a deterministic `.urna` with the model fingerprint stamped in the manifest
 
-the result is `dat/corpus_next.v1.urna`: 30,725 deduped chunks, 119 MB at the `exact` preset, 34 MB at `tiny`. every chunk keeps a `corpus-next://<source>/<sha256>` provenance URI back to the dataset it came from.
+the result is `data/corpus_next.v1.urna`: 30,725 deduped chunks, 119 MB at the `exact` preset, 34 MB at `tiny`. every chunk keeps a `corpus-next://<source>/<sha256>` provenance URI back to the dataset it came from.
 
 `truw-built/` carries the v2 canonical artifacts for the older fact-check pipeline: `truw_canonical_ptbr_v2.csv` (23.5k articles with claim, label, source, category, date), pre-computed embeddings as `.npy`, and the original `truw_ptbr.urna`.
 
@@ -119,7 +119,7 @@ the result is `dat/corpus_next.v1.urna`: 30,725 deduped chunks, 119 MB at the `e
 python python/tools/urna_build_corpus.py
 ```
 
-writes `dat/corpus_next.v1.urna`. uses `dat/demo/corpus-next/embed_cache.sqlite` so re-runs skip the embedding step. takes ~10 minutes from cold cache, seconds from warm.
+writes `data/corpus_next.v1.urna`. uses `data/demo/corpus-next/embed_cache.sqlite` so re-runs skip the embedding step. takes ~10 minutes from cold cache, seconds from warm.
 
 with `reproducible=True` (the default in `BuildConfig` for this script) two operators on different machines produce byte-identical files. `file_hash` and `content_hash` will match.
 
@@ -147,7 +147,7 @@ for name, loader in SOURCES:
 import sys; sys.path.insert(0, "python")
 import urna
 
-db = urna.open("dat/demo/truw-built/truw_ptbr.urna")
+db = urna.open("data/demo/truw-built/truw_ptbr.urna")
 hits = db.search(qvec, k=5)
 ```
 
@@ -171,7 +171,7 @@ the image sources carry their own terms: PH2 is research-use only (ADDI project,
 
 ### corpus license bill of materials
 
-The shipped `dat/corpus_next.v1.urna` embeds text derived from all seven sources
+The shipped `data/corpus_next.v1.urna` embeds text derived from all seven sources
 below. **Verify each upstream license before redistributing** — several are
 research/academic distributions without an explicit redistribution grant, and at
 least one is share-alike (CC-BY-SA), which is viral over the derived corpus.
@@ -195,6 +195,6 @@ least one is share-alike (CC-BY-SA), which is viral over the derived corpus.
   license/attribution field — carry the attribution alongside the artifact until
   it does.
 - The corpus embeds **personal data about named public figures** (political and
-  health claims). See the data governance section of [`doc/SECURITY.md`](../../doc/SECURITY.md#data-governance)
+  health claims). See the data governance section of [`docs/SECURITY.md`](../../docs/SECURITY.md#data-governance)
   for the erasure/lawful-basis posture. For anything you ship broadly, prefer the
   CC0 `python/forge/demo_corpus` corpus instead of this mixed-license union.
