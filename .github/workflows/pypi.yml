@@ -2,14 +2,20 @@
 #
 # one abi3 wheel per platform (cp312, matching pyo3 abi3-py312), built by
 # maturin from the staged project (scripts/stage_wheel.py), published with
-# OIDC trusted publishing + pep 740 attestations (no stored token). the
+# OIDC trusted publishing + pep 740 attestations. the one exception is the
+# bootstrap: while the `pypi` environment carries a PYPI_API_TOKEN secret,
+# the action publishes with it and skips the attestations (a trusted
+# publisher can only be added once the project exists). deleting the secret
+# switches back to OIDC with no workflow change: an empty password is what
+# selects trusted publishing. the
 # manual cargo+cp build stays the dev path; this workflow only feeds the
 # published package.
 #
 # trigger: pushing a v* tag on main (same tag that drives the dist release);
 # the tag's signature is verified first (tag-verify.yml).
-# prerequisite (one-time, external): the `pypi` environment and the trusted
-# publisher entry for this repo must exist on PyPI; see the maintainer checklist in docs/usage.md.
+# prerequisite (one-time, external): the `pypi` environment, plus either the
+# trusted publisher entry on PyPI or the bootstrap token; see the maintainer
+# checklist in docs/usage.md.
 
 name: pypi
 
@@ -75,3 +81,6 @@ jobs:
           merge-multiple: true
       - name: publish
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          # empty (secret unset) = OIDC trusted publishing + attestations.
+          password: ${{ secrets.PYPI_API_TOKEN }}
