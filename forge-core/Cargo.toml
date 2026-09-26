@@ -12,6 +12,8 @@ edition = "2024"
 license = "MIT"
 description = "forge canonical intermediate (.fci) schema, outside the sovereign urna workspace"
 repository = "https://github.com/hoffresearch/urna"
+# internal ingestion layer, not a crates.io package (the name is taken there).
+publish = false
 
 [workspace]
 resolver = "3"

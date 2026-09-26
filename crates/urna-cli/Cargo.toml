@@ -7,6 +7,9 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories = ["command-line-utilities", "database-implementations"]
 
 [lints]
 workspace = true
@@ -23,6 +26,13 @@ pkg-fmt = "txz"
 
 [package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
 pkg-fmt = "zip"
+
+# channel names: npm `@urna/cli` (under the workspace `npm-scope`) and the
+# homebrew formula `urna` (`brew install hoffresearch/urna/urna`); the binary
+# is `urna` in both.
+[package.metadata.dist]
+npm-package = "cli"
+formula = "urna"
 
 [dependencies]
 urna-format = { workspace = true }
