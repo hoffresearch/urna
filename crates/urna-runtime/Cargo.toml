@@ -1,9 +1,15 @@
 [package]
 name = "urna-runtime"
+description = "mmap runtime of the urna vector database: simd exact search, hnsw, bm25, graph and hybrid search with mandatory exact rerank"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+keywords.workspace = true
+categories = ["database-implementations", "algorithms"]
 
 [dependencies]
 urna-format = { workspace = true }

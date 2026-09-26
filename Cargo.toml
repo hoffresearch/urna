@@ -9,6 +9,8 @@ rust-version = "1.85"
 license = "MIT"
 repository = "https://github.com/hoffresearch/urna"
 homepage = "https://github.com/hoffresearch/urna"
+readme = "README.md"
+keywords = ["vector-database", "embeddings", "search", "offline", "citations"]
 
 # workspace-wide lint policy (every crate opts in with `[lints] workspace =
 # true`). the two `deny`s are the hardening contract of docs/SECURITY.md made
@@ -31,19 +33,25 @@ anyhow = "1"
 zstd = { version = "0.13", default-features = false, features = ["experimental", "zdict_builder"] }
 half = { version = "2", features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
-urna-format = { path = "crates/urna-format" }
-urna-runtime = { path = "crates/urna-runtime" }
+# path for the workspace, version for crates.io: `cargo publish` strips the
+# path and keeps the version, so both move with every release bump.
+urna-format = { path = "crates/urna-format", version = "0.4.0" }
+urna-runtime = { path = "crates/urna-runtime", version = "0.4.0" }
 
 # distribution backbone for the `urna` cli binary (issue #75): per-platform
-# tarballs + sha256 checksums + the homebrew tap formula, all driven from
-# tags on main. the documented one-liner installer is scripts/install.sh
+# tarballs + sha256 checksums + the homebrew tap formula, the npm package
+# and the crates.io publish, all driven from tags on main. the documented
+# one-liner installer is scripts/install.sh
 # (it also lays down the offline embedder payload, which dist installers do
 # not model), so dist's own shell/powershell installers stay disabled.
 [workspace.metadata.dist]
 cargo-dist-version = "0.32.0"
 ci = ["github"]
-installers = ["homebrew"]
+# npm ships the same release archive behind `npm i -g @urna/cli` (the
+# package fetches the binary on install; name set in crates/urna-cli).
+installers = ["homebrew", "npm"]
 tap = "hoffresearch/homebrew-urna"
+npm-scope = "@urna"
 targets = [
     "aarch64-apple-darwin",
     "x86_64-apple-darwin",
@@ -53,7 +61,10 @@ targets = [
 ]
 install-path = "~/.local/bin"
 pr-run-mode = "plan"
-publish-jobs = ["homebrew"]
+# homebrew needs HOMEBREW_TAP_TOKEN, npm needs NPM_TOKEN, and the custom
+# crates.io job (.github/workflows/publish-crates.yml) needs
+# CARGO_REGISTRY_TOKEN, all repo secrets; see the maintainer checklist.
+publish-jobs = ["homebrew", "npm", "./publish-crates"]
 # sigstore keyless provenance for every release artifact, verifiable with
 # `gh attestation verify` (issue #75).
 github-attestations = true
