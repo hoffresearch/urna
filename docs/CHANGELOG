@@ -6,7 +6,13 @@ format follows [keep a changelog](https://keepachangelog.com/en/1.1.0/). version
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-26
+
+the project is `urna` now, and the first tag the release pipeline serves: cli archives on the github release, the homebrew tap, npm `@urna/cli`, crates.io (`urna-format`, `urna-runtime`, `urna-cli`) and the pypi wheel `urna`. no format change; a `.nest` from 0.4.0 still opens.
+
 ### changed
+
+- pypi bootstrap (2026-09-26): `pypi.yml` passes the `pypi` environment's `PYPI_API_TOKEN` secret as the publish password. a trusted publisher can only be attached to a project that exists, so the first publish needs a token; with the secret set the action skips the pep 740 attestations, and with it deleted the empty password selects OIDC trusted publishing again, no workflow change. 0.5.0 is the release published with the token.
 
 - registry channels configured, nothing published yet (2026-09-26): the release now feeds crates.io and npm next to homebrew. `urna-format`, `urna-runtime` and `urna-cli` carry the crates.io metadata (description, readme, keywords, categories, repository) and `.github/workflows/publish-crates.yml`, a cargo-dist custom publish job, publishes them in dependency order on the tag and skips a version already on crates.io, so a re-run finishes a half-done release; `urna-python` and `forge-core` are `publish = false` (the wheel is the python channel; `forge-core` is taken on crates.io by an unrelated project). the workspace dependencies on `urna-format` / `urna-runtime` carry `version` next to `path`, which is what crates.io resolves, so a release bump moves both (maintainer checklist step 8). cargo-dist gains the npm installer (`@urna/cli`, binary `urna`) and the homebrew formula is renamed from `urna-cli` to `urna`, matching the `brew install hoffresearch/urna/urna` the docs already promised (the generated name would have been `hoffresearch/urna/urna-cli`). `release.yml` regenerated with `dist generate`. on the account side: the `hoffresearch/homebrew-urna` tap exists with an empty `Formula/`, and the `CARGO_REGISTRY_TOKEN` and `NPM_TOKEN` repo secrets are set; `HOMEBREW_TAP_TOKEN` is a fine-grained token scoped to the tap, expiring 2027-09-26. a follow-up grants the crates publish job `contents: read` through `github-custom-job-permissions`: the custom job got `id-token` + `packages` only, which zeroed `contents`, so the Release workflow failed at startup. `cargo publish --workspace --dry-run` packages and verifies all three crates.
 - `doc/` is `docs/` and `dat/` is `data/` (2026-09-22): every path in the readme, llms.txt, AGENTS.md, arc.toml, the gitignore/gitattributes/dockerignore, `release_check.sh` (`URNA_BASELINE` default), the pre-commit allow-list, the dockerfile run line, the measure baselines' `baseline_path`, and the rust/python comments follows. directory rename only, no format or runtime change.
@@ -17,6 +23,8 @@ format follows [keep a changelog](https://keepachangelog.com/en/1.1.0/). version
 - `docs/arc` consolidated into a single `docs/arc/arc.toml` (2026-09-18): merged the former `arc.yaml` (machine and human architecture reference), `arc.mmd` (mermaid visual map), and `arc.schema.json` (the ide-validation schema for `arc.yaml`) into one file. the mermaid source lives byte-identical under `diagram.source`; the former json-schema binding (a yaml-language-server modeline) has no toml equivalent, so the shape is now documented in a `schema` table instead of ide-enforced. doc-location change only, no architecture, format, or runtime change.
 
 ## [0.4.0] - 2026-09-17
+
+> note (2026-09-26): `v0.4.0` was never tagged, so the "first tag served by the release pipeline" below did not happen; 0.5.0 is the first.
 
 the forge as a product: declarative builds, media inside the file, several image models per file, a quality gate with a task-utility floor, and the mtg card corpus benchmark that drove most of it (twenty experiments, [brennercruvinel/mtg-urna-benchmark](https://github.com/brennercruvinel/mtg-urna-benchmark)). first tag served by the release pipeline.
 
@@ -252,6 +260,8 @@ corrections the audit made to numbers quoted earlier in this changelog. bytes ar
 - the 2048-card sample is evenly spaced, `rows[int(i * 38627 / 2048)]` over the rows sorted by (img_id, oracle_id), deterministic and seed independent; "seed 42" was a provenance error, the forge `--seed` flag has no effect on it. the only seeded draws are the 96 quality frames and the 100 utility queries (`numpy.random.default_rng(7)`).
 
 the open follow-ups are github issues in the benchmark repository: a hit@k floor for a retrieval-only gate, wemm-2b and jina measured over the crf50 file, avif as the `stills` backend, and a recalibration of the gate floors.
+
+[0.5.0]: https://github.com/hoffresearch/urna/releases/tag/v0.5.0
 
 ## [0.3.0] - 2026-06-10
 

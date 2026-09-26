@@ -81,7 +81,7 @@ urna doctor
 pip install "urna[embed]"     # python; offline embedding via the bundled potion table
 ```
 
-Also windows (`install.ps1`), `brew install hoffresearch/urna/urna`, `npm install -g @urna/cli`, `cargo install urna-cli` (or `cargo binstall urna-cli`), docker. Artifacts carry sha256 + sigstore attestations. Channels, verification, offline notes, and the maintainer checklist: the reference section of [docs/usage.md](docs/usage.md#reference). The release channels serve from `v0.4.0` on; `v0.3.0` predates the pipeline and carries no artifacts.
+Also windows (`install.ps1`), `brew install hoffresearch/urna/urna`, `npm install -g @urna/cli`, `cargo install urna-cli` (or `cargo binstall urna-cli`), docker. Artifacts carry sha256 + sigstore attestations. Channels, verification, offline notes, and the maintainer checklist: the reference section of [docs/usage.md](docs/usage.md#reference). The release channels serve from `v0.5.0` on; earlier versions carry no artifacts.
 
 <details>
 <summary>Dev build (rust edition 2024, python 3.12+)</summary>

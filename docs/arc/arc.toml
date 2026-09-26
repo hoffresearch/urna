@@ -2707,7 +2707,7 @@ links = [
 [[inventory.distribution]]
 path = ".github/workflows/pypi.yml"
 kind = "ci-workflow"
-purpose = "maturin abi3 wheels for 4 platforms on v* tags, OIDC trusted publishing + pep 740 attestations"
+purpose = "maturin abi3 wheels for 4 platforms on v* tags, OIDC trusted publishing + pep 740 attestations; a PYPI_API_TOKEN secret in the pypi environment overrides it for the bootstrap publish (no attestations), deleting it restores OIDC"
 links = [
     "packaging/pyproject.toml",
     "scripts/stage_wheel.py",
