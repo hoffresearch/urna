@@ -135,6 +135,16 @@ source-tarball = false
 # from its upstream and checks it against the lfs pointer (no git-lfs).
 github-build-setup = "../buildprep.yml"
 
+# the actions dist writes into release.yml, pinned to their release commits
+# (zizmor `unpinned-uses`); a moving tag would run new code with the
+# release's secrets. same commits as the hand-written workflows.
+[workspace.metadata.dist.github-action-commits]
+"actions/attest" = "1e69f48acb82d1966a394da916b4c1698aa569d6" # v4.2.2
+"actions/checkout" = "d23441a48e516b6c34aea4fa41551a30e30af803" # v6.1.0
+"actions/download-artifact" = "9000827ccba6bdab643e8b6fd33ac0654aef8333" # v8.0.2
+"actions/setup-node" = "249970729cb0ef3589644e2896645e5dc5ba9c38" # v6.5.0
+"actions/upload-artifact" = "cf430e030ddbb5b0abf93d22962f4752f3646cd9" # v7.0.2
+
 # the offline embedder payload (staged by tool/tasks/embedpack.py
 # and packed as one artifact) ships next to the binary archives so the
 # one-liner installer can lay it down under the data dir and a released
