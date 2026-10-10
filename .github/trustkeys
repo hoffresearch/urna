@@ -3,3 +3,4 @@
 # verified by .github/workflows/tagverify.yml:
 #   git -c gpg.ssh.allowedSignersFile=.github/trustkeys verify-tag <tag>
 brenner@hoffresearch.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOE4DFy24mFzC/7/whMEc6SNR68KkXRk8eX9YC1hcQzI
+brenner@hoffresearch.com namespaces="git" ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILIgtnd2t48MJlbF8/I/x0v7lGdfC0ZQ736Pek0J2WHl
