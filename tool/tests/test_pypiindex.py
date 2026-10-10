@@ -65,8 +65,14 @@ def serve() -> str:
 
 
 BASE = serve()
-os.environ["GITHUB_API_URL"] = BASE
-os.environ.pop("GH_TOKEN", None)
+
+
+def setup_function(_=None) -> None:
+    """point the API at this file's server before each case: pytest runs
+    other files in the same process, and test_chanprobe points
+    GITHUB_API_URL at its own."""
+    os.environ["GITHUB_API_URL"] = BASE
+    os.environ.pop("GH_TOKEN", None)
 
 
 def wheels(directory: Path, version: str = VERSION, count: int = 4) -> dict[str, str]:
@@ -316,6 +322,7 @@ def test_the_cli_reports_the_count() -> None:
 def main() -> int:
     tests = [v for k, v in globals().items() if k.startswith("test_") and callable(v)]
     for test in tests:
+        setup_function()
         test()
         print(f"ok  {test.__name__}")
     print(f"pypiindex: {len(tests)} cases passed")
