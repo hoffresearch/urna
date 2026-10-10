@@ -118,7 +118,9 @@ jobs:
           github-token: ${{ github.token }}
       - name: which wheels the index still needs (same sha256 skipped, another fails)
         id: plan
-        run: python3 tool/tasks/pypiindex.py plan --index "$INDEX" --dir dist --version "${{ steps.version.outputs.version }}" --out upload
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: python3 tool/tasks/pypiindex.py plan --index "$INDEX" --dir dist --version "$VERSION" --out upload
       - name: publish to pypi
         if: inputs.index == 'pypi' && steps.plan.outputs.upload != '0'
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2

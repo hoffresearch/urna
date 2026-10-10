@@ -36,9 +36,10 @@ jobs:
       - name: verify
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -eu
-          if [ -z "${{ inputs.tag }}" ] && [ "${{ github.ref_type }}" != "tag" ]; then
+          if [ -z "$TAG_INPUT" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
             echo "::notice::$TAG is a branch ref (pull request plan run), nothing to verify"
             exit 0
           fi
