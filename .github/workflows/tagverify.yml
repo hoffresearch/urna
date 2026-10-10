@@ -30,14 +30,16 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
+          persist-credentials: false
           fetch-depth: 0
           fetch-tags: true
       - name: verify
         env:
           TAG: ${{ inputs.tag || github.ref_name }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -eu
-          if [ -z "${{ inputs.tag }}" ] && [ "${{ github.ref_type }}" != "tag" ]; then
+          if [ -z "$TAG_INPUT" ] && [ "$GITHUB_REF_TYPE" != "tag" ]; then
             echo "::notice::$TAG is a branch ref (pull request plan run), nothing to verify"
             exit 0
           fi

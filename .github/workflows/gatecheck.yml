@@ -49,6 +49,8 @@ jobs:
         os: [ubuntu-24.04, macos-latest]
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -97,6 +99,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: toolchain
         run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -111,6 +115,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: nightly toolchain
         run: rustup toolchain install nightly --profile minimal && rustup default nightly
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -145,6 +151,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: workspace (advisories, licenses, bans, sources)
         uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
         with:
@@ -170,6 +178,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0 # the baseline is a rev, not a published crate
+          persist-credentials: false
       - name: toolchain
         run: rustup toolchain install stable --profile minimal && rustup default stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -204,8 +213,13 @@ jobs:
       fail-fast: false
       matrix:
         target: [urna-view, section-decoders, runtime-indexes, mmap-open-search]
+    env:
+      TARGET: ${{ matrix.target }}
+      SOAK_SECONDS: ${{ inputs.seconds || 1800 }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: nightly toolchain
         run: rustup toolchain install nightly --profile minimal && rustup default nightly
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -224,18 +238,18 @@ jobs:
       - name: seed corpus if empty
         run: |
           cd fuzz
-          mkdir -p corpus/${{ matrix.target }}
-          if [ -z "$(ls -A corpus/${{ matrix.target }})" ]; then
-            cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna corpus/${{ matrix.target }}/
+          mkdir -p "corpus/$TARGET"
+          if [ -z "$(ls -A "corpus/$TARGET")" ]; then
+            cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna "corpus/$TARGET/"
           fi
       - name: soak
         run: |
           cd fuzz
-          cargo fuzz run ${{ matrix.target }} -- \
-            -max_total_time=${{ inputs.seconds || 1800 }} -max_len=65536 -rss_limit_mb=4096
+          cargo fuzz run "$TARGET" -- \
+            -max_total_time="$SOAK_SECONDS" -max_len=65536 -rss_limit_mb=4096
       - name: minimize corpus
         if: always()
-        run: cd fuzz && cargo fuzz cmin ${{ matrix.target }} || true
+        run: cd fuzz && cargo fuzz cmin "$TARGET" || true
       - name: keep any crash artifact
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -252,6 +266,8 @@ jobs:
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - name: nightly toolchain with miri
         run: rustup toolchain install nightly --profile minimal --component miri && rustup default nightly
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -278,6 +294,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0 # the rehearsal impact cases read real history
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
@@ -340,6 +357,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.10"
