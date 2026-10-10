@@ -74,6 +74,8 @@ tool/tasks/pypiindex.py
 tool/tests/test_pypiindex.py
 tool/tasks/rehearsal.py
 tool/tests/test_rehearsal.py
+tool/tasks/distpatch.py
+tool/tests/test_distpatch.py
 tool/tasks/chanprobe.py
 tool/tests/test_chanprobe.py
 tool/tests/test_releasepr.py

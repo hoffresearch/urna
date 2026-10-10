@@ -32,12 +32,6 @@ rules:
     ignore:
       - release.yml
 
-  # setup-node in dist's npm publish job caches only when a package.json
-  # names a packageManager; the repository has no package.json.
-  cache-poisoning:
-    ignore:
-      - release.yml
-
   # `container:` resolves to null: none of the five targets in dist's plan
   # builds in a container.
   unpinned-images:

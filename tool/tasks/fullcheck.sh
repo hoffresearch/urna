@@ -319,6 +319,12 @@ python_tests() {
   "$PY" tool/tests/test_pypiindex.py
   ok "pypiindex (5 cases)"
 
+  # release.yml's edits (distpatch.py) land once on dist's text; the full
+  # regenerate check needs the dist binary and runs in gatecheck.yml.
+  step "python tool/tests/test_distpatch.py"
+  "$PY" tool/tests/test_distpatch.py
+  ok "distpatch (3 cases)"
+
   # the release rehearsal is generated from release.yml, publishes nothing,
   # and its required check fails a needed build that did not pass.
   step "python tool/tests/test_rehearsal.py"
