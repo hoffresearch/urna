@@ -38,11 +38,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 - sentence-transformers 6 renamed `get_sentence_embedding_dimension` to `get_embedding_dimension` and warns on the old name on every query (#508). `searchtxt.dimension` calls the new name and falls back to the old one, which the supported floor (5.7) may still need; `searchtxt.py` and the registry's text adapter go through it.
 - setuptest's Windows CLI leg validated the golden fixture at `crates\urna-format\...`, a backslash path the folder rename to `crates/format` did not match, so that leg failed on the v0.5.4 release run while the release and every channel were fine. It points at `crates\format\` now; dispatched against v0.5.4 with the fix, setuptest passed all 20 legs (run 37256022536).
+- `test_chanprobe.py` and `test_pypiindex.py` pass when pytest runs them in one process (#527). Both pointed `GITHUB_API_URL` at their own fake server on import, so the file imported last won and 5 cases of the other failed; each now sets its endpoints before every case (`setup_function`, also called by its `main()`). CI was not affected: it runs each file on its own.
 
 ### Security
 
 - Third-party actions in `gatecheck.yml`, `wheelmake.yml` and `pypiindex.yml` are pinned to a commit SHA, with the version in a comment, so a moved tag upstream cannot change what runs, the PyPI publish action included. Repository settings to match: a `release-tags` ruleset refuses creating, moving or deleting a `v*` tag to everyone but admins, who bypass it, and the `pypi` environment deploys only from `v*` tags, `testpypi` only from `main`. `main` is guarded by the `opensource` ruleset alone: the classic branch protection that duplicated it is gone, and its two rules of its own (an up-to-date branch, resolved conversations) moved into the ruleset.
-- `test_chanprobe.py` and `test_pypiindex.py` pass when pytest runs them in one process (#527). Both pointed `GITHUB_API_URL` at their own fake server on import, so the file imported last won and 5 cases of the other failed; each now sets its endpoints before every case (`setup_function`, also called by its `main()`). CI was not affected: it runs each file on its own.
 
 ## [0.5.4] - 2026-10-04
 
