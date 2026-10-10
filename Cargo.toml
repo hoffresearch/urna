@@ -66,6 +66,12 @@ urna-engine = { path = "rust/engine", version = "0.5.4" }
 [workspace.metadata.dist]
 cargo-dist-version = "0.32.0"
 ci = ["github"]
+# release.yml carries edits dist has no setting for (the npm job's setup-node
+# restores no cache); tool/tasks/distpatch.py applies them after dist's own
+# output and gatecheck.yml fails a file that is not exactly that. this line
+# keeps dist's plan from refusing the edited file; regenerate through
+# `python tool/tasks/distpatch.py generate`, not `dist generate`.
+allow-dirty = ["ci"]
 # npm ships the same release archive behind `npm i -g @urna/cli` (the
 # package fetches the binary on install; name set in rust/clitui). npm
 # refuses the bare name `urna` (too similar to url, lerna, ora), so it lives

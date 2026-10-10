@@ -2385,6 +2385,12 @@ purpose = "releasepr.sh with the pinned cargo-release in a scratch repo of the t
 links = ["tool/tasks/releasepr.sh"]
 
 [[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_distpatch.py"
+kind = "python-test"
+purpose = "distpatch.py's edits land once on dist's text; a moved, doubled or already edited text and another setup-node commit are refused; the checked-in release.yml carries every edit; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/distpatch.py"]
+
+[[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_rehearsal.py"
 kind = "python-test"
 purpose = "The checked-in rehearsal is what release.yml generates and its build jobs carry the release's steps, runners and matrix; it has no write permission, secret, attestation or publish job; unknown shapes are refused; what needs the rehearsal and what does not (with real history when present); the artifact checks on a synthetic set in dist's format; a real binary on the golden fixture and a flipped byte; the verdict for dispensed, green, failed, cancelled and skipped; in fullcheck.sh and gatecheck.yml"
@@ -2953,7 +2959,7 @@ links = ["tool/tasks/installer.sh"]
 [[inventory.distribution]]
 path = ".github/workflows/release.yml"
 kind = "ci-workflow"
-purpose = "cargo-dist release: 5 CLI targets and the 4 wheels (wheelmake.yml, which verifies the tag first), checksums, Sigstore attestations on the archives, one CycloneDX SBOM (the CLI package, not attested), cargo-auditable binaries, payload artifact; the host releases only when every build passed, then Homebrew formula `urna`, npm package `@urna/cli`, the crates.io job and the PyPI job (pypiready.yml dispatching pypiindex.yml) publish (regenerate with `dist generate`, do not hand-edit)"
+purpose = "cargo-dist release: 5 CLI targets and the 4 wheels (wheelmake.yml, which verifies the tag first), checksums, Sigstore attestations on the archives, one CycloneDX SBOM (the CLI package, not attested), cargo-auditable binaries, payload artifact; the host releases only when every build passed, then Homebrew formula `urna`, npm package `@urna/cli`, the crates.io job and the PyPI job (pypiready.yml dispatching pypiindex.yml) publish (regenerate with `python tool/tasks/distpatch.py generate`, which runs dist and applies the edits dist has no setting for; do not hand-edit)"
 links = [
     "Cargo.toml",
     ".github/buildprep.yml",
@@ -3013,6 +3019,12 @@ path = "release.toml"
 kind = "toml-config"
 purpose = "cargo-release workspace config for releasepr.sh: release-* branches, dependents upgraded, and no publish, push or tag from cargo-release"
 links = ["tool/tasks/releasepr.sh"]
+
+[[inventory.distribution]]
+path = "tool/tasks/distpatch.py"
+kind = "python-source"
+purpose = "generate [--check]: release.yml as dist's output plus the edits dist has no setting for (the npm job's setup-node restores no cache), each matching dist's text exactly once; runs dist with Cargo.toml's allow-dirty line taken out, since that line also stops dist from writing the file, and refuses a dist whose version is not cargo-dist-version; the check runs in gatecheck.yml with the pinned dist"
+links = [".github/workflows/release.yml", "tool/tests/test_distpatch.py", ".github/workflows/gatecheck.yml"]
 
 [[inventory.distribution]]
 path = "tool/tasks/rehearsal.py"
