@@ -43,6 +43,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 ### Security
 
 - Third-party actions in `gatecheck.yml`, `wheelmake.yml` and `pypiindex.yml` are pinned to a commit SHA, with the version in a comment, so a moved tag upstream cannot change what runs, the PyPI publish action included. Repository settings to match: a `release-tags` ruleset refuses creating, moving or deleting a `v*` tag to everyone but admins, who bypass it, and the `pypi` environment deploys only from `v*` tags, `testpypi` only from `main`. `main` is guarded by the `opensource` ruleset alone: the classic branch protection that duplicated it is gone, and its two rules of its own (an up-to-date branch, resolved conversations) moved into the ruleset.
+- `test_chanprobe.py` and `test_pypiindex.py` pass when pytest runs them in one process (#527). Both pointed `GITHUB_API_URL` at their own fake server on import, so the file imported last won and 5 cases of the other failed; each now sets its endpoints before every case (`setup_function`, also called by its `main()`). CI was not affected: it runs each file on its own.
 
 ## [0.5.4] - 2026-10-04
 
