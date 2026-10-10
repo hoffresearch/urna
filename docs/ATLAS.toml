@@ -6,7 +6,7 @@
 # updates the entry it touches instead of appending a dated paragraph.
 
 project = "urna"
-last-updated = "2026-10-09"
+last-updated = "2026-10-10"
 domain = "architecture"
 summary = "urna is a single-file semantic knowledge stack: one `.urna` file carries the canonical text, the embeddings, the optional indices and the citations, in a container format frozen at v1 (rust/format). rust/engine opens it through mmap and runs exact, ANN, graph and hybrid search with an exact-cosine rerank; the `urna` CLI (rust/clitui) and the Python bridge (rust/bridge: the PyO3 extension and the `urna` package with the declarative build and the model registry) sit on top of it. rust/ingest, a cargo workspace of its own, holds the frozen .fci schema of the ingestion layer."
 
@@ -3017,7 +3017,7 @@ links = ["tool/tasks/releasepr.sh"]
 [[inventory.distribution]]
 path = "tool/tasks/rehearsal.py"
 kind = "python-source"
-purpose = "generate [--check]: the strict release.yml -> rehearsal.yml transformation, refusing an unknown job, condition, plan command, top-level key or a kept job reading a secret; impact: the release inputs (crates, manifests, packaging, staging scripts, the payload and wheel sources read from the stage scripts, the model dirs, README, LICENSE, the release workflows); assets: every planned artifact, the four wheels and their .sha256, every checksum and sha256.sum, the payload VERSION, the Linux binary on the golden fixture; verdict: the required check"
+purpose = "generate [--check]: the strict release.yml -> rehearsal.yml transformation, refusing an unknown job, condition, plan command, top-level key or a kept job reading a secret; impact: the release inputs (crates, manifests, packaging, staging scripts, the payload and wheel sources read from the stage scripts, the model dirs, README, LICENSE, the release workflows); assets: every planned artifact, the four wheels and their .sha256, every checksum and sha256.sum, the payload VERSION, the Linux binary on the golden fixture; verdict: the required check. The jobs it adds take their actions at the commits Cargo.toml pins for dist (github-action-commits)"
 links = [".github/workflows/rehearsal.yml", "tool/tests/test_rehearsal.py", "tool/tasks/embedpack.py", "tool/tasks/wheelprep.py"]
 
 [[inventory.distribution]]

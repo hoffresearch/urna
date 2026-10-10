@@ -186,6 +186,19 @@ def transform(release: dict) -> dict:
     }
 
 
+def _pinned(action: str) -> str:
+    """``action@<commit>`` from the commits dist pins in release.yml
+    (``github-action-commits`` in Cargo.toml), so the jobs added here run the
+    same code as the ones kept."""
+    import tomllib
+
+    dist = tomllib.loads((ROOT / "Cargo.toml").read_text(encoding="utf-8"))
+    pins = dist["workspace"]["metadata"]["dist"].get("github-action-commits", {})
+    if action not in pins:
+        raise Refused(f"Cargo.toml: github-action-commits pins no commit for {action}")
+    return f"{action}@{pins[action]}"
+
+
 def _impact_job() -> dict:
     run = (
         'case "$EVENT" in\n'
@@ -208,7 +221,7 @@ def _impact_job() -> dict:
         "outputs": {"run": "${{ steps.impact.outputs.run }}"},
         "steps": [
             {
-                "uses": "actions/checkout@v6",
+                "uses": _pinned("actions/checkout"),
                 "with": {"fetch-depth": 0, "persist-credentials": False},
             },
             {"id": "impact", "env": env, "run": run},
@@ -227,9 +240,9 @@ def _assets_job() -> dict:
         "needs": ["plan", "build-global-artifacts"],
         "runs-on": "ubuntu-24.04",
         "steps": [
-            {"uses": "actions/checkout@v6", "with": {"persist-credentials": False}},
+            {"uses": _pinned("actions/checkout"), "with": {"persist-credentials": False}},
             {
-                "uses": "actions/download-artifact@v8",
+                "uses": _pinned("actions/download-artifact"),
                 "with": {"pattern": "artifacts-*", "path": "dist", "merge-multiple": True},
             },
             {"env": {"PLAN": "${{ needs.plan.outputs.val }}"}, "run": run},
@@ -244,7 +257,7 @@ def _verdict_job() -> dict:
         "if": "always()",
         "runs-on": "ubuntu-24.04",
         "steps": [
-            {"uses": "actions/checkout@v6", "with": {"persist-credentials": False}},
+            {"uses": _pinned("actions/checkout"), "with": {"persist-credentials": False}},
             {
                 "env": {"NEEDS": "${{ toJSON(needs) }}"},
                 "run": "python3 tool/tasks/rehearsal.py verdict",
