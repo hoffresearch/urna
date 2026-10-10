@@ -473,6 +473,12 @@ links = [
 ]
 
 [[inventory.root]]
+path = ".github/zizmor.yml"
+kind = "config"
+purpose = "The zizmor findings kept on purpose, ignored per audit and per file, each with its reason: cargo-dist's template in release.yml and rehearsal.yml (template injection, workflow-level contents: write, secrets: inherit, the npm job's setup-node, a null container image, ./ calls, token publishing), and the choices of the hand-written workflows (wheelmake.yml takes its caller's permissions, runreport.yml's workflow_run, setuptest.yml's channel installs, rustready.yml's token, ./ calls actionlint requires over $/)"
+links = [".github/workflows/lintworks.yml"]
+
+[[inventory.root]]
 path = "tool/tasks/ruffcheck.sh"
 kind = "shell-script"
 purpose = "The ONE list of Python files ruff checks and format-checks, shared by fullcheck.sh and gatecheck.yml"
