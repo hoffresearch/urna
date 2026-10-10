@@ -7,7 +7,7 @@
 # one finding is ignored by name: release.yml reads
 # `steps.cargo-cyclonedx.output.paths` where the step has `outputs`, so the
 # sbom path comes out empty; that line is cargo-dist's template, regenerated
-# by `dist generate` and copied into rehearsal.yml, and both files are never
+# by `distpatch.py generate` and copied into rehearsal.yml, and both files are never
 # hand-edited, so the fix belongs upstream.
 #
 # zizmor audits the workflows for security: template injection, permissions
