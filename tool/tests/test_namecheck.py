@@ -120,6 +120,7 @@ def test_exceptions_hold_only_where_they_belong():
         "pkgs/linux/aur/PKGBUILD": "",
         "rust/bridge/python/urna/embed/__init__.py": "",
         ".github/pull_request_template.md": "",
+        ".github/zizmor.yml": "",
         "docs/CHANGELOG": "",
     }
     assert problems(fixed) == [], problems(fixed)

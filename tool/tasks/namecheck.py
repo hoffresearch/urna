@@ -70,6 +70,7 @@ EXCEPTIONS = [
     (re.compile(r"^docs/(CHANGELOG|CODE_OF_CONDUCT\.md|CONTRIBUTING\.md|SECURITY\.md)$"), "GitHub"),
     (re.compile(r"^\.github/pull_request_template\.md$"), "GitHub"),
     (re.compile(r"^\.github/workflows/release\.yml$"), "cargo-dist"),
+    (re.compile(r"^\.github/zizmor\.yml$"), "zizmor's config discovery"),
     (re.compile(r"^\.zed$"), "the Zed editor's project settings"),
 ]
 

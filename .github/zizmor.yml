@@ -1,0 +1,76 @@
+# zizmor findings kept on purpose, each with its reason (#517). lintworks.yml
+# runs zizmor on every change under .github/workflows; anything not listed
+# here is a finding to fix, not to add.
+#
+# release.yml is cargo-dist's template (`dist generate`) and rehearsal.yml is
+# generated from it (tool/tasks/rehearsal.py), so a hand edit is lost on the
+# next generation and their findings are ignored per file. the hand-written
+# workflows are ignored per file too, where the whole file makes the choice.
+
+rules:
+  # `${{ }}` in dist's own run scripts: the tag name, and the install
+  # commands, arguments and tag flag of dist's plan, which come from the
+  # pushed tag and Cargo.toml, both the maintainer's. the rehearsal copies
+  # these steps on purpose, so it runs the release's exact commands.
+  template-injection:
+    ignore:
+      - release.yml
+      - rehearsal.yml
+
+  # dist's template grants `contents: write` at the workflow level for the
+  # host job's release upload; the custom jobs narrow it
+  # (github-custom-job-permissions in Cargo.toml). wheelmake.yml declares no
+  # permissions on purpose: it takes its caller's, as its header says.
+  excessive-permissions:
+    ignore:
+      - release.yml
+      - wheelmake.yml
+
+  # dist calls each custom job with `secrets: inherit`; there is no setting
+  # to pass named secrets instead.
+  secrets-inherit:
+    ignore:
+      - release.yml
+
+  # setup-node in dist's npm publish job caches only when a package.json
+  # names a packageManager; the repository has no package.json.
+  cache-poisoning:
+    ignore:
+      - release.yml
+
+  # `container:` resolves to null: none of the five targets in dist's plan
+  # builds in a container.
+  unpinned-images:
+    ignore:
+      - release.yml
+      - rehearsal.yml
+
+  # the `$/` syntax for same-repository workflows is newer than actionlint
+  # 1.7.12, which refuses it (rhysd/actionlint#711), and dist writes `./`.
+  # for a reusable workflow, `./` already resolves to the caller's commit.
+  self-repository:
+    ignore:
+      - release.yml
+      - rehearsal.yml
+      - wheelmake.yml
+      - pypiindex.yml
+
+  # npm (dist's publish job) and crates.io (rustready.yml) still publish
+  # with a token; trusted publishing needs registry setup by the maintainer.
+  use-trusted-publishing:
+    ignore:
+      - release.yml
+      - rustready.yml
+
+  # runreport reads a finished release run: read-only token, checks out main
+  # without credentials, tag pushes only; workflow_run is how it learns that
+  # the run ended whatever its conclusion.
+  dangerous-triggers:
+    ignore:
+      - runreport.yml
+
+  # setuptest installs the released package from each channel (npm, bun,
+  # pnpm, yarn); that install is the test.
+  adhoc-packages:
+    ignore:
+      - setuptest.yml
