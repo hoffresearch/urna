@@ -34,11 +34,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Pull requests merge with a merge commit, the one method `main` allows now, so every commit of a pull request stays in its history. Only the maintainer merges: an agent opens the pull request, asks for a review and stops there, and asks before pushing a release tag. CONTRIBUTING says so; they had said one-commit pull requests were squash merged and the rest rebase merged. The `opensource` ruleset no longer requires a linear history, and squash and rebase merges are off.
 - `main`'s history has the commits of ten merged pull requests back (#404, #417 to #420, #422, #448, #449, #453, #454), which squash merges and a GitHub rebase merge had left out. One merge that keeps the tree adds them, the way #405 did (#456).
 - The README's image table says which mtg-urna-benchmark file each row is (#450). The forge calls AVIF q48 `stills` and the old AV1 all-intra recipe `stills-av1`; the benchmark's v0.3 `stills` file is that AV1 build (1.37 GB, 2.89x) and AVIF q48 is its candidate `v03-avif-q48`, so a reader who followed the link found another `stills`. The numbers already agreed with the benchmark's RESULTS.md.
+- `.github/trustkeys` trusts the maintainer's new signing key for release tags (#521): the machine was reinstalled and the previous private key did not survive. The previous line stays, so a past tag dispatched again still verifies.
 
 ### Fixed
 
 - sentence-transformers 6 renamed `get_sentence_embedding_dimension` to `get_embedding_dimension` and warns on the old name on every query (#508). `searchtxt.dimension` calls the new name and falls back to the old one, which the supported floor (5.7) may still need; `searchtxt.py` and the registry's text adapter go through it.
 - setuptest's Windows CLI leg validated the golden fixture at `crates\urna-format\...`, a backslash path the folder rename to `crates/format` did not match, so that leg failed on the v0.5.4 release run while the release and every channel were fine. It points at `crates\format\` now; dispatched against v0.5.4 with the fix, setuptest passed all 20 legs (run 37256022536).
+- `test_chanprobe.py` and `test_pypiindex.py` pass when pytest runs them in one process (#527). Both pointed `GITHUB_API_URL` at their own fake server on import, so the file imported last won and 5 cases of the other failed; each now sets its endpoints before every case (`setup_function`, also called by its `main()`). CI was not affected: it runs each file on its own.
 
 ### Security
 
