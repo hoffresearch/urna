@@ -69,17 +69,24 @@ def serve() -> str:
 
 
 BASE = serve()
-for var, path in [
-    ("NPM_REGISTRY", "/npm"),
-    ("CRATES_INDEX", "/index"),
-    ("PYPI_URL", "/pypi-host"),
-    ("RAW_GITHUB", "/raw"),
-    ("GITHUB_API_URL", "/api"),
-    ("CRATES_API", "/crates-api"),
-]:
-    os.environ[var] = BASE + path
-os.environ.pop("GH_TOKEN", None)
-os.environ.pop("GITHUB_STEP_SUMMARY", None)
+
+
+def setup_function(_=None) -> None:
+    """point the endpoints at this file's server before each case: pytest
+    runs other files in the same process, and test_pypiindex points
+    GITHUB_API_URL at its own."""
+    for var, path in [
+        ("NPM_REGISTRY", "/npm"),
+        ("CRATES_INDEX", "/index"),
+        ("PYPI_URL", "/pypi-host"),
+        ("RAW_GITHUB", "/raw"),
+        ("GITHUB_API_URL", "/api"),
+        ("CRATES_API", "/crates-api"),
+    ]:
+        os.environ[var] = BASE + path
+    os.environ.pop("GH_TOKEN", None)
+    os.environ.pop("GITHUB_STEP_SUMMARY", None)
+
 
 V = "0.5.3"
 SHA = "a" * 40
@@ -309,6 +316,7 @@ def main() -> int:
     tests = [v for k, v in globals().items() if k.startswith("test_") and callable(v)]
     for test in tests:
         ROUTES.clear()
+        setup_function()
         test()
     print(f"chanprobe: {len(tests)} cases passed")
     return 0
