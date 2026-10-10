@@ -334,6 +334,22 @@ jobs:
           python tool/tasks/preflight.py
           python tool/tests/test_preflight.py
           python tool/tests/test_pypiindex.py
+      - name: release.yml is dist's output with distpatch.py's edits
+        # dist has no setting for these edits, and allow-dirty keeps its plan
+        # from checking the file, so this does: the pinned dist regenerates
+        # release.yml, distpatch.py edits it, and a hand edit that drifts fails.
+        env:
+          DIST_VERSION: "0.32.0"
+          DIST_SHA256: eb52f9fae0d0506774e9f1801c1168f87fa2c87a45e2d64d3ae7c89401929946
+        run: |
+          set -eu
+          tarball=cargo-dist-x86_64-unknown-linux-gnu.tar.xz
+          curl -fsSL -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/axodotdev/cargo-dist/releases/download/v${DIST_VERSION}/$tarball"
+          echo "$DIST_SHA256  $RUNNER_TEMP/$tarball" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/$tarball" -C "$RUNNER_TEMP"
+          DIST="$RUNNER_TEMP/cargo-dist-x86_64-unknown-linux-gnu/dist" python tool/tasks/distpatch.py generate --check
+          python tool/tests/test_distpatch.py
       - name: the release rehearsal is what release.yml builds
         # rehearsal.yml is generated from release.yml; a dist upgrade
         # or a hand edit that drifts fails here.
