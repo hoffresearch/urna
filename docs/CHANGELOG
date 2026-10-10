@@ -33,6 +33,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 - Pull requests merge with a merge commit, the one method `main` allows now, so every commit of a pull request stays in its history. Only the maintainer merges: an agent opens the pull request, asks for a review and stops there, and asks before pushing a release tag. CONTRIBUTING says so; they had said one-commit pull requests were squash merged and the rest rebase merged. The `opensource` ruleset no longer requires a linear history, and squash and rebase merges are off.
 - `main`'s history has the commits of ten merged pull requests back (#404, #417 to #420, #422, #448, #449, #453, #454), which squash merges and a GitHub rebase merge had left out. One merge that keeps the tree adds them, the way #405 did (#456).
 - The README's image table says which mtg-urna-benchmark file each row is (#450). The forge calls AVIF q48 `stills` and the old AV1 all-intra recipe `stills-av1`; the benchmark's v0.3 `stills` file is that AV1 build (1.37 GB, 2.89x) and AVIF q48 is its candidate `v03-avif-q48`, so a reader who followed the link found another `stills`. The numbers already agreed with the benchmark's RESULTS.md.
+- `.github/trustkeys` trusts the maintainer's new signing key for release tags (#521): the machine was reinstalled and the previous private key did not survive. The previous line stays, so a past tag dispatched again still verifies.
 
 ### Fixed
 
