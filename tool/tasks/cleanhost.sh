@@ -14,7 +14,9 @@
 #
 # both build a release of the current tree into a scratch dir (the binary
 # archive and the embedder payload, each with its .sha256, the layout the
-# release publishes), hand it to tool/tasks/installer.sh as
+# release publishes; the binary is built with URNA_RELEASE_TAG=v<version>,
+# as the release workflow builds it, since a development build looks for
+# the checkout it came from, which a clean machine does not have), hand it to tool/tasks/installer.sh as
 # URNA_RELEASE_BASE, then run `urna setup --yes --model NAME` (default
 # minilm-multilingual) and `urna doctor`, and check:
 #   - setup and doctor exit 0;
@@ -137,7 +139,8 @@ linux() {
     esac
     target="$arch-unknown-linux-musl"
     say "building urna for $target in $RUST"
-    "$CT" run --rm -v "$ROOT:/src" -w /src -e "CC_${arch}_unknown_linux_musl=musl-gcc" "$RUST" sh -c "
+    "$CT" run --rm -v "$ROOT:/src" -w /src -e "CC_${arch}_unknown_linux_musl=musl-gcc" \
+        -e "URNA_RELEASE_TAG=v$VERSION" "$RUST" sh -c "
         apt-get update -qq && apt-get install -y -qq --no-install-recommends musl-tools >/dev/null &&
         rustup target add $target >/dev/null &&
         cargo build --locked --profile dist -p urna --target $target --target-dir /src/target/cleanhost"
@@ -173,7 +176,7 @@ macos() {
     [ "$(uname -m)" = arm64 ] || die "tart runs macOS VMs on apple silicon only"
     target="aarch64-apple-darwin"
     say "building urna for $target"
-    cargo build --locked --profile dist -p urna --target "$target"
+    URNA_RELEASE_TAG="v$VERSION" cargo build --locked --profile dist -p urna --target "$target"
     publish "$target" "target/$target/dist/urna"
     vm="urna-cleanhost-$$"
     trap '"$TART" stop "$vm" >/dev/null 2>&1 || true; "$TART" delete "$vm" >/dev/null 2>&1 || true; rm -rf "$WORK"' EXIT

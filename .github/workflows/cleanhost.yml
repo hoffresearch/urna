@@ -21,6 +21,8 @@ on:
   pull_request:
     paths:
       - "rust/clitui/src/tui/setup/**"
+      - "rust/clitui/build.rs"
+      - "rust/clitui/src/cmd/buildid.rs"
       - "rust/clitui/src/cmd/health.rs"
       - "rust/clitui/src/cmd/paths.rs"
       - "rust/clitui/src/cmd/pyenv.rs"
