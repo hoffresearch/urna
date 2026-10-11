@@ -123,6 +123,9 @@ pub struct Scan {
     pub simd: &'static str,
     /// the model catalog and installer of the payload in `home`.
     pub kit: Option<super::models::Kit>,
+    /// the sample corpus in `home`, when it holds the bytes the kit's
+    /// catalogue names.
+    pub sample: Option<PathBuf>,
 }
 
 pub use crate::cmd::paths::which;
@@ -169,6 +172,12 @@ impl Scan {
             .map(|v| (interp.clone(), v));
         let deps = python.is_some()
             && output(Command::new(&interp).args(["-c", "import numpy, tokenizers"])).is_some();
+        let home = paths::urna_home();
+        let kit = home.as_deref().and_then(super::models::Kit::in_home);
+        let sample = match (&home, kit.as_ref().and_then(|k| k.catalog.sample.as_ref())) {
+            (Some(h), Some(s)) => super::sample::present(h, s),
+            _ => None,
+        };
         Scan {
             version: env!("CARGO_PKG_VERSION"),
             name: buildid::NAME,
@@ -193,7 +202,8 @@ impl Scan {
             uv: paths::uv(),
             curl: which("curl"),
             simd: urna_engine::simd::detect_backend().name(),
-            kit: paths::urna_home().and_then(|h| super::models::Kit::in_home(&h)),
+            kit,
+            sample,
         }
     }
 

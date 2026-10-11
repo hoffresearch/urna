@@ -89,13 +89,14 @@ fn release_at(
 ) -> PathBuf {
     let rel = dir.join(name);
     std::fs::create_dir_all(&rel).unwrap();
+    std::fs::copy(golden(), rel.join(SAMPLE)).unwrap();
     let tgz = rel.join(PAYLOAD);
     let gz = GzEncoder::new(std::fs::File::create(&tgz).unwrap(), Compression::fast());
     let mut b = tar::Builder::new(gz);
     let mut entries: Vec<(String, Vec<u8>)> = REQUIRED
         .iter()
         .filter(|f| Some(**f) != drop)
-        .map(|f| (format!("urna/{f}"), body(f, version)))
+        .map(|f| (format!("urna/{f}"), body(f, version, &rel)))
         .collect();
     entries.push(("urna/VERSION".into(), format!("{version}\n").into_bytes()));
     for (name, body) in &entries {
@@ -113,12 +114,29 @@ fn release_at(
     rel
 }
 
-/// A stub file's body; the catalog is the real one, since setup reads it.
-fn body(f: &str, version: &str) -> Vec<u8> {
+/// The sample corpus a test release serves in place of the hub's.
+const SAMPLE: &str = "sample.urna";
+
+/// A small valid `.urna`, the format crate's golden file.
+fn golden() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../format/tests/fixtures/golden_v1_minimal.urna")
+}
+
+/// A stub file's body; the catalog is the real one, since setup reads it,
+/// with its sample pointed at the copy in `rel`, so no test reaches the hub.
+fn body(f: &str, version: &str, rel: &Path) -> Vec<u8> {
     if f == "python/urna/model/catalogue.json" {
         let real = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../rust/bridge/python/urna/model/catalogue.json");
-        return std::fs::read(real).unwrap();
+        let mut cat: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(real).unwrap()).unwrap();
+        let bytes = std::fs::read(golden()).unwrap();
+        let s = &mut cat["sample"];
+        s["url"] = file_url(&rel.join(SAMPLE)).into();
+        s["path"] = format!("release/test/{SAMPLE}").into();
+        s["size"] = bytes.len().into();
+        s["sha256"] = hex::encode(Sha256::digest(&bytes)).into();
+        return serde_json::to_vec_pretty(&cat).unwrap();
     }
     format!("{f}@{version}").into_bytes()
 }

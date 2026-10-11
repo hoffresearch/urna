@@ -2,16 +2,25 @@
 
 use anyhow::Result;
 use sha2::{Digest, Sha256};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use urna_format::layout::{SECTION_BLOB_DATA, SECTION_BLOB_REFS};
 
-pub fn run(file: PathBuf) -> Result<()> {
-    let data = std::fs::read(&file)?;
+/// What a file that passes every check reports.
+pub struct Report {
+    pub sections: usize,
+    /// inlined blobs proven against their content_hash, when the file has any.
+    pub inlined: Option<usize>,
+    pub file_hash: String,
+    pub content_hash: String,
+}
+
+/// Every check `urna validate` runs, with nothing printed: the first one
+/// that fails is the error.
+pub fn check(file: &Path) -> Result<Report> {
+    let data = std::fs::read(file)?;
     let view = urna_format::UrnaView::from_bytes(&data)?;
     view.validate_embeddings_values()?;
     let _contract = view.search_contract()?;
-    // every check runs before the first line is printed: a file that
-    // fails any of them (an inlined blob included) never shows "OK:".
     // blob_data (0x17): prove every inlined blob against its 0x14
     // content_hash, so "self-contained" is a verified claim, not a flag.
     let mut inlined = None;
@@ -45,24 +54,32 @@ pub fn run(file: PathBuf) -> Result<()> {
         }
         inlined = Some(verified);
     }
-    let content_hash = view.content_hash_hex()?;
+    Ok(Report {
+        sections: view.section_table.len(),
+        inlined,
+        file_hash: view.file_hash_hex(),
+        content_hash: view.content_hash_hex()?,
+    })
+}
+
+pub fn run(file: PathBuf) -> Result<()> {
+    // every check runs before the first line is printed: a file that
+    // fails any of them (an inlined blob included) never shows "OK:".
+    let report = check(&file)?;
     println!("OK: {} is a valid .urna v1 file", file.display());
     println!("  Header checksum:    valid");
-    println!(
-        "  Section checksums:  {} sections OK",
-        view.section_table.len()
-    );
+    println!("  Section checksums:  {} sections OK", report.sections);
     println!("  Footer hash:        valid");
     println!("  Manifest:           valid (contract enforced)");
     println!("  Required sections:  all present");
     println!("  Embedding values:   no NaN/Inf");
-    if let Some(verified) = inlined {
+    if let Some(verified) = report.inlined {
         println!(
             "  Inlined blobs:      {} verified against blob_refs",
             verified
         );
     }
-    println!("  File hash:          {}", view.file_hash_hex());
-    println!("  Content hash:       {}", content_hash);
+    println!("  File hash:          {}", report.file_hash);
+    println!("  Content hash:       {}", report.content_hash);
     Ok(())
 }

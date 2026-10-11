@@ -26,6 +26,7 @@ fn bare() -> Scan {
         curl: Some(PathBuf::from("/usr/bin/curl")),
         simd: "neon",
         kit: None,
+        sample: None,
     }
 }
 
@@ -137,6 +138,7 @@ fn a_ready_machine_only_verifies_unless_forced() {
         missing: Vec::new(),
     });
     s.deps = true;
+    s.sample = Some(PathBuf::from("/h/.local/share/urna/sample/fakenews.urna"));
     let p = plan(&s, &Opts::default());
     assert_eq!(p.iter().filter(|i| i.runs()).count(), 1);
     let forced = plan(

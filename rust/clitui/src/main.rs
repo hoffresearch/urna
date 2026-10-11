@@ -110,6 +110,7 @@ fn main() -> Result<()> {
             force,
             no_payload,
             no_python,
+            no_sample,
             models,
             allow_remote_code,
             uninstall,
@@ -123,6 +124,7 @@ fn main() -> Result<()> {
                     force,
                     no_payload,
                     no_python,
+                    no_sample,
                     models,
                     allow_remote_code,
                 })?

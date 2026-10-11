@@ -37,7 +37,7 @@ cargo install urna
 curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh
 ```
 
-Then run setup once. It downloads the offline embedder, prepares a Python env and checks the install:
+Then run setup once. It downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask:
 
 ```sh
 urna setup
@@ -62,7 +62,17 @@ urna tui my_corpus.urna
 
 ## Quickstart
 
-`demo/starter/` has twelve short paragraphs and the spec that builds them. From a checkout:
+`urna setup` ends by downloading a sample corpus of about 20 MB: Brazilian Portuguese news articles and fact-checked claims from a [fake-news benchmark](https://github.com/brennercruvinel/fakenews-ptbr-urna-benchmark), true and fake side by side. A hit carries no true or fake label, so an answer can be a fake claim quoted as it was published. It lands in `~/.local/share/urna/sample/` (`$XDG_DATA_HOME/urna/sample/` when that is set, `%LOCALAPPDATA%\urna\sample\` on Windows); `urna setup --no-sample` skips it.
+
+```sh
+urna tui ~/.local/share/urna/sample/fakenews.urna
+```
+
+```sh
+urna ask ~/.local/share/urna/sample/fakenews.urna "imposto sobre pix" -k 2
+```
+
+To build a corpus, `demo/starter/` has twelve short paragraphs and the spec that builds them. From a checkout:
 
 ```sh
 urna build --spec demo/starter/corpus.toml

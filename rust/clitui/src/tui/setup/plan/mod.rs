@@ -15,6 +15,7 @@ pub enum Task {
     Python,
     Models,
     Verify,
+    Sample,
 }
 
 impl Task {
@@ -24,6 +25,7 @@ impl Task {
             Task::Python => "python env",
             Task::Models => "models",
             Task::Verify => "verify",
+            Task::Sample => "sample corpus",
         }
     }
 }
@@ -38,6 +40,8 @@ pub struct Opts {
     pub force: bool,
     pub no_payload: bool,
     pub no_python: bool,
+    /// skip the sample corpus the catalogue names.
+    pub no_sample: bool,
     /// catalog models to install (`--model`, repeatable; `all` is every
     /// offered one). naming one is the consent to download it.
     pub models: Vec<String>,
@@ -222,7 +226,52 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
         blocked: None,
         detail: "urna doctor: interpreter, deps, table, one offline embed".into(),
     };
-    vec![payload, python, models_item(scan, opts), verify]
+    vec![
+        payload,
+        python,
+        models_item(scan, opts),
+        verify,
+        sample_item(scan, opts),
+    ]
+}
+
+/// The sample corpus, after verify: offered whenever the catalogue names
+/// one and it is not already in the data dir. before a payload is installed
+/// the catalogue is not at hand yet, so the step reads it when it runs. it
+/// is optional: a machine that cannot fetch it shows why and starts with it
+/// unticked, so it never blocks the run.
+fn sample_item(scan: &Scan, opts: &Opts) -> Item {
+    let about = super::sample::ABOUT;
+    let named = scan.kit.as_ref().map(|k| k.catalog.sample.as_ref());
+    let (on, detail) = match (named, &scan.sample) {
+        (_, Some(p)) => (
+            false,
+            format!("present at {}; tick to download again", tilde(p)),
+        ),
+        (Some(Some(s)), None) => (
+            true,
+            format!(
+                "download a sample corpus to try ({}): {about}",
+                super::sample::size(s)
+            ),
+        ),
+        (Some(None), None) => (false, "the installed payload names no sample corpus".into()),
+        (None, None) => (true, format!("download a sample corpus to try: {about}")),
+    };
+    let blocked = if scan.home.is_none() {
+        Some("no data dir: set URNA_DATA_DIR".to_string())
+    } else if scan.curl.is_none() {
+        Some("curl is not on PATH".to_string())
+    } else {
+        None
+    };
+    Item {
+        task: Task::Sample,
+        on: on && !opts.no_sample && blocked.is_none(),
+        locked: false,
+        blocked,
+        detail,
+    }
 }
 
 /// The python range the installed payload's catalogue names, when it does.

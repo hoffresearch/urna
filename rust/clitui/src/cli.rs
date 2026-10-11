@@ -315,6 +315,10 @@ pub enum Commands {
         /// Skip the python env step (bring your own via URNA_PYTHON).
         #[arg(long)]
         no_python: bool,
+        /// Skip the sample corpus setup downloads to try urna on
+        /// (Brazilian Portuguese news, true and fake).
+        #[arg(long)]
+        no_sample: bool,
         /// Install a model from the payload's catalog: its packages into the
         /// managed venv, its pinned weights into the hugging face cache.
         /// repeatable; `all` picks every offered model. naming one is the
@@ -327,7 +331,7 @@ pub enum Commands {
         allow_remote_code: Vec<String>,
         /// Remove the payload and the env setup created (never the binary;
         /// the hugging face cache is shared and stays).
-        #[arg(long, conflicts_with_all = ["force", "no_payload", "no_python", "version", "models"])]
+        #[arg(long, conflicts_with_all = ["force", "no_payload", "no_python", "no_sample", "version", "models"])]
         uninstall: bool,
     },
     /// [setup] Terminal explorer: open a .urna, read its sections, ask it,

@@ -127,9 +127,9 @@ def test_a_moved_upstream_fails_check() -> None:
         held.write_text(up.render(now))
         try:
             up.UPSTREAMS = held
-            up.resolve = lambda: now
+            up.resolve = lambda _sample=None: now
             assert up.main(["--check"]) == 0
-            up.resolve = lambda: {**now, "uv": {"version": "0.14.0"}}
+            up.resolve = lambda _sample=None: {**now, "uv": {"version": "0.14.0"}}
             assert up.main(["--check"]) == 1
             assert up.main(["--nope"]) == 2
         finally:

@@ -1,6 +1,7 @@
 # the clean-machine check epic #535 asks of every pull request that touches
 # setup: urna installed the way a first-time user meets it, with nothing on
-# the machine, then `urna setup --model minilm-multilingual` end to end.
+# the machine, then `urna setup --model minilm-multilingual` end to end,
+# the sample corpus it saves validated and asked once.
 #
 # - linux: tool/tasks/cleanhost.sh in a debian container with curl,
 #   ca-certificates and xz-utils only (no python, no uv, no checkout): the
@@ -26,6 +27,7 @@ on:
       - "rust/clitui/src/cmd/health.rs"
       - "rust/clitui/src/cmd/paths.rs"
       - "rust/clitui/src/cmd/pyenv.rs"
+      - "rust/clitui/src/cmd/validate.rs"
       - "rust/bridge/python/urna/model/**"
       - "tool/tasks/installer.sh"
       - "tool/tasks/cleanhost.sh"
