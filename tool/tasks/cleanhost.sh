@@ -29,7 +29,8 @@
 #
 # needs: python3 3.11+, curl, and docker/podman (linux) or tart (macos);
 # the potion table comes through tool/tasks/getpotion.sh. tart from
-# `brew install openai/tools/tart`, or the release's tart.app with
+# `brew install openai/tools/tart` (after `brew trust --formula` on
+# openai/tools/tart and openai/tools/softnet), or the release's tart.app with
 # TART=<dir>/tart.app/Contents/MacOS/tart. ssh logs into the VM through
 # SSH_ASKPASS (OpenSSH 8.4+), so no sshpass.
 # a macOS VM takes ~25 GB of disk and 8 GB of RAM while it runs; it is

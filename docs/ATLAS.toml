@@ -2433,8 +2433,8 @@ links = []
 [[inventory.data_docs_python_script_tests]]
 path = "docs/CONTRIBUTING.md"
 kind = "contributor-doc"
-purpose = "Setup, branching, testing, and style guidance"
-links = ["tool/tasks/fullcheck.sh"]
+purpose = "Setup, the local gate and its tools, branching, testing, and style guidance"
+links = ["tool/tasks/fullcheck.sh", "tool/tasks/cleanhost.sh"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "docs/USAGE.md"
