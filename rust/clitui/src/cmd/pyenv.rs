@@ -97,14 +97,20 @@ pub fn set_quiet(quiet: bool) {
 pub fn resolve_interpreter() -> String {
     let explicit = std::env::var("URNA_PYTHON").ok().filter(|s| !s.is_empty());
     let managed = super::paths::setup_python().map(|p| p.to_string_lossy().into_owned());
-    let interp = resolve_interpreter_from(explicit.or(managed), std::env::current_dir().ok());
-    // surface the choice: discovery can execute a `.venv` found by filesystem
-    // proximity, so the selected interpreter must never be silent.
-    if !QUIET.load(Ordering::Relaxed) {
+    let chosen = explicit.or(managed);
+    let searched = chosen.is_none();
+    let interp = resolve_interpreter_from(chosen, std::env::current_dir().ok());
+    // a `.venv` found by walking up the folders runs by filesystem proximity,
+    // so that choice is never silent; `URNA_PYTHON` and setup's env were
+    // chosen on purpose, and naming them on every query is noise.
+    if searched && interp != FALLBACK && !QUIET.load(Ordering::Relaxed) {
         eprintln!("[urna] embedder interpreter: {interp}");
     }
     interp
 }
+
+/// The interpreter when nothing names one and no `.venv` is near.
+const FALLBACK: &str = "python3";
 
 /// Testable core of [`resolve_interpreter`]: an explicit interpreter (the
 /// `URNA_PYTHON` value, else the managed setup venv) wins, then the nearest
@@ -125,7 +131,7 @@ fn resolve_interpreter_from(urna_python: Option<String>, start: Option<PathBuf>)
             }
         }
     }
-    "python3".into()
+    FALLBACK.into()
 }
 
 #[cfg(test)]

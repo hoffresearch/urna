@@ -439,7 +439,11 @@ fn install_models(opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
 
 fn verify(tx: &Sender<Ev>) -> Result<String, Failure> {
     let _ = tx.send(Ev::Note(Task::Verify, "running the doctor checks".into()));
-    let rows = health::collect();
+    // the payload setup manages, not whatever a checkout nearby resolves to.
+    let rows = match paths::urna_home() {
+        Some(home) => health::collect_installed(&home),
+        None => health::collect(),
+    };
     let code = health::exit_code(&rows);
     let first_fail = rows
         .iter()
