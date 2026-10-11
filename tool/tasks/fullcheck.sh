@@ -181,6 +181,10 @@ cached cargo-test "$ALL_IN" -- cargo_test
 cargo_clippy() {
   step "cargo clippy --workspace --all-targets -- -D warnings"
   cargo clippy --workspace --all-targets -- -D warnings >/dev/null 2>&1
+  # the engine-only cli, as gatecheck.yml checks it: code only the terminal
+  # ui reads is dead there.
+  step "cargo clippy -p urna --no-default-features --all-targets -- -D warnings"
+  cargo clippy -p urna --no-default-features --all-targets -- -D warnings >/dev/null 2>&1
   ok "clippy clean"
 }
 cached cargo-clippy "$RUST_IN" -- cargo_clippy
