@@ -128,6 +128,12 @@ pub fn spawn_embedder(
         .into());
     }
     let interpreter = super::pyenv::resolve_interpreter();
+    if !super::pyenv::may_run(&interpreter) {
+        return Err(EmbedFailure::PythonMissing {
+            python: interpreter,
+        }
+        .into());
+    }
     let mut cmd = ProcCommand::new(&interpreter);
     cmd.arg(embedder);
     if let Some(p) = model_path {

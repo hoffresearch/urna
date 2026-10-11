@@ -18,6 +18,7 @@ mod screen;
 pub mod text;
 mod ui;
 pub mod unpack;
+pub mod uv;
 pub mod venv;
 
 use std::io::IsTerminal;
@@ -41,13 +42,13 @@ pub fn run(opts: Opts) -> anyhow::Result<i32> {
     }
 }
 
-/// `urna setup --uninstall`: removes what setup laid down (payload + venv),
-/// never the binary (its package manager owns it).
+/// `urna setup --uninstall`: removes what setup laid down (payload, venv
+/// and the uv it downloaded), never the binary (its package manager owns it).
 pub fn uninstall() -> anyhow::Result<i32> {
     let Some(home) = crate::cmd::paths::urna_home() else {
         anyhow::bail!("no data dir (set URNA_DATA_DIR)");
     };
-    for sub in [crate::cmd::payload::DIR, "venv"] {
+    for sub in [crate::cmd::payload::DIR, "venv", "bin"] {
         let p = home.join(sub);
         if p.exists() {
             std::fs::remove_dir_all(&p)?;
@@ -70,7 +71,7 @@ pub fn uninstall() -> anyhow::Result<i32> {
         anyhow::bail!("could not remove {}", kept.join(", "));
     }
     println!(
-        "urna setup: uninstalled the payload and the env; the binary stays with its package manager"
+        "urna setup: uninstalled the payload, the env and setup's uv; the binary stays with its package manager"
     );
     Ok(0)
 }

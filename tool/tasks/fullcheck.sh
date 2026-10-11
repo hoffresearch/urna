@@ -294,6 +294,12 @@ python_tests() {
   "$PY" tool/tests/test_catalogue.py
   ok "catalogue: model catalog (5 cases)"
 
+  # the uv setup downloads and the python range it builds on are read from
+  # their upstreams into upstreams.json, never written by hand (stubbed here).
+  step "python tool/tests/test_upstreams.py"
+  "$PY" tool/tests/test_upstreams.py
+  ok "upstreams: uv and the python range (5 cases)"
+
   # the model fetch: confirmed downloads only, the pinned files only, kept
   # only when the fingerprint is the catalog's (an 18 MB hub model; the
   # download cases skip by name when huggingface.co does not answer).

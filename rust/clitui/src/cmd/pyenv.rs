@@ -18,8 +18,67 @@
 //! `URNA_PYTHON`, ahead of the walk-up heuristic, so an installed urna run
 //! from inside some other project's `.venv` still embeds with its own.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, Ordering};
+
+/// macOS's `python3` before the Command Line Tools are installed: a stub
+/// that opens Apple's installer dialog when anything runs it.
+const MACOS_STUB: &str = "/usr/bin/python3";
+
+/// Whether `interp` (a name looked up on PATH, or a path) may run here.
+/// false only on macOS, for the `/usr/bin/python3` stub while
+/// `xcode-select -p` fails: running it, even for `--version`, opens a
+/// system dialog. setup's scan, `urna doctor` and the embedder fallback all
+/// ask this first, so none of them ever runs the stub.
+pub fn may_run(interp: &str) -> bool {
+    if !cfg!(target_os = "macos") {
+        return true;
+    }
+    let p = Path::new(interp);
+    let resolved = if p.components().count() == 1 {
+        super::paths::which(interp)
+    } else {
+        Some(p.to_path_buf())
+    };
+    !is_stub(resolved.as_deref()) || command_line_tools()
+}
+
+/// `path` is the stub, directly or through a symlink.
+fn is_stub(path: Option<&Path>) -> bool {
+    let stub = Path::new(MACOS_STUB);
+    path.is_some_and(|p| p == stub || p.canonicalize().is_ok_and(|c| c == stub))
+}
+
+/// `xcode-select -p` succeeds: the tools are installed and the stub runs
+/// their python3. it prints a path and opens no dialog; asked once.
+fn command_line_tools() -> bool {
+    static ONCE: OnceLock<bool> = OnceLock::new();
+    *ONCE.get_or_init(|| {
+        std::process::Command::new("xcode-select")
+            .arg("-p")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .is_ok_and(|s| s.success())
+    })
+}
+
+/// On macOS without the Command Line Tools: every developer tool in
+/// `/usr/bin` (`python3`, `install_name_tool`, `git`, …) is one shim that
+/// opens Apple's installer dialog when anything runs it.
+#[cfg_attr(not(feature = "tui"), allow(dead_code))]
+pub fn shims_open_dialogs() -> bool {
+    cfg!(target_os = "macos") && !command_line_tools()
+}
+
+/// What a caller says instead of running the stub.
+pub fn stub_hint(interp: &str) -> String {
+    format!(
+        "{interp} is macOS's stub, which opens Apple's Command Line Tools installer; \
+         run `urna setup` (it builds its own python env) or set URNA_PYTHON"
+    )
+}
 
 /// Set by the terminal ui: its screen owns stderr, so the interpreter note
 /// is kept out of it (the ui shows the interpreter in its own doctor view).
@@ -71,8 +130,24 @@ fn resolve_interpreter_from(urna_python: Option<String>, start: Option<PathBuf>)
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_interpreter_from;
-    use std::path::PathBuf;
+    use super::{is_stub, may_run, resolve_interpreter_from};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn only_the_macos_stub_path_counts_as_the_stub() {
+        assert!(is_stub(Some(Path::new("/usr/bin/python3"))));
+        assert!(!is_stub(Some(Path::new("/opt/homebrew/bin/python3"))));
+        assert!(!is_stub(None));
+    }
+
+    #[test]
+    fn anything_but_the_stub_may_run() {
+        assert!(may_run("/opt/py/bin/python"));
+        assert!(may_run("urna-definitely-not-a-binary-xyz"));
+        if !cfg!(target_os = "macos") {
+            assert!(may_run("/usr/bin/python3"));
+        }
+    }
 
     #[test]
     fn urna_python_overrides_everything() {

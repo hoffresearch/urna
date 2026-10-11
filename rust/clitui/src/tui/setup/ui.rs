@@ -161,6 +161,17 @@ impl Ui {
         }
     }
 
+    /// The run left urna ready: nothing it needed was blocked, and no step
+    /// failed but an optional one (`job::optional`), verify included.
+    pub fn ready(&self) -> bool {
+        self.finished
+            && !self.plan.iter().any(|i| i.on && i.blocked.is_some())
+            && self
+                .rows
+                .iter()
+                .all(|r| r.badge != Some(Badge::Fail) || super::job::optional(r.task))
+    }
+
     fn row(&mut self, task: Task) -> Option<&mut RunRow> {
         self.rows.iter_mut().find(|r| r.task == task)
     }

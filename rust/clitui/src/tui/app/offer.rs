@@ -16,7 +16,7 @@ use ratatui::style::Style;
 use ratatui::widgets::{Clear, Widget};
 
 use crate::tui::setup::models::{self, Consent, Entry, Kit, Plan, Progress, Refusal};
-use crate::tui::setup::scan::{self, tilde};
+use crate::tui::setup::scan::tilde;
 use crate::tui::{hud, pal};
 
 /// The corpus model a failed query needs, from the manifest.
@@ -120,7 +120,7 @@ impl Offer {
         let r = ready.clone();
         let hash = self.need.corpus_hash.clone();
         std::thread::spawn(move || {
-            let uv = scan::which("uv");
+            let uv = crate::cmd::paths::uv();
             let line = tx.clone();
             let res = models::install(
                 &r.kit,
