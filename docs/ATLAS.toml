@@ -465,11 +465,12 @@ links = [
 [[inventory.root]]
 path = ".github/workflows/lintworks.yml"
 kind = "ci-workflow"
-purpose = "Static checks of the workflows on every change under .github/workflows (push to main, pull request, on demand); runs no job. actionlint (pinned 1.7.12, checksum verified) gates: syntax, expressions, needs, runner labels, and shellcheck at warning and above on every run script; it ignores the cargo-dist template's `steps.cargo-cyclonedx.output.paths` in release.yml and rehearsal.yml, which are never hand-edited. zizmor (zizmor-action, pinned 1.30.1) audits security and uploads SARIF to code scanning instead of failing, since the workflows predate it (156 findings on 2026-10-09); skipped on pull requests from forks, whose token is read-only, and run on the push to main after the merge"
+purpose = "Static checks of the workflows on every pull request (both jobs are required checks, so no path filter), on a push to main that changes .github/workflows or .github/zizmor.yml, and on demand; runs no job. actionlint (pinned 1.7.12, checksum verified) gates: syntax, expressions, needs, runner labels, and shellcheck at warning and above on every run script; it ignores the cargo-dist template's `steps.cargo-cyclonedx.output.paths` in release.yml and rehearsal.yml, which are never hand-edited. zizmor (zizmor-action, pinned 1.30.1) audits security with the ignores of .github/zizmor.yml: on a pull request, forks included, any finding fails it with an annotation; on main it uploads SARIF to code scanning"
 links = [
     ".github/workflows/gatecheck.yml",
     ".github/workflows/release.yml",
     ".github/workflows/rehearsal.yml",
+    ".github/zizmor.yml",
 ]
 
 [[inventory.root]]

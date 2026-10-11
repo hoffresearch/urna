@@ -1,5 +1,8 @@
-# static checks of the workflows themselves, on every change under
-# .github/workflows. nothing here runs a job: both tools read the yaml.
+# static checks of the workflows themselves, on every pull request and on a
+# push to main that changes .github/workflows or .github/zizmor.yml. nothing
+# here runs a job: both tools read the yaml. a pull request runs both jobs
+# whatever it changes, because the ruleset requires them: a required check
+# whose workflow a path filter skipped would wait forever and block the merge.
 #
 # actionlint checks syntax, `${{ }}` expressions, `needs`, runner labels
 # and, through shellcheck, every `run:` script. it gates the pull request.
@@ -12,21 +15,19 @@
 #
 # zizmor audits the workflows for security: template injection, permissions
 # wider than needed, credentials persisted by checkout, unpinned actions,
-# dangerous triggers. its findings go to the repository's code scanning as
-# sarif instead of failing the job, because the workflows carry findings
-# from before this check (156 on 2026-10-09); new ones show on the pull
-# request that adds them. a pull request from a fork gets a read-only token
-# whatever the job asks for, so the sarif upload would fail there: zizmor
-# skips those and audits the change on the push to main after the merge.
+# dangerous triggers. the findings kept on purpose are in .github/zizmor.yml,
+# each with its reason; any other finding fails the pull request, with an
+# annotation on its line. a fork's pull request is audited the same way, since
+# nothing is uploaded there. on main, zizmor uploads sarif to code scanning
+# instead, which closes the alerts a merge fixed.
 
 name: lintworks
 
 on:
   push:
     branches: [main]
-    paths: [".github/workflows/**"]
+    paths: [".github/workflows/**", ".github/zizmor.yml"]
   pull_request:
-    paths: [".github/workflows/**"]
   workflow_dispatch:
 
 permissions: {}
@@ -62,7 +63,6 @@ jobs:
 
   zizmor:
     name: zizmor
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -76,3 +76,6 @@ jobs:
       - uses: zizmorcore/zizmor-action@cc914d7f3750a2d13d75c7f184a1060aa0e9d482 # v0.6.4
         with:
           version: "1.30.1"
+          # a pull request fails on a finding; main reports to code scanning.
+          advanced-security: ${{ github.event_name != 'pull_request' }}
+          annotations: ${{ github.event_name == 'pull_request' }}
