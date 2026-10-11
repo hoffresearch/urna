@@ -39,6 +39,9 @@ pub fn run(
         );
     }
     let interpreter = super::super::pyenv::resolve_interpreter();
+    if !super::super::pyenv::may_run(&interpreter) {
+        anyhow::bail!("{}", super::super::pyenv::stub_hint(&interpreter));
+    }
     let mut cmd = ProcCommand::new(interpreter);
     cmd.arg(&tool).arg("--spec").arg(&spec);
     if let Some(n) = sample {

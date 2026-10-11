@@ -317,7 +317,9 @@ jobs:
         # bare python, no ml deps: catalogue imports the whole registry,
         # so a preset that names a field ModelPreset lacks fails here, and a
         # catalogue.json the registry no longer produces fails too.
-        run: python rust/bridge/python/urna/model/catalogue.py --check
+        run: |
+          python rust/bridge/python/urna/model/catalogue.py --check
+          python tool/tests/test_upstreams.py
       - name: the model_hash and offline guarantees
         # test_stbackend pins the st_multimodal model_hash of a synthetic
         # snapshot (the fingerprint's key names are hashed); test_nonetwork

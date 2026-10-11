@@ -4,7 +4,7 @@
 
 use super::models::{self, Entry};
 use super::scan::{Scan, tilde};
-use super::venv::Tool;
+use super::venv::Range;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Task {
@@ -132,36 +132,46 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
         }
     };
     let python = {
-        let tool = Tool::pick(scan.uv.as_deref(), scan.base_python.as_deref());
+        let tool = env_tool(scan);
         let pinned = scan.pinned_python.clone();
         // chosen models need the venv setup manages (their packages go
         // nowhere else), even when another python already has the base deps.
         let for_models = !opts.models.is_empty() && !scan.venv && pinned.is_none();
-        let detail = match (&scan.python, scan.deps, &tool) {
-            (_, true, Some(t)) if for_models => format!(
-                "venv at {home}/venv with numpy + tokenizers, via {}: the chosen models' packages go only there",
-                t.name()
+        let range = range_of(scan);
+        // an env on a python outside the range cannot install torch: it is
+        // deleted and built again, not reused.
+        let stale = match (range, scan.venv_version) {
+            (Some(r), Some(v)) if !r.holds(v) && pinned.is_none() => Some((r, v)),
+            _ => None,
+        };
+        let on = range.map(|r| format!(" on {r}")).unwrap_or_default();
+        let detail = match (&scan.python, scan.deps, &tool, stale) {
+            (_, _, Some(t), Some((r, v))) => format!(
+                "the env at {home}/venv runs python {}.{}, outside {r}: it is deleted and built again via {t}; the models whose weights are cached get their packages back",
+                v.0, v.1
             ),
-            (_, false, _) if pinned.is_some() => format!(
+            (_, true, Some(t), _) if for_models => format!(
+                "venv at {home}/venv with numpy + tokenizers, via {t}{on}: the chosen models' packages go only there"
+            ),
+            (_, false, _, _) if pinned.is_some() => format!(
                 "URNA_PYTHON={} lacks numpy + tokenizers and wins over any env setup builds; unset it or install the deps there",
                 pinned.clone().unwrap_or_default()
             ),
-            (Some((i, _)), true, _) => format!(
+            (Some((i, _)), true, _, _) => format!(
                 "{} already imports numpy + tokenizers",
                 tilde(std::path::Path::new(i))
             ),
-            (_, _, Some(t)) => format!(
-                "venv at {home}/venv with numpy + tokenizers, via {}",
-                t.name()
-            ),
-            _ => "needs uv or python3 with venv".into(),
+            (_, _, Some(t), _) => {
+                format!("venv at {home}/venv with numpy + tokenizers, via {t}{on}")
+            }
+            _ => "needs uv (or curl to download it) or python3 with venv".into(),
         };
         Item {
             task: Task::Python,
-            on: (!scan.deps || for_models) && !opts.no_python,
+            on: (!scan.deps || for_models || stale.is_some()) && !opts.no_python,
             locked: false,
             blocked: if tool.is_none() {
-                Some("no uv and no python3 on PATH".to_string())
+                Some("no uv, no curl to download it and no python3 on PATH".to_string())
             } else if pinned.is_some() && !scan.deps {
                 Some("URNA_PYTHON pins an interpreter without the deps".to_string())
             } else {
@@ -178,6 +188,32 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
         detail: "urna doctor: interpreter, deps, table, one offline embed".into(),
     };
     vec![payload, python, models_item(scan, opts), verify]
+}
+
+/// The python range the installed payload's catalogue names, when it does.
+fn range_of(scan: &Scan) -> Option<Range> {
+    scan.kit
+        .as_ref()
+        .and_then(|k| k.catalog.python.as_ref())
+        .and_then(|p| Range::parse(&p.requires))
+}
+
+/// How the env will be built, as the plan says it: the uv already here,
+/// the uv the catalogue names (downloaded; before a payload is installed,
+/// the one its catalogue will name), else pip.
+fn env_tool(scan: &Scan) -> Option<String> {
+    if scan.uv.is_some() {
+        return Some("uv".into());
+    }
+    let release = scan.kit.as_ref().map(|k| k.catalog.uv.as_ref());
+    match (release, scan.curl.is_some()) {
+        (Some(Some(r)), true) if r.archives.contains_key(&scan.target) => {
+            return Some(format!("uv {} (downloaded, sha256 checked)", r.version));
+        }
+        (None, true) => return Some("uv (downloaded after the payload, sha256 checked)".into()),
+        _ => {}
+    }
+    scan.base_python.as_ref().map(|_| "pip".to_string())
 }
 
 /// Re-derives the steps a model choice decides, after the picker changed
@@ -288,6 +324,7 @@ mod tests {
             pinned_python: None,
             deps: false,
             venv: false,
+            venv_version: None,
             base_python: Some("python3".into()),
             uv: None,
             curl: Some(PathBuf::from("/usr/bin/curl")),
@@ -301,7 +338,96 @@ mod tests {
         let p = plan(&bare(), &Opts::default());
         assert!(p.iter().filter(|i| i.task != Task::Models).all(Item::runs));
         assert!(!p[2].runs(), "models are opt-in");
-        assert!(p[1].detail.contains("via pip"));
+        // no uv on the machine: the payload's catalogue names the one to fetch.
+        assert!(
+            p[1].detail
+                .contains("via uv (downloaded after the payload, sha256 checked)"),
+            "{}",
+            p[1].detail
+        );
+        let mut no_curl = bare();
+        no_curl.curl = None;
+        assert!(
+            plan(&no_curl, &Opts::default())[1]
+                .detail
+                .contains("via pip")
+        );
+    }
+
+    /// `bare` with a payload whose catalogue names uv and the python range.
+    fn with_upstreams() -> Scan {
+        let mut s = installed(Some("0.5.0"));
+        let mut catalog = models::tests::sample();
+        let mut archives = std::collections::BTreeMap::new();
+        archives.insert(
+            "aarch64-macos".to_string(),
+            models::Archive {
+                url: "https://example/uv.tar.gz".into(),
+                sha256: "ab".repeat(32),
+            },
+        );
+        catalog.uv = Some(models::UvRelease {
+            version: "0.13.0".into(),
+            archives,
+        });
+        catalog.python = Some(models::PythonRange {
+            requires: ">=3.10,<3.15".into(),
+            torch: "2.14.1".into(),
+        });
+        s.kit = Some(models::Kit {
+            script: PathBuf::from("/h/.local/share/urna/python/urna/model/installer.py"),
+            catalog,
+        });
+        s
+    }
+
+    #[test]
+    fn the_env_is_planned_on_the_catalogue_uv_and_range() {
+        let mut s = with_upstreams();
+        s.deps = false;
+        let p = plan(&s, &Opts::default());
+        assert!(p[1].runs());
+        assert!(
+            p[1].detail
+                .contains("via uv 0.13.0 (downloaded, sha256 checked) on python 3.10 to 3.14"),
+            "{}",
+            p[1].detail
+        );
+        // a platform the catalogue has no uv for falls back to pip.
+        s.target = "riscv64-linux".into();
+        assert!(
+            plan(&s, &Opts::default())[1]
+                .detail
+                .contains("via pip on python 3.10 to 3.14")
+        );
+    }
+
+    #[test]
+    fn an_env_on_a_python_outside_the_range_is_rebuilt() {
+        let mut s = with_upstreams();
+        s.venv = true;
+        s.venv_version = Some((3, 15));
+        let p = plan(&s, &Opts::default());
+        assert!(p[1].runs(), "a ready env on 3.15 still has to move");
+        assert!(
+            p[1].detail.contains(
+                "runs python 3.15, outside python 3.10 to 3.14: it is deleted and built again"
+            ),
+            "{}",
+            p[1].detail
+        );
+        assert!(p[1].detail.contains("cached get their packages back"));
+        s.venv_version = Some((3, 14));
+        assert!(
+            !plan(&s, &Opts::default())[1].runs(),
+            "inside the range it stays"
+        );
+        s.venv_version = Some((3, 15));
+        s.pinned_python = Some("/opt/py/bin/python".into());
+        assert!(
+            !plan(&s, &Opts::default())[1].detail.contains("deleted"),
+            "URNA_PYTHON wins: setup does not touch an env queries do not run"
+        );
     }
 
     #[test]
