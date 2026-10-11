@@ -209,7 +209,21 @@ mod tests {
             std::fs::read(&uv).unwrap(),
             b"#!/bin/sh\necho uv 0.0.1\n".to_vec()
         );
-        let out = std::process::Command::new(&uv).output().unwrap();
+        // retried while busy: a child another test forks during the write
+        // holds the descriptor until its exec (ETXTBSY, os error 26), the
+        // race setup_e2e's `output` retries too.
+        let run = || std::process::Command::new(&uv).output();
+        let mut out = run();
+        for _ in 0..100 {
+            match &out {
+                Err(e) if e.raw_os_error() == Some(26) => {
+                    std::thread::sleep(std::time::Duration::from_millis(20));
+                    out = run();
+                }
+                _ => break,
+            }
+        }
+        let out = out.unwrap();
         assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), "uv 0.0.1");
         let leftovers: Vec<_> = std::fs::read_dir(uv.parent().unwrap())
             .unwrap()
