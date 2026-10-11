@@ -9,6 +9,7 @@ fn bare() -> Scan {
     Scan {
         version: "0.5.0",
         name: "0.5.0",
+        tree: None,
         target: "aarch64-macos".into(),
         exe: PathBuf::from("/opt/homebrew/bin/urna"),
         channel: Channel::Homebrew,
@@ -377,4 +378,48 @@ fn picking_a_model_in_the_picker_turns_the_managed_venv_on() {
     o.models.clear();
     reselect(&mut items, &s, &o);
     assert!(!items[1].runs() && !items[2].runs() && items[0].on);
+}
+
+/// A development build of 0.5.0 whose checkout is `tree`.
+fn dev(tree: &std::path::Path) -> Scan {
+    let mut s = installed(Some("0.5.0+dev.abc"));
+    s.name = "0.5.0+dev.abc";
+    s.tree = Some(tree.to_path_buf());
+    s
+}
+
+#[test]
+fn a_development_build_installs_its_own_checkout() {
+    let d = std::env::temp_dir().join(format!("urna_plan_dev_{}", std::process::id()));
+    std::fs::create_dir_all(d.join("urna")).unwrap();
+    let mut s = dev(&d);
+    s.payload = None;
+    let p = plan(&s, &Opts::default());
+    assert!(p[0].runs() && p[0].blocked.is_none(), "{:?}", p[0].blocked);
+    assert!(p[0].detail.contains("from the checkout"), "{}", p[0].detail);
+    assert_eq!(wanted_version(&s, &Opts::default()), "0.5.0+dev.abc");
+    // the stamp of the same build is current; another commit's is replaced.
+    assert!(!plan(&dev(&d), &Opts::default())[0].runs());
+    let mut older = dev(&d);
+    older.payload.as_mut().unwrap().version = Some("0.5.0+dev.old".into());
+    assert!(plan(&older, &Opts::default())[0].runs());
+    // --version asks for a release, which is fetched, not copied.
+    let release = Opts {
+        version: Some("v0.4.9".into()),
+        ..Opts::default()
+    };
+    assert_eq!(from_tree(&s, &release), None);
+    assert!(plan(&s, &release)[0].detail.contains("v0.4.9 release"));
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+#[test]
+fn a_development_build_whose_checkout_is_gone_is_blocked() {
+    let s = dev(std::path::Path::new("/nowhere/rust/bridge/python"));
+    let p = plan(&s, &Opts::default());
+    let why = p[0].blocked.as_deref().unwrap_or_default();
+    assert!(
+        why.contains("/nowhere/rust/bridge/python") && why.contains("cargo install"),
+        "{why}"
+    );
 }

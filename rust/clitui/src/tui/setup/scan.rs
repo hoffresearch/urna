@@ -93,6 +93,9 @@ pub struct Scan {
     /// what the binary reports (`cmd::buildid::NAME`): the version for a
     /// release, `<version>+dev.<sha>` for a development build.
     pub name: &'static str,
+    /// the checkout a development build installs its payload from; `None`
+    /// for a release, and when `URNA_RELEASE_BASE` names where to fetch one.
+    pub tree: Option<PathBuf>,
     pub target: String,
     pub exe: PathBuf,
     pub channel: Channel,
@@ -169,6 +172,9 @@ impl Scan {
         Scan {
             version: env!("CARGO_PKG_VERSION"),
             name: buildid::NAME,
+            tree: buildid::dev_tree()
+                .filter(|_| std::env::var_os("URNA_RELEASE_BASE").is_none_or(|b| b.is_empty()))
+                .map(Path::to_path_buf),
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
             channel: Channel::of(&exe),
             exe,
@@ -188,6 +194,16 @@ impl Scan {
             curl: which("curl"),
             simd: urna_engine::simd::detect_backend().name(),
             kit: paths::urna_home().and_then(|h| super::models::Kit::in_home(&h)),
+        }
+    }
+
+    /// The payload stamp this binary wants: its own name when it installs
+    /// from its checkout, else the release of its version.
+    pub fn wants(&self) -> &str {
+        if self.tree.is_some() {
+            self.name
+        } else {
+            self.version
         }
     }
 
@@ -221,7 +237,7 @@ impl Scan {
                 ),
                 Badge::Warn,
             ),
-            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.version) => (
+            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.wants()) => (
                 "embedder",
                 format!("{} · {}, setup replaces it", tilde(p), pl.label()),
                 Badge::Warn,
