@@ -89,7 +89,7 @@ TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
   "$PY" -c 'import importlib.metadata as m
 print("\n".join(sorted(d.metadata["Name"] + "==" + d.version for d in m.distributions())))'
   printf 'queries=%s k=%s corpus=%s\n' "$QUERIES" "$K" "$CORPUS"
-  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' | sort || true)"
+  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' | sort || true)"
 STAMPS="$ROOT/target/fullcheck"
 mkdir -p "$STAMPS"
 
@@ -369,6 +369,34 @@ ruff() {
   fi
 }
 cached ruff "$ALL_IN" -- ruff
+
+# ---- cleanhost ----
+# the install on a machine with nothing on it, which cleanhost.yml runs in CI
+# on the paths of its own filter, read from it here: a tart macOS VM, else a
+# docker or podman linux container. without either it says so and runs
+# nothing, as URNA_CLEANHOST=0 does; neither marks the step passed.
+CLEANHOST_IN="$(sed -n 's/^      - "\(.*\)"$/\1/p' .github/workflows/cleanhost.yml | tr '\n' ' ')"
+CLEANHOST_MODE=""
+if command -v "${TART:-tart}" >/dev/null 2>&1 && [[ "$(uname -sm)" == "Darwin arm64" ]]; then
+  CLEANHOST_MODE=macos
+elif command -v docker >/dev/null 2>&1 || command -v podman >/dev/null 2>&1; then
+  CLEANHOST_MODE=linux
+fi
+cleanhost() {
+  step "sh tool/tasks/cleanhost.sh $CLEANHOST_MODE"
+  sh tool/tasks/cleanhost.sh "$CLEANHOST_MODE"
+  ok "cleanhost $CLEANHOST_MODE"
+}
+CLEANHOST_SKIP=""
+[[ -z "$CLEANHOST_MODE" ]] && CLEANHOST_SKIP="no tart (TART=<path>), docker or podman here"
+[[ "${URNA_CLEANHOST:-1}" == 0 ]] && CLEANHOST_SKIP="URNA_CLEANHOST=0"
+if [[ -n "$CLEANHOST_SKIP" ]]; then
+  step "cleanhost"
+  printf '\033[1;33m  SKIP:\033[0m %s; CI runs it when these change: %s\n' \
+    "$CLEANHOST_SKIP" "$CLEANHOST_IN" >&2
+else
+  cached cleanhost "$CLEANHOST_IN" -- cleanhost
+fi
 
 # ---- presetrun + compare ----
 # one cached step: the metrics pass only when benchgate passes them, so a
