@@ -6,7 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::cmd::{embed_gate, paths, pyenv};
+use crate::cmd::{buildid, embed_gate, paths, pyenv};
 use crate::tui::hud::Badge;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,7 +88,11 @@ impl Payload {
 
 #[derive(Clone, Debug)]
 pub struct Scan {
+    /// the crate version: the release a release build fetches.
     pub version: &'static str,
+    /// what the binary reports (`cmd::buildid::NAME`): the version for a
+    /// release, `<version>+dev.<sha>` for a development build.
+    pub name: &'static str,
     pub target: String,
     pub exe: PathBuf,
     pub channel: Channel,
@@ -164,6 +168,7 @@ impl Scan {
             && output(Command::new(&interp).args(["-c", "import numpy, tokenizers"])).is_some();
         Scan {
             version: env!("CARGO_PKG_VERSION"),
+            name: buildid::NAME,
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
             channel: Channel::of(&exe),
             exe,
@@ -192,7 +197,7 @@ impl Scan {
         let mut v = vec![
             (
                 "urna",
-                format!("{} · {}", self.version, self.target),
+                format!("{} · {}", self.name, self.target),
                 Badge::Ok,
             ),
             (

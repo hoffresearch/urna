@@ -65,6 +65,16 @@ jobs:
         run: cargo clippy -p urna --no-default-features --all-targets -- -D warnings
       - name: build
         run: cargo build --workspace --all-targets
+      # a binary built from a branch or main never takes a release's name,
+      # so its `urna setup` never fetches that release's payload (#530).
+      - name: a ci build is a development build
+        run: |
+          v=$(./target/debug/urna --version)
+          echo "$v"
+          case "$v" in
+            *+dev.*) ;;
+            *) echo "expected a development build name (<version>+dev.<sha>), got: $v" >&2; exit 1 ;;
+          esac
       - name: test
         run: cargo test --workspace
       - name: benches compile (numbers are not a gate on shared runners)

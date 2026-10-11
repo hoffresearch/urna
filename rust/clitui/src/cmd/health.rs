@@ -58,7 +58,7 @@ pub fn collect() -> Vec<Row> {
         "version",
         format!(
             "urna {}, format v{}",
-            env!("CARGO_PKG_VERSION"),
+            super::buildid::NAME,
             urna_format::layout::URNA_FORMAT_VERSION
         ),
     ));

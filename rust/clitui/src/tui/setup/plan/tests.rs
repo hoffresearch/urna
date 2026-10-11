@@ -8,6 +8,7 @@ use std::path::PathBuf;
 fn bare() -> Scan {
     Scan {
         version: "0.5.0",
+        name: "0.5.0",
         target: "aarch64-macos".into(),
         exe: PathBuf::from("/opt/homebrew/bin/urna"),
         channel: Channel::Homebrew,
