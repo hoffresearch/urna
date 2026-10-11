@@ -302,7 +302,7 @@ python_tests() {
   # their upstreams into upstreams.json, never written by hand (stubbed here).
   step "python tool/tests/test_upstreams.py"
   "$PY" tool/tests/test_upstreams.py
-  ok "upstreams: uv and the python range (5 cases)"
+  ok "upstreams: uv, the python range and the sample (7 cases)"
 
   # the model fetch: confirmed downloads only, the pinned files only, kept
   # only when the fingerprint is the catalog's (an 18 MB hub model; the

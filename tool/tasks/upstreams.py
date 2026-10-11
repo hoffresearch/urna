@@ -43,6 +43,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -165,7 +166,13 @@ def resolve_sample(release: str, held: dict | None = None) -> dict:
         url = f"https://huggingface.co/datasets/{SAMPLE_REPO}/resolve/{commit}/{folder}/{name}"
         return _get(url, accept="*/*")
 
-    tree = {e["path"]: e for e in json.loads(_get(f"{api}/tree/{commit}/{folder}"))}
+    try:
+        listing = json.loads(_get(f"{api}/tree/{commit}/{folder}"))
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        listing = []
+    tree = {e["path"]: e for e in listing}
     if path not in tree:
         raise SystemExit(f"{SAMPLE_REPO}@{commit[:8]} has no {path}")
     sha = parse_sums(at("SHA256SUMS").decode()).get(SAMPLE_FILE)
