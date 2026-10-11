@@ -60,6 +60,7 @@ pub fn collect() -> Vec<Row> {
 /// one setup lays down, whatever the current directory resolves to: a
 /// checkout nearby must not pass setup's verify for a payload that cannot
 /// serve `ask`.
+#[cfg(feature = "tui")]
 pub fn collect_installed(home: &Path) -> Vec<Row> {
     collect_with(Some(home))
 }
@@ -257,6 +258,7 @@ fn embedder_run(interpreter: &str, embedder: &Path) -> Row {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "tui")]
     #[test]
     fn verify_fails_a_payload_missing_a_file_wherever_it_runs() {
         // the checkout this test runs in holds every script; the installed
