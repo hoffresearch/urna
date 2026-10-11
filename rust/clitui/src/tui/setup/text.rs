@@ -40,8 +40,6 @@ pub fn run(opts: &Opts) -> i32 {
     }
     let rx = job::spawn(scan, tasks, opts.clone());
     let mut code = plan::blocked_code(&items);
-    let blocked = code != 0;
-    let mut failed: Vec<(Task, String)> = Vec::new();
     let mut last_pct = u64::MAX;
     for ev in rx {
         match ev {
@@ -74,17 +72,11 @@ pub fn run(opts: &Opts) -> i32 {
                 println!("  {} {}: {msg}", t.fg("ok", tone::HIGH), task.title())
             }
             Ev::Done(task, Err((c, msg))) => {
-                let mut lines = msg.lines();
                 println!(
-                    "  {} {}: {}",
+                    "  {} {}: {msg}",
                     t.fg(&format!("fail({c})"), tone::LOW),
-                    task.title(),
-                    lines.next().unwrap_or("")
+                    task.title()
                 );
-                for l in lines {
-                    println!("    {l}");
-                }
-                failed.push((task, msg));
                 if code == 0 {
                     code = c;
                 }
@@ -93,17 +85,8 @@ pub fn run(opts: &Opts) -> i32 {
         }
         let _ = std::io::stdout().flush();
     }
-    let ready = !blocked && failed.iter().all(|(task, _)| job::optional(*task));
-    if ready {
+    if code == 0 {
         println!("{} {}", t.bold("urna setup:"), t.fg("ready", tone::HIGH));
-        for (task, msg) in &failed {
-            println!(
-                "  {} {} failed, urna works without it: {}",
-                t.fg("warning:", tone::MID),
-                task.title(),
-                msg.lines().next().unwrap_or("")
-            );
-        }
         println!("  try: urna tui   ·   urna ask corpus.urna \"...\"   ·   https://urna.dev");
         println!("  to build a corpus: urna build --spec corpus.toml, from a checkout of the repo");
     } else {

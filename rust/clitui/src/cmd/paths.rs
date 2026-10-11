@@ -68,41 +68,6 @@ pub fn setup_python() -> Option<PathBuf> {
         .find(|p| p.is_file())
 }
 
-/// The uv `urna setup` downloads when the machine has none: `<home>/bin/uv`
-/// (`uv.exe` on windows), the release the payload's catalogue names.
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
-pub fn managed_uv(home: &std::path::Path) -> PathBuf {
-    home.join("bin")
-        .join(if cfg!(windows) { "uv.exe" } else { "uv" })
-}
-
-/// The uv model installs run: the one on PATH, else the one setup
-/// downloaded into its data dir.
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
-pub fn uv() -> Option<PathBuf> {
-    which("uv").or_else(|| urna_home().map(|h| managed_uv(&h)).filter(|p| p.is_file()))
-}
-
-/// First match for `name` on PATH (with the PATHEXT suffixes on windows).
-pub fn which(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    let exts: Vec<String> = if cfg!(windows) {
-        std::env::var("PATHEXT")
-            .unwrap_or_else(|_| ".EXE;.CMD;.BAT".into())
-            .split(';')
-            .map(|e| e.to_ascii_lowercase())
-            .chain(std::iter::once(String::new()))
-            .collect()
-    } else {
-        vec![String::new()]
-    };
-    std::env::split_paths(&path).find_map(|dir| {
-        exts.iter()
-            .map(|e| dir.join(format!("{name}{e}")))
-            .find(|p| p.is_file())
-    })
-}
-
 /// `bin/python` on unix, `Scripts\python.exe` on windows.
 pub fn venv_python(venv: &std::path::Path) -> PathBuf {
     if cfg!(windows) {
@@ -125,14 +90,6 @@ mod tests {
         } else {
             assert!(p.ends_with("bin/python"));
         }
-    }
-
-    #[test]
-    fn which_finds_a_shell_and_misses_nonsense() {
-        if cfg!(unix) {
-            assert!(super::which("sh").is_some());
-        }
-        assert!(super::which("urna-definitely-not-a-binary-xyz").is_none());
     }
 
     #[test]

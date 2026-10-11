@@ -29,11 +29,7 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
     } else {
         body.x + 1
     };
-    let ok = ui.ready();
-    let verified = ui
-        .rows
-        .iter()
-        .any(|r| r.task == Task::Verify && r.badge == Some(Badge::Ok));
+    let ok = ui.code == 0;
     let n = ui.health.len() as u16;
     let vrect = Rect::new(
         px,
@@ -41,7 +37,7 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
         body.right().saturating_sub(px + 1),
         (n + 2).min(body.height.saturating_sub(5)),
     );
-    let verdict = if verified {
+    let verdict = if ok {
         "every check passes"
     } else {
         "needs attention"
@@ -64,41 +60,37 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
         status.width,
     );
     let mut yy = y + 2;
-    // why, step by step: the worker's own error text, whole, each of its
-    // lines wrapped. ready, only an optional step can have failed: its
-    // error is a warning under the verdict, not a failed setup.
-    let w = status.width.saturating_sub(20) as usize;
-    let mut reasons: Vec<(&str, String)> = ui
-        .rows
-        .iter()
-        .filter(|r| r.badge == Some(Badge::Fail) && r.task != Task::Verify)
-        .map(|r| (r.task.title(), r.result.clone().unwrap_or_default()))
-        .collect();
-    reasons.extend(
-        ui.plan
+    if !ok {
+        // why, step by step: the worker's own error text, wrapped.
+        let w = status.width.saturating_sub(20) as usize;
+        let mut reasons: Vec<(&str, String)> = ui
+            .rows
             .iter()
-            .filter(|i| i.on && i.blocked.is_some())
-            .map(|i| {
-                (
-                    i.task.title(),
-                    format!("blocked: {}", i.blocked.as_deref().unwrap_or("")),
-                )
-            }),
-    );
-    let tone = if ok { pal::warn() } else { pal::err() };
-    for (task, why) in &reasons {
-        let lines = why.lines().flat_map(|l| hud::wrap(l, w));
-        for (j, line) in lines.enumerate() {
-            if yy >= body.bottom() {
-                break;
+            .filter(|r| r.badge == Some(Badge::Fail) && r.task != Task::Verify)
+            .map(|r| (r.task.title(), r.result.clone().unwrap_or_default()))
+            .collect();
+        reasons.extend(
+            ui.plan
+                .iter()
+                .filter(|i| i.on && i.blocked.is_some())
+                .map(|i| {
+                    (
+                        i.task.title(),
+                        format!("blocked: {}", i.blocked.as_deref().unwrap_or("")),
+                    )
+                }),
+        );
+        for (task, why) in reasons {
+            for (j, line) in hud::wrap(&why, w).iter().take(2).enumerate() {
+                if yy >= body.bottom() {
+                    break;
+                }
+                let label = if j == 0 { task } else { "" };
+                hud::put(buf, status.x, yy, label, pal::dim(), 18);
+                hud::put(buf, status.x + 19, yy, line, pal::err(), w as u16);
+                yy += 1;
             }
-            let label = if j == 0 { *task } else { "" };
-            hud::put(buf, status.x, yy, label, pal::dim(), 18);
-            hud::put(buf, status.x + 19, yy, &line, tone, w as u16);
-            yy += 1;
         }
-    }
-    if !reasons.is_empty() {
         yy += 1;
     }
     let next: &[(&str, &str)] = if ok {

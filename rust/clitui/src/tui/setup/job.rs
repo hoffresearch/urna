@@ -11,17 +11,9 @@ use super::net;
 use super::plan::{Opts, Task};
 use super::scan::{Scan, tilde};
 use super::unpack;
-use super::uv;
-use super::venv::{self, Built, Range, Tool};
+use super::venv::{self, Tool};
 use crate::cmd::health::{self, Row};
 use crate::cmd::{paths, pyenv};
-
-/// A step whose failure leaves urna ready: the models are optional, the
-/// potion embedder works without them. the run still exits non-zero
-/// (`codes::MODEL`), so a script sees the model it asked for is missing.
-pub fn optional(task: Task) -> bool {
-    task == Task::Models
-}
 
 /// setup's own exit codes, above doctor's 2..=6 so the two never collide.
 pub mod codes {
@@ -57,7 +49,7 @@ pub fn spawn(scan: Scan, tasks: Vec<Task>, opts: Opts) -> Receiver<Ev> {
             let res = match task {
                 Task::Payload => payload(&scan, &version, &tx),
                 Task::Python => python(&scan, &tx),
-                Task::Models => install_models(&opts, &tx),
+                Task::Models => install_models(&scan, &opts, &tx),
                 Task::Verify => verify(&tx),
             };
             let _ = tx.send(Ev::Done(task, res));
@@ -151,151 +143,24 @@ pub fn sweep(root: &std::path::Path) {
     }
 }
 
-/// The tool that builds the env: the uv on PATH (or one setup downloaded
-/// before), else the uv the catalogue names, downloaded and checked now,
-/// else pip from an interpreter inside the range. the catalogue is read
-/// from the payload the step before may just have laid down.
-fn env_tool(
-    scan: &Scan,
-    kit: Option<&Kit>,
-    range: Option<Range>,
-    home: &std::path::Path,
-    tx: &Sender<Ev>,
-) -> Result<Tool, Failure> {
-    let t = Task::Python;
-    if let Some(uv) = paths::uv() {
-        return Ok(Tool::Uv(uv));
-    }
-    let release = kit.and_then(|k| k.catalog.uv.as_ref());
-    let mut why = match (release, scan.curl.as_deref()) {
-        (Some(rel), Some(curl)) => {
-            let _ = tx.send(Ev::Note(t, format!("downloading uv {}", rel.version)));
-            let total =
-                uv::archive(rel, &scan.target).and_then(|a| net::content_length(curl, &a.url));
-            match uv::install(curl, rel, &scan.target, home, |n| {
-                let _ = tx.send(Ev::Bytes(t, n, total));
-            }) {
-                Ok(p) => {
-                    let _ = tx.send(Ev::Log(format!(
-                        "uv {} · sha256 ok · {}",
-                        rel.version,
-                        tilde(&p)
-                    )));
-                    return Ok(Tool::Uv(p));
-                }
-                Err(e) => format!("{e:#}"),
-            }
-        }
-        (Some(_), None) => "curl is not on PATH, so uv cannot be downloaded".into(),
-        (None, _) => "the installed payload names no uv to download".into(),
-    };
-    let base = match range {
-        Some(r) => venv::find_python(r),
-        None => scan.base_python.clone(),
-    };
-    if let Some(py) = base {
-        let _ = tx.send(Ev::Log(format!(
-            "no uv ({why}); pip from {}",
-            tilde(std::path::Path::new(&py))
-        )));
-        return Ok(Tool::Pip(py));
-    }
-    if let Some(r) = range {
-        why = format!("{why}, and no {r} is on PATH");
-    }
-    Err((
-        codes::BLOCKED,
-        format!(
-            "{why}: install uv (https://docs.astral.sh/uv/) or a python inside the range, then run `urna setup` again"
-        ),
-    ))
-}
-
 fn python(scan: &Scan, tx: &Sender<Ev>) -> Result<String, Failure> {
+    let tool = Tool::pick(scan.uv.as_deref(), scan.base_python.as_deref())
+        .ok_or((codes::BLOCKED, "no uv and no python3 on PATH".into()))?;
     let home = paths::urna_home().ok_or((codes::BLOCKED, "no data dir".into()))?;
-    let kit = Kit::in_home(&home);
-    let range = kit
-        .as_ref()
-        .and_then(|k| k.catalog.python.as_ref())
-        .and_then(|p| Range::parse(&p.requires));
-    let tool = env_tool(scan, kit.as_ref(), range, &home, tx)?;
     let dir = home.join("venv");
     let _ = tx.send(Ev::Note(
         Task::Python,
-        match range {
-            Some(r) => format!("building with {} on {r}", tool.name()),
-            None => format!("building with {}", tool.name()),
-        },
+        format!("building with {}", tool.name()),
     ));
     let mut last = String::new();
-    let (py, built) = venv::build(&tool, &dir, range, &mut |line| {
+    let py = venv::build(&tool, &dir, &mut |line| {
         if line.starts_with("numpy ") {
             last = line.clone();
         }
         let _ = tx.send(Ev::Log(line));
     })
     .map_err(fail(codes::PYTHON))?;
-    let mut msg = format!("{} · {}", tilde(&py), last);
-    if built == Built::Rebuilt
-        && let Some(kit) = &kit
-    {
-        msg.push_str(&reinstall_cached(kit, &py, &tool, tx));
-    }
-    Ok(msg)
-}
-
-/// After a rebuild the env holds none of the models' packages; the models
-/// whose weights are in the cache get theirs back (no download: the fetch
-/// step only re-proves the cached files). one that runs repo code is named,
-/// not reinstalled: that needs its own consent.
-fn reinstall_cached(kit: &Kit, py: &std::path::Path, tool: &Tool, tx: &Sender<Ev>) -> String {
-    let t = Task::Python;
-    let uv = match tool {
-        Tool::Uv(p) => Some(p.as_path()),
-        Tool::Pip(_) => None,
-    };
-    let (mut back, mut left) = (Vec::new(), Vec::new());
-    for e in &kit.catalog.models {
-        let cached = models::plan(kit, e, py, None).is_ok_and(|p| p.cached);
-        if !cached {
-            continue;
-        }
-        if e.remote_code {
-            left.push(format!(
-                "{0} (urna setup --model {0} --allow-remote-code {0})",
-                e.name
-            ));
-            continue;
-        }
-        let _ = tx.send(Ev::Note(
-            t,
-            format!("{}: packages back into the new env", e.name),
-        ));
-        let consent = Consent {
-            download: false,
-            remote_code: false,
-        };
-        match models::install(kit, e, py, uv, consent, None, &mut |p| {
-            if let Progress::Log(l) = p {
-                let _ = tx.send(Ev::Log(l));
-            }
-        }) {
-            Ok(_) => back.push(e.name.clone()),
-            Err(why) => left.push(format!("{}: {why}", e.name)),
-        }
-    }
-    let mut msg = String::new();
-    if !back.is_empty() {
-        msg.push_str(&format!(
-            " · rebuilt, packages back for {}",
-            back.join(", ")
-        ));
-    }
-    if !left.is_empty() {
-        let _ = tx.send(Ev::Log(format!("not reinstalled: {}", left.join("; "))));
-        msg.push_str(&format!(" · not reinstalled: {}", left.join("; ")));
-    }
-    msg
+    Ok(format!("{} · {}", tilde(&py), last))
 }
 
 /// The chosen catalog models, one after the other through the install the
@@ -303,7 +168,7 @@ fn reinstall_cached(kit: &Kit, py: &std::path::Path, tool: &Tool, tx: &Sender<Ev
 /// step may just have laid down; choosing a model on the plan (or naming it
 /// with --model) is the consent to download it, its repo code needs
 /// --allow-remote-code. a failed model does not stop the next.
-fn install_models(opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
+fn install_models(scan: &Scan, opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
     let t = Task::Models;
     let home = paths::urna_home().ok_or((codes::BLOCKED, "no data dir".into()))?;
     let kit = Kit::in_home(&home).ok_or((
@@ -325,8 +190,7 @@ fn install_models(opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
             download: true,
             remote_code: opts.allow_remote_code.contains(&e.name),
         };
-        let uv = paths::uv();
-        let res = models::install(&kit, e, &py, uv.as_deref(), consent, None, &mut |p| {
+        let res = models::install(&kit, e, &py, scan.uv.as_deref(), consent, None, &mut |p| {
             let _ = tx.send(match p {
                 Progress::Step(s) => Ev::Note(t, format!("{}: {s}", e.name)),
                 Progress::Bytes(n, total, _) => Ev::Bytes(t, n, Some(total)),
@@ -344,7 +208,7 @@ fn install_models(opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
     if failed.is_empty() {
         Ok(done.join(" · "))
     } else {
-        Err((codes::MODEL, failed.join("\n")))
+        Err((codes::MODEL, failed.join("; ")))
     }
 }
 

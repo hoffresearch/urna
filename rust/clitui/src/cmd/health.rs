@@ -75,14 +75,6 @@ pub fn collect() -> Vec<Row> {
     }
 
     let interpreter = super::pyenv::resolve_interpreter();
-    if !super::pyenv::may_run(&interpreter) {
-        rows.push(Row::new(
-            Level::Fail(codes::PYTHON_MISSING),
-            "python",
-            super::pyenv::stub_hint(&interpreter),
-        ));
-        return rows;
-    }
     let py_ver = run_capture(ProcCommand::new(&interpreter).arg("--version"))
         .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
         .filter(|s| !s.is_empty());
