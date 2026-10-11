@@ -352,11 +352,9 @@ mod tests {
         assert_eq!(parse_version("pypy"), None);
     }
 
+    #[cfg(unix)]
     #[test]
     fn an_env_outside_the_range_is_rebuilt() {
-        if !cfg!(unix) {
-            return;
-        }
         let d = std::env::temp_dir().join(format!("urna_venv_range_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         let py = paths::venv_python(&d);
