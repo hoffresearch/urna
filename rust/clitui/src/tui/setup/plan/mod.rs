@@ -7,7 +7,7 @@ use std::path::Path;
 use super::models::{self, Entry};
 use super::scan::{Scan, tilde};
 use super::tree;
-use super::venv::Range;
+use super::venv;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Task {
@@ -168,11 +168,12 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
     };
     let python = {
         let tool = env_tool(scan);
+        let via = tool.as_ref().ok();
         let pinned = scan.pinned_python.clone();
         // chosen models need the venv setup manages (their packages go
         // nowhere else), even when another python already has the base deps.
         let for_models = !opts.models.is_empty() && !scan.venv && pinned.is_none();
-        let range = range_of(scan);
+        let range = scan.range();
         // an env on a python outside the range cannot install torch: it is
         // deleted and built again, not reused.
         let stale = match (range, scan.venv_version) {
@@ -180,7 +181,7 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
             _ => None,
         };
         let on = range.map(|r| format!(" on {r}")).unwrap_or_default();
-        let detail = match (&scan.python, scan.deps, &tool, stale) {
+        let detail = match (&scan.python, scan.deps, via, stale) {
             (_, _, Some(t), Some((r, v))) => format!(
                 "the env at {home}/venv runs python {}.{}, outside {r}: it is deleted and built again via {t}; the models whose weights are cached get their packages back",
                 v.0, v.1
@@ -199,18 +200,21 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
             (_, _, Some(t), _) => {
                 format!("venv at {home}/venv with numpy + tokenizers, via {t}{on}")
             }
-            _ => "needs uv (or curl to download it) or python3 with venv".into(),
+            _ => match range {
+                Some(r) => format!("needs uv (or curl to download it) or {r} with venv"),
+                None => "needs uv (or curl to download it) or python3 with venv".into(),
+            },
         };
         Item {
             task: Task::Python,
             on: (!scan.deps || for_models || stale.is_some()) && !opts.no_python,
             locked: false,
-            blocked: if tool.is_none() {
-                Some("no uv, no curl to download it and no python3 on PATH".to_string())
-            } else if pinned.is_some() && !scan.deps {
-                Some("URNA_PYTHON pins an interpreter without the deps".to_string())
-            } else {
-                None
+            blocked: match tool {
+                Err(why) => Some(why),
+                Ok(_) if pinned.is_some() && !scan.deps => {
+                    Some("URNA_PYTHON pins an interpreter without the deps".to_string())
+                }
+                Ok(_) => None,
             },
             detail,
         }
@@ -225,30 +229,29 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
     vec![payload, python, models_item(scan, opts), verify]
 }
 
-/// The python range the installed payload's catalogue names, when it does.
-fn range_of(scan: &Scan) -> Option<Range> {
-    scan.kit
-        .as_ref()
-        .and_then(|k| k.catalog.python.as_ref())
-        .and_then(|p| Range::parse(&p.requires))
-}
-
 /// How the env will be built, as the plan says it: the uv already here,
 /// the uv the catalogue names (downloaded; before a payload is installed,
-/// the one its catalogue will name), else pip.
-fn env_tool(scan: &Scan) -> Option<String> {
+/// the one its catalogue will name), else pip from the base python the
+/// scan resolved inside the catalogue's range. with none of those, the
+/// block names the fix the way the worker does.
+fn env_tool(scan: &Scan) -> Result<String, String> {
     if scan.uv.is_some() {
-        return Some("uv".into());
+        return Ok("uv".into());
     }
     let release = scan.kit.as_ref().map(|k| k.catalog.uv.as_ref());
-    match (release, scan.curl.is_some()) {
+    let why = match (release, scan.curl.is_some()) {
         (Some(Some(r)), true) if r.archives.contains_key(&scan.target) => {
-            return Some(format!("uv {} (downloaded, sha256 checked)", r.version));
+            return Ok(format!("uv {} (downloaded, sha256 checked)", r.version));
         }
-        (None, true) => return Some("uv (downloaded after the payload, sha256 checked)".into()),
-        _ => {}
+        (None, true) => return Ok("uv (downloaded after the payload, sha256 checked)".into()),
+        (_, false) => "no uv and no curl to download it",
+        (Some(Some(_)), true) => "no uv and the catalogue names none for this platform",
+        (Some(None), true) => "no uv and the catalogue names none to download",
+    };
+    match &scan.base_python {
+        Some(_) => Ok("pip".into()),
+        None => Err(venv::no_tool(why, scan.range())),
     }
-    scan.base_python.as_ref().map(|_| "pip".to_string())
 }
 
 /// Re-derives the steps a model choice decides, after the picker changed

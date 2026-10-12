@@ -271,7 +271,44 @@ fn missing_tools_block_with_a_reason() {
     assert_eq!(blocked_code(&p), 14);
     assert_eq!(blocked_code(&plan(&bare(), &Opts::default())), 0);
     assert!(!p[1].runs());
+    let why = p[1].blocked.clone().unwrap();
+    assert!(
+        why.contains("no uv and no curl") && why.contains("docs.astral.sh/uv"),
+        "{why}"
+    );
     assert!(p[3].runs() && p[3].task == Task::Verify);
+}
+
+#[test]
+fn pip_needs_a_base_python_inside_the_catalogue_range() {
+    // no uv and no curl to fetch one: pip is the only way, from the base
+    // python the scan resolved against the catalogue's range. none inside
+    // it is a block on the plan, worded as the worker words it mid-run.
+    let mut s = with_upstreams();
+    s.deps = false;
+    s.curl = None;
+    s.base_python = None;
+    let p = plan(&s, &Opts::default());
+    let why = p[1].blocked.clone().unwrap();
+    assert!(why.contains("no python 3.10 to 3.14 is on PATH"), "{why}");
+    assert!(
+        why.contains("install uv (https://docs.astral.sh/uv/)"),
+        "{why}"
+    );
+    assert!(!p[1].runs() && blocked_code(&p) == 14);
+    assert!(
+        p[1].detail.contains("python 3.10 to 3.14 with venv"),
+        "{}",
+        p[1].detail
+    );
+    s.base_python = Some("/usr/bin/python3.12".into());
+    let p = plan(&s, &Opts::default());
+    assert!(p[1].runs(), "{:?}", p[1].blocked);
+    assert!(
+        p[1].detail.contains("via pip on python 3.10 to 3.14"),
+        "{}",
+        p[1].detail
+    );
 }
 
 fn with_models(models: &[&str], allow: &[&str]) -> (Scan, Opts) {

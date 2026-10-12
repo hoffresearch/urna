@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use super::models::Kit;
 use crate::cmd::{buildid, embed_gate, paths, pyenv};
 use crate::tui::hud::Badge;
 
@@ -116,7 +117,9 @@ pub struct Scan {
     pub venv: bool,
     /// the python minor that venv runs, `(3, 12)`.
     pub venv_version: Option<(u32, u32)>,
-    /// a python able to create a venv (`python3 -m venv`), when present.
+    /// a python able to create a venv (`python3 -m venv`), inside the
+    /// range the installed payload's catalogue names when it names one:
+    /// the one pip would build from, resolved the way the worker does.
     pub base_python: Option<String>,
     pub uv: Option<PathBuf>,
     pub curl: Option<PathBuf>,
@@ -136,22 +139,6 @@ fn output(cmd: &mut Command) -> Option<String> {
     Some(s)
 }
 
-fn base_python() -> Option<String> {
-    let names: &[&str] = if cfg!(windows) {
-        &["python", "py"]
-    } else {
-        &["python3", "python"]
-    };
-    names.iter().find_map(|n| {
-        let p = which(n)?;
-        let s = p.to_string_lossy().into_owned();
-        if !pyenv::may_run(&s) {
-            return None;
-        }
-        output(Command::new(&s).args(["-c", "import venv, ensurepip"])).map(|_| s)
-    })
-}
-
 impl Scan {
     /// Runs every probe. Blocking (it spawns python a few times, well
     /// under a second on a warm machine); the ui calls it off-thread.
@@ -169,6 +156,8 @@ impl Scan {
             .map(|v| (interp.clone(), v));
         let deps = python.is_some()
             && output(Command::new(&interp).args(["-c", "import numpy, tokenizers"])).is_some();
+        let kit = paths::urna_home().and_then(|h| super::models::Kit::in_home(&h));
+        let base_python = super::venv::find_python(kit.as_ref().and_then(Kit::range));
         Scan {
             version: env!("CARGO_PKG_VERSION"),
             name: buildid::NAME,
@@ -189,11 +178,11 @@ impl Scan {
                 .map(|h| paths::venv_python(&h.join("venv")))
                 .filter(|p| p.is_file())
                 .and_then(|p| super::venv::version_of(&p.to_string_lossy())),
-            base_python: base_python(),
+            base_python,
             uv: paths::uv(),
             curl: which("curl"),
             simd: urna_engine::simd::detect_backend().name(),
-            kit: paths::urna_home().and_then(|h| super::models::Kit::in_home(&h)),
+            kit,
         }
     }
 
@@ -205,6 +194,12 @@ impl Scan {
         } else {
             self.version
         }
+    }
+
+    /// The python range the installed payload's catalogue names, when it
+    /// does; before a payload is installed there is none.
+    pub fn range(&self) -> Option<super::venv::Range> {
+        self.kit.as_ref().and_then(Kit::range)
     }
 
     /// The rows the scan screen reveals, in order: label, value, badge.
@@ -275,7 +270,13 @@ impl Scan {
             (Some(uv), _, _) => (format!("uv · {}", tilde(uv)), Badge::Ok),
             (None, Some(_), _) => ("uv · setup downloads it".into(), Badge::Ok),
             (None, None, Some(py)) => (format!("pip · {}", tilde(Path::new(py))), Badge::Ok),
-            (None, None, None) => ("no uv, no curl to fetch it, no python3".into(), Badge::Fail),
+            (None, None, None) => (
+                match self.range() {
+                    Some(r) => format!("no uv, no curl to fetch it, no {r}"),
+                    None => "no uv, no curl to fetch it, no python3".into(),
+                },
+                Badge::Fail,
+            ),
         };
         v.push(("env tool", tool.0, tool.1));
         v.push(match &self.curl {
