@@ -82,6 +82,33 @@ def test_image_path_honors_the_opt_in() -> None:
     print("image path: URNA_ALLOW_DOWNLOAD opt-in respected: ok")
 
 
+GUARD = (
+    "import os, sys, socket, urllib.request; sys.path.insert(0, os.environ['PYDIR'])\n"
+    "from urna.model import presetmap\n"
+    "presetmap.refuse_connections()\n"
+    "a, b = socket.socketpair(); a.send(b'x'); assert b.recv(1) == b'x'\n"
+    "try:\n"
+    "    urllib.request.urlopen('http://127.0.0.1:9/', timeout=2)\n"
+    "except OSError as e:\n"
+    "    print(e)\n"
+)
+
+
+def test_the_embedder_refuses_connections() -> None:
+    """Reviewed model code can open a socket of its own (jina v5 omni fetches
+    any http(s) query as media): the query embedders refuse every network
+    connection unless the caller opted in; local sockets keep working."""
+    env = {k: v for k, v in os.environ.items() if k != "URNA_ALLOW_DOWNLOAD"}
+    env["PYDIR"] = PYDIR
+    run = subprocess.run([sys.executable, "-c", GUARD], capture_output=True, text=True, env=env)
+    assert run.returncode == 0, run.stderr
+    assert "runs offline" in run.stdout, run.stdout
+    env["URNA_ALLOW_DOWNLOAD"] = "1"
+    run = subprocess.run([sys.executable, "-c", GUARD], capture_output=True, text=True, env=env)
+    assert run.returncode == 0 and "runs offline" not in run.stdout, run.stdout
+    print("embedder: connections refused by default, the opt-in lifts it: ok")
+
+
 if __name__ == "__main__":
     test_offline_forced_by_default()
     test_opt_in_download_disables_force()
@@ -89,4 +116,5 @@ if __name__ == "__main__":
     test_registry_honors_the_opt_in()
     test_image_path_forces_offline_by_default()
     test_image_path_honors_the_opt_in()
+    test_the_embedder_refuses_connections()
     print("offline guard tests OK")

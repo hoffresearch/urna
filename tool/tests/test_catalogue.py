@@ -118,12 +118,31 @@ def test_a_lock_for_other_packages_is_stale() -> None:
     print("error path (a lock for other packages or other bytes is stale): OK")
 
 
+def test_params_are_counted_at_the_pinned_revision() -> None:
+    entry = {"name": "m", "revision": "a" * 40, "kind": "st_multimodal"}
+    got = mc.with_params(entry, {"m": {"revision": "a" * 40, "params": 595_776_512}})
+    assert got["params"] == 595_776_512 and got["dtype_bytes"] == {"cpu": 4, "mps": 2}
+    clip = mc.with_params(
+        {**entry, "kind": "open_clip"}, {"m": {"revision": "a" * 40, "params": 1}}
+    )
+    assert clip["dtype_bytes"] == {"cpu": 4, "mps": 4}
+    for params in ({}, {"m": {"revision": "b" * 40, "params": 1}}):
+        try:
+            mc.with_params(entry, params)
+        except mc.Stale as e:
+            assert "pinned revision" in str(e)
+        else:
+            raise AssertionError("a count at another revision was taken")
+    print("error path (a parameter count at another revision is stale): OK")
+
+
 def main() -> None:
     test_checked_in_catalog_is_the_registrys()
     test_minilm_is_offered_pinned()
     test_every_other_preset_says_why()
     test_a_stale_catalog_fails_the_check()
     test_a_lock_for_other_packages_is_stale()
+    test_params_are_counted_at_the_pinned_revision()
     print("all model catalog tests passed")
 
 

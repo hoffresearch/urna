@@ -528,4 +528,80 @@ pub(crate) mod tests {
         );
     }
 
+    /// A fake interpreter for `install`: answers `installer.py plan` (cached,
+    /// nothing to install), `installer.py fetch` (ok) and `presetqry.py`
+    /// with `hash`, so the query step runs with no python and no network.
+    #[cfg(unix)]
+    fn fake_python(dir: &Path, hash: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let py = dir.join("python");
+        let script = format!(
+            r#"#!/bin/sh
+case "$1" in
+  *installer.py) [ "$2" = plan ] && echo '{{"missing_bytes": 0, "cached": true, "packages_missing": [], "remote_code": false}}'; exit 0 ;;
+  *presetqry.py) [ -z "$URNA_ALLOW_DOWNLOAD" ] || exit 9; echo '{{"model_hash": "{hash}", "embedding_dim": 4}}' ;;
+esac
+"#
+        );
+        std::fs::write(&py, script).unwrap();
+        std::fs::set_permissions(&py, std::fs::Permissions::from_mode(0o755)).unwrap();
+        py
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_install_ends_with_an_offline_query_that_must_match_the_corpus() {
+        let dir = std::env::temp_dir().join(format!("urna_query_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let kit = Kit {
+            script: dir.join("urna/model/installer.py"),
+            catalog: sample(),
+        };
+        let a = kit.catalog.models[0].clone();
+        let consent = Consent {
+            download: true,
+            remote_code: false,
+        };
+        let py = fake_python(&dir, "sha256:corpus");
+        let mut steps = Vec::new();
+        let ok = install(
+            &kit,
+            &a,
+            &py,
+            None,
+            consent,
+            Some("sha256:corpus"),
+            &mut |p| {
+                if let Progress::Step(s) = p {
+                    steps.push(s)
+                }
+            },
+        )
+        .unwrap();
+        assert!(ok.contains("answered a query"), "{ok}");
+        assert!(
+            steps.iter().any(|s| s.contains("ask it once, offline")),
+            "{steps:?}"
+        );
+        // the query loads the model as another hash: this corpus would not answer.
+        let py = fake_python(&dir, "sha256:other");
+        let err = install(
+            &kit,
+            &a,
+            &py,
+            None,
+            consent,
+            Some("sha256:corpus"),
+            &mut |_| {},
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.starts_with("query failed") && err.contains("would not answer this corpus"),
+            "{err}"
+        );
+        // no corpus to match: any hash the model loads as is an install.
+        assert!(install(&kit, &a, &py, None, consent, None, &mut |_| {}).is_ok());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
 }

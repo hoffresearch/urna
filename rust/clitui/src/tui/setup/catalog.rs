@@ -239,3 +239,99 @@ impl Catalog {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(kind: &str, license: &str) -> Entry {
+        let per = if kind == "st_multimodal" { 2 } else { 4 };
+        Entry {
+            name: "m".into(),
+            embedding_model: "org/m".into(),
+            repo: "org/m".into(),
+            revision: "r".repeat(40),
+            bytes: 1_190_000_000,
+            model_hash: "sha256:m".into(),
+            packages: vec!["torch".into()],
+            remote_code: false,
+            kind: kind.into(),
+            remote_code_hashes: vec![],
+            dim: 1024,
+            modalities: vec!["text".into()],
+            license: license.into(),
+            params: 595_776_512,
+            dtype_bytes: [("cpu".to_string(), 4), ("mps".to_string(), per)].into(),
+        }
+    }
+
+    fn torch() -> Torch {
+        Torch {
+            version: "2.14.1".into(),
+            index: "https://download.pytorch.org/whl/cpu".into(),
+            sizes: [
+                ("aarch64-macos".to_string(), 127_657_364),
+                ("x86_64-linux".to_string(), 196_260_555),
+            ]
+            .into(),
+            rss: [("aarch64-macos".to_string(), 448_593_920)].into(),
+        }
+    }
+
+    #[test]
+    fn ram_is_the_parameters_in_the_devices_dtype_plus_torch() {
+        let e = entry("st_multimodal", "Apache-2.0");
+        let t = torch();
+        // qwen3: 596M parameters, float16 on mps, float32 on the cpu.
+        assert_eq!(
+            e.min_ram(Some(&t), "aarch64-macos"),
+            Some(595_776_512 * 2 + 448_593_920)
+        );
+        assert_eq!(e.min_ram(Some(&t), "x86_64-linux"), Some(595_776_512 * 4));
+        assert_eq!(ram_gb(595_776_512 * 2 + 448_593_920), 2);
+        assert_eq!(ram_gb(595_776_512 * 4), 3);
+        let clip = entry("open_clip", "Apache-2.0");
+        assert_eq!(clip.min_ram(None, "aarch64-macos"), Some(595_776_512 * 4));
+        let old = Entry {
+            params: 0,
+            ..entry("st_multimodal", "")
+        };
+        assert_eq!(old.min_ram(Some(&t), "aarch64-macos"), None);
+    }
+
+    #[test]
+    fn torch_counts_once_and_a_platform_without_it_cannot_install() {
+        let e = entry("st_multimodal", "Apache-2.0");
+        let t = torch();
+        assert_eq!(
+            e.download(Some(&t), "x86_64-linux", false),
+            Ok(1_190_000_000 + 196_260_555)
+        );
+        assert_eq!(
+            e.download(Some(&t), "x86_64-linux", true),
+            Ok(1_190_000_000)
+        );
+        let err = e.download(Some(&t), "x86_64-macos", false).unwrap_err();
+        assert!(
+            err.contains("torch 2.14.1 ships no build for x86_64-macos"),
+            "{err}"
+        );
+        // already in the env, the platform does not matter.
+        assert_eq!(
+            e.download(Some(&t), "x86_64-macos", true),
+            Ok(1_190_000_000)
+        );
+        assert_eq!(e.download(None, "x86_64-macos", false), Ok(1_190_000_000));
+        assert_eq!(gb(1_190_000_000 + 196_260_555), "1.39 GB");
+    }
+
+    #[test]
+    fn a_non_commercial_license_says_so() {
+        assert_eq!(
+            entry("st_multimodal", "CC-BY-NC-4.0").terms(),
+            Some("non-commercial use only")
+        );
+        assert_eq!(entry("st_multimodal", "Apache-2.0").terms(), None);
+        assert_eq!(device("aarch64-macos"), "mps");
+        assert_eq!(device("x86_64-windows"), "cpu");
+    }
+}

@@ -225,12 +225,14 @@ path = [
     "rust/clitui/src/tui/setup/unpack.rs",
     "rust/clitui/src/tui/setup/venv.rs",
     "rust/clitui/src/tui/setup/models.rs",
+    "rust/clitui/src/tui/setup/catalog.rs",
     "rust/bridge/python/urna/model/installer.py",
+    "rust/bridge/python/urna/embed/presetqry.py",
     "rust/clitui/src/cmd/health.rs",
     "rust/clitui/src/tui/setup/sample.rs",
     "rust/clitui/src/cmd/validate.rs",
 ]
-summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack into a staging dir (entries escaping it abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker; packages only into that venv, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's; repo code needs --allow-remote-code), run the doctor checks, then fetch the sample corpus the catalog pins (a dataset commit and its sha256, refused on any other bytes or on a failed validate check) into <root>/urna/sample; the inline screen and the --yes printer render the same event stream"
+summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack into a staging dir (entries escaping it abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker, which scrolls and shows each model's download with torch counted once, its estimated minimum ram against the machine's and its license; packages only into that venv, constrained by the payload's lock with torch's cpu build, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's, then presetqry.py loads the model and embeds one query with downloads off; repo code needs --allow-remote-code), run the doctor checks, then fetch the sample corpus the catalog pins (a dataset commit and its sha256, refused on any other bytes or on a failed validate check) into <root>/urna/sample; the inline screen and the --yes printer render the same event stream"
 
 [[flows]]
 name = "tui-model-install"
@@ -242,8 +244,9 @@ path = [
     "rust/bridge/python/urna/model/catalogue.json",
     "rust/bridge/python/urna/model/installer.py",
     "rust/bridge/python/urna/model/modelhash.py",
+    "rust/bridge/python/urna/embed/presetqry.py",
 ]
-summary = "A query that fails with packages or weights missing, on a model the payload's catalog offers, opens the install panel: installer.py plan (no network) gives the packages, the bytes and the pinned revision, the model_hash is checked against the corpus's; y (download consent) and, for repo code, r (its own consent) run the same install setup --model runs on a worker, streaming steps, progress and log; success runs the query again, an unmanaged interpreter gets the setup command instead"
+summary = "A query that fails with packages or weights missing, on a model the payload's catalog offers, opens the install panel: installer.py plan (no network) gives the packages, the bytes and the pinned revision, the model_hash is checked against the corpus's (for a sentence-transformers backend model, whose corpus hash names the device dtype, by the offline query that ends the install); y (download consent) and, for repo code, r (its own consent) run the same install setup --model runs on a worker, streaming steps, progress and log; success runs the query again, an unmanaged interpreter gets the setup command instead"
 
 [[flows]]
 name = "cli-search-text"
@@ -697,7 +700,7 @@ links = [
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/setup"
 kind = "directory"
-purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), unpack (staged, traversal-safe), venv (uv or venv+pip, streamed with exit status), models (the payload's model catalog and the one model install setup and the explorer share: packages into the managed venv, then urna/model/installer.py's verified fetch), sample (the sample corpus the catalog pins: download, sha256, validate checks, saved under <root>/urna/sample), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker)"
+purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), unpack (staged, traversal-safe), venv (uv or venv+pip, streamed with exit status), catalog (the payload's model catalog and what the picker reads off an entry: the download with torch counted once, the estimated minimum ram), models (the one model install setup and the explorer share: packages into the managed venv constrained by the lock, then urna/model/installer.py's verified fetch, then one offline query that must match the corpus's hash), sample (the sample corpus the catalog pins: download, sha256, validate checks, saved under <root>/urna/sample), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker: a ratatui List that scrolls, the details of the model at the cursor, the ✓ against the machine's ram from sysinfo)"
 links = ["rust/clitui/src/tui/setup/mod.rs"]
 
 [[inventory.workspace]]
@@ -2131,12 +2134,37 @@ links = [
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/model/presetmap.py"
 kind = "python-source"
-purpose = "Named model presets (potion/clip-vit-b32/siglip2/jina-v5-omni/minilm-multilingual/wemm-2b|4b|9b/fake-test) with validated MRL ladders, deps with exact pip fixes, remote-code opt-in + pinned hash allowlist, the pinned hub snapshot of an open_clip preset (pinned_snapshot: snapshots/<revision>, never refs/main; a missing file is SnapshotMissing naming it and the fetch line), unified adapters, slice_renorm (== build_fn MRL truncate), and the subprocess ST adapter (one worker per model; two trust_remote_code ST models in one process collide in transformers dynamic modules, measured); kind st_text (minilm-multilingual) embeds in-process through rust/bridge/python/urna/embed/searchtxt.py's load/encode/fingerprint, so pre-registry MiniLM corpora keep their model_hash"
+purpose = "Named model presets (potion/minilm-multilingual/harrier-270m/jina-v5-text-nano/qwen3-embedding-0.6b/octen-embedding-0.6b/clip-vit-b32/siglip2/jina-v5-omni-nano|small/wemm-2b/fake-test) with their license, the validated install and code pins installed.py holds, validated MRL ladders, a query prompt name and an mps dtype where a model needs them, refuse_connections (the query embedders open no network connection without URNA_ALLOW_DOWNLOAD=1), deps with exact pip fixes, remote-code opt-in + pinned hash allowlist, the pinned hub snapshot of an open_clip preset (pinned_snapshot: snapshots/<revision>, never refs/main; a missing file is SnapshotMissing naming it and the fetch line), unified adapters, slice_renorm (== build_fn MRL truncate), and the subprocess ST adapter (one worker per model; two trust_remote_code ST models in one process collide in transformers dynamic modules, measured); kind st_text (minilm-multilingual) embeds in-process through rust/bridge/python/urna/embed/searchtxt.py's load/encode/fingerprint, so pre-registry MiniLM corpora keep their model_hash"
 links = [
     "rust/bridge/python/urna/embed/stbackend.py",
     "rust/bridge/python/urna/embed/stprocess.py",
+    "rust/bridge/python/urna/model/installed.py",
     "tool/tests/test_presetmap.py",
 ]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/model/installed.py"
+kind = "python-source"
+purpose = "The validated installs of the offered presets (InstallSpec: pinned revision, the exact files with their sizes, the model_hash they fingerprint to, the pip specs) and the sha256 of every repo code file each runs, reviewed at that revision; a spec is recorded only after an install of exactly it from an empty cache answered a query offline (tool/tasks/presetjob.py)"
+links = ["rust/bridge/python/urna/model/presetmap.py", "tool/tasks/presetjob.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/model/modellock.txt"
+kind = "generated"
+purpose = "Every offered model's packages and the env's base ones resolved together by uv pip compile --universal --torch-backend cpu: exact versions for linux, macos and windows, torch's cpu build, no nvidia-*; shipped in the payload, setup installs a model's packages constrained by it (-c); written by tool/tasks/upstreams.py, its inputs and sha256 checked by catalogue.py --check"
+links = ["tool/tasks/upstreams.py", "rust/bridge/python/urna/model/catalogue.py", "rust/clitui/src/tui/setup/venv.rs"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "tool/tasks/presetjob.py"
+kind = "python-script"
+purpose = "Every preset the catalogue offers through urna setup --yes --model NAME, one at a time in one data dir, each from an empty Hugging Face cache and each asked one query; a preset whose estimated ram exceeds the machine's is skipped and listed; then torch's own memory against the catalogue's torch.rss for this platform; run by presetjob.yml when the lock changes, and locally"
+links = [".github/workflows/presetjob.yml", "rust/bridge/python/urna/model/catalogue.json"]
+
+[[inventory.data_docs_python_script_tests]]
+path = ".github/workflows/presetjob.yml"
+kind = "workflow"
+purpose = "When modellock.txt, presetjob.py or itself changes: builds urna, stages its payload as a release and runs tool/tasks/presetjob.py on ubuntu-24.04, ubuntu-24.04-arm, windows-latest and macos-latest; no schedule"
+links = ["tool/tasks/presetjob.py"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/embed/stbackend.py"
@@ -2327,7 +2355,7 @@ links = ["rust/clitui/src/cmd/search_space.rs"]
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/model/catalogue.py"
 kind = "python-source"
-purpose = "Generates the model catalog from the registry: the presets with a validated install (an InstallSpec: pinned revision, the exact files, the model_hash they fingerprint to) and packages that do not contradict another offered model's pins, and every other preset with the reason it is left out; --write rewrites rust/bridge/python/urna/model/catalogue.json, --check fails on a stale copy; stdlib only, so the release stages it under a bare python3"
+purpose = "Generates the model catalog from the registry: the presets with a validated install (an InstallSpec: pinned revision, the exact files, the model_hash they fingerprint to), each with its license, parameter count (upstreams.json's, at the same revision) and the bytes a parameter takes per device, every other preset with the reason it is left out, and upstreams.json's uv, python range, torch sizes and memory, lock and sample; lock_inputs is what the lock resolves, and a lock for other inputs or other bytes is Stale; --write rewrites rust/bridge/python/urna/model/catalogue.json, --check fails on a stale copy; stdlib only, so the release stages it under a bare python3"
 links = ["rust/bridge/python/urna/model/presetmap.py", "rust/bridge/python/urna/model/catalogue.json", "tool/tasks/embedpack.py"]
 
 [[inventory.data_docs_python_script_tests]]
@@ -2339,13 +2367,13 @@ links = ["rust/bridge/python/urna/model/catalogue.py", "rust/clitui/src/tui/setu
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/model/installer.py"
 kind = "python-source"
-purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, progress lines per megabyte over HTTP and xet, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
+purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, progress lines per megabyte over HTTP and xet, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's; an open_clip model is loaded to fingerprint its tensors; a sentence-transformers backend model's corpus hash names the device dtype, so the query setup runs next compares it); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
 links = ["rust/bridge/python/urna/model/catalogue.json", "rust/bridge/python/urna/model/modelhash.py", "rust/clitui/src/tui/setup/models.rs"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_catalogue.py"
 kind = "python-test"
-purpose = "The checked-in catalog is the registry's (generated without numpy), the MiniLM is offered at its pinned revision and hash, every other preset carries its reason, a stale catalog fails the check, conflicting pins keep the first model; in fullcheck.sh"
+purpose = "The checked-in catalog is the registry's (generated without numpy), the MiniLM is offered at its pinned revision and hash, only potion is left out and a preset without a validated install says why, a stale catalog fails the check, a lock for other packages or other bytes and a parameter count at another revision are stale; in fullcheck.sh"
 links = ["rust/bridge/python/urna/model/catalogue.py", "tool/tasks/fullcheck.sh"]
 
 [[inventory.data_docs_python_script_tests]]

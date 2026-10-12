@@ -49,6 +49,7 @@ Run `./tool/tasks/fullcheck.sh` before every push and push only when it exits 0.
 
 - the install on a clean machine (`tool/tasks/cleanhost.sh`, run when the paths `cleanhost.yml` filters on changed): on macOS with Apple silicon, tart (`brew install openai/tools/tart`; Homebrew asks once to trust the tap's two formulas: `brew trust --formula openai/tools/tart` and `brew trust --formula openai/tools/softnet`); on Linux, docker or podman. The first macOS run pulls the vanilla image (~25 GB, kept in `~/.tart`), and each run clones it into a VM that uses 8 GB of RAM and is deleted at the end. `TART=<path>` points at a tart outside `PATH`; `URNA_CLEANHOST=0` skips the step, which then runs again on the next fullcheck;
 - the media quality gate (`tool/tests/test_mediagate.py`): ffmpeg and the jpeg-xl tools, `cjxl`, `djxl` and `ssimulacra2` (`brew install ffmpeg jpeg-xl`; Debian's `libjxl-tools` has `cjxl` and `djxl` but not `ssimulacra2`, which then comes from a libjxl build); without them the suite prints `SKIP`;
+- for a change to a model preset or the lock: `python tool/tasks/upstreams.py --write` regenerates `modellock.txt` and the catalogue (it needs uv on `PATH`), and `python tool/tasks/presetjob.py --urna target/release/urna` installs every preset the way `presetjob.yml` does, each from an empty Hugging Face cache (about 16 GB of downloads; fullcheck does not run it);
 - for a change under `.github/`: `brew install actionlint zizmor`, run as USAGE section 10 shows.
 
 ## Conventions and writing style

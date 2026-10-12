@@ -333,6 +333,24 @@ pub fn tilde(p: &Path) -> String {
 mod tests {
     use super::*;
 
+    #[test]
+    fn torch_is_read_off_the_venvs_site_packages() {
+        let d = std::env::temp_dir().join(format!("urna_torch_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        let unix = d.join("u");
+        let win = d.join("w");
+        std::fs::create_dir_all(unix.join("lib/python3.12/site-packages/numpy")).unwrap();
+        assert!(!has_torch(&unix) && !has_torch(&d.join("absent")));
+        let t = unix.join("lib/python3.12/site-packages/torch");
+        std::fs::create_dir_all(&t).unwrap();
+        std::fs::write(t.join("__init__.py"), b"").unwrap();
+        assert!(has_torch(&unix));
+        let t = win.join("Lib/site-packages/torch");
+        std::fs::create_dir_all(&t).unwrap();
+        std::fs::write(t.join("__init__.py"), b"").unwrap();
+        assert!(has_torch(&win));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
 
     #[test]
     fn channel_reads_the_install_path() {

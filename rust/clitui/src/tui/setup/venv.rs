@@ -452,4 +452,40 @@ mod tests {
         );
     }
 
+    #[test]
+    fn with_a_lock_only_the_models_packages_install_at_its_versions_on_cpu_torch() {
+        let py = Path::new("/h/urna/venv/bin/python");
+        let pkgs = vec!["torch".to_string()];
+        let pins = Pins {
+            lock: Some(PathBuf::from("/h/urna/python/urna/model/modellock.txt")),
+            torch_index: Some("https://download.pytorch.org/whl/cpu".into()),
+        };
+        let uv = format!(
+            "{:?}",
+            add_command(Some(Path::new("/u/uv")), py, &pkgs, &pins)
+        );
+        assert!(uv.contains("\"--torch-backend\" \"cpu\" \"-c\""), "{uv}");
+        assert!(
+            uv.contains("modellock.txt") && !uv.contains("extra-index-url"),
+            "{uv}"
+        );
+        let pip = format!("{:?}", add_command(None, py, &pkgs, &pins));
+        assert!(
+            pip.contains("\"-c\"") && pip.contains("modellock.txt"),
+            "{pip}"
+        );
+        assert!(
+            pip.contains("\"--extra-index-url\" \"https://download.pytorch.org/whl/cpu\""),
+            "{pip}"
+        );
+        // a payload from before the lock installs as it did.
+        let old = format!(
+            "{:?}",
+            add_command(Some(Path::new("/u/uv")), py, &pkgs, &Pins::default())
+        );
+        assert!(
+            !old.contains("-c") && !old.contains("torch-backend"),
+            "{old}"
+        );
+    }
 }

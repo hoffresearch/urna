@@ -156,11 +156,62 @@ def chosen(argv: list[str]) -> list[str]:
     return ask() if sys.stdin.isatty() else []
 
 
+class _Recorder:
+    """A sentence-transformers model that records how it was asked."""
+
+    def __init__(self, prompts: dict):
+        self.prompts = prompts
+        self.calls: list[tuple[str, dict]] = []
+
+    def _out(self, items):
+        return [[1.0, 0.0] for _ in items]
+
+    def encode(self, items, **kw):
+        self.calls.append(("encode", kw))
+        return self._out(items)
+
+    def encode_query(self, items, **kw):
+        self.calls.append(("encode_query", kw))
+        return self._out(items)
+
+    def encode_document(self, items, **kw):
+        self.calls.append(("encode_document", kw))
+        return self._out(items)
+
+
+def test_roles_reach_the_model_the_way_it_takes_them() -> None:
+    """jina v5 picks its adapter by `task`, so a role goes in as its prompt
+    (encode_query would pass task="query" over it); harrier names its query
+    prompt otherwise than `query`; a plain model gets encode_query."""
+    from urna.embed import stbackend
+
+    def asked(name: str, role: str) -> tuple[str, dict]:
+        emb = stbackend.STMultimodalEmbedder(mr.PRESETS[name], device="cpu")
+        emb._model = _Recorder({"query": "Q: ", "document": "D: "})
+        emb.embed_texts(["x"], role=role)
+        return emb._model.calls[0]
+
+    how, kw = asked("jina-v5-text-nano", "query")
+    assert how == "encode" and kw["task"] == "retrieval" and kw["prompt_name"] == "query"
+    how, kw = asked("jina-v5-text-nano", "document")
+    assert how == "encode" and kw["prompt_name"] == "document"
+    how, kw = asked("harrier-270m", "query")
+    assert how == "encode_query" and kw["prompt_name"] == "web_search_query"
+    how, kw = asked("qwen3-embedding-0.6b", "query")
+    assert how == "encode_query" and "prompt_name" not in kw
+    os.environ.pop("URNA_ST_DTYPE", None)
+    assert stbackend._default_dtype("mps", mr.PRESETS["harrier-270m"]) == "bfloat16"
+    assert stbackend._default_dtype("mps", mr.PRESETS["qwen3-embedding-0.6b"]) == "float16"
+    assert stbackend._default_dtype("cpu", mr.PRESETS["harrier-270m"]) == "float32"
+
+
 def main() -> None:
     picked = chosen(sys.argv[1:])
     # needs no model and no sentence-transformers: always runs.
     test_model_hash_is_pinned()
     print("test_model_hash_is_pinned: OK")
+    test_roles_reach_the_model_the_way_it_takes_them()
+    print("test_roles_reach_the_model_the_way_it_takes_them: OK")
     for name in picked:
         preset = mr.PRESETS[name]
         if where(preset) in ("deps missing", "snapshot missing"):
