@@ -1,6 +1,7 @@
 //! The home tab: the symbol over the hash rain, the wordmark, and the
 //! ways in: open a file, the `.urna` files found near the working
-//! directory (1-9), setup and health.
+//! directory (1-9), setup and health. with no corpus to reopen it is the
+//! first-run screen: open the sample corpus, or open a `.urna` file.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -44,18 +45,30 @@ pub fn recent(cwd: &Path) -> Vec<(PathBuf, u64)> {
     found
 }
 
+/// What the home tab offers under the wordmark.
+pub enum Menu<'a> {
+    /// the `.urna` files near the working directory.
+    Near(&'a [(PathBuf, u64)], &'a Path),
+    /// nothing to reopen: the sample corpus, when setup laid it down, and
+    /// the picker.
+    First(Option<&'a Path>),
+}
+
+impl Menu<'_> {
+    fn rows(&self) -> u16 {
+        match self {
+            Menu::Near(files, _) => files.len().max(1) as u16,
+            Menu::First(_) => 4,
+        }
+    }
+}
+
 /// Draws the home tab; returns the rect of the symbol (for the effects).
-pub fn render(
-    buf: &mut Buffer,
-    body: Rect,
-    elapsed: Duration,
-    files: &[(PathBuf, u64)],
-    cwd: &Path,
-) -> Rect {
+pub fn render(buf: &mut Buffer, body: Rect, elapsed: Duration, menu: &Menu<'_>) -> Rect {
     Rain::quiet(elapsed).render(body, buf);
     let tall = body.height >= 30 && body.width >= 70;
     let symbol: &[&str] = if tall { &art::SYMBOL_L } else { &art::SYMBOL_M };
-    let block_h = symbol.len() as u16 + 6 + 2 + files.len().max(1) as u16 + 5;
+    let block_h = symbol.len() as u16 + 6 + 2 + menu.rows() + 5;
     let top = body.y + body.height.saturating_sub(block_h) / 2;
     let sym = art::paint_centered(
         buf,
@@ -128,43 +141,73 @@ pub fn render(
             );
         }
     };
-    if files.is_empty() {
-        row(
-            buf,
-            y,
-            "o",
-            "open a .urna",
-            &format!(
-                "no .urna under {}",
-                hud::tail(&cwd.display().to_string(), 30)
-            ),
-        );
-        y += 1;
-    } else {
-        for (i, (p, size)) in files.iter().enumerate() {
-            let shown = p.strip_prefix(cwd).unwrap_or(p).display().to_string();
+    let mut setup_row = true;
+    match menu {
+        Menu::First(sample) => {
+            let (k, what, detail) = match sample {
+                Some(_) => ("enter", "open the sample corpus", ""),
+                None => ("s", "get the sample corpus", "setup downloads it"),
+            };
+            setup_row = sample.is_some();
+            row(buf, y, k, what, detail);
+            y += 1;
+            // what the sample holds, under its action: two lines at most.
+            let x = cx + k.chars().count() as u16 + 2;
+            let w = (cx + col_w).saturating_sub(x);
+            for line in hud::wrap(crate::tui::setup::sample::ABOUT, w as usize)
+                .iter()
+                .take(2)
+            {
+                if y < body.bottom() {
+                    hud::put(buf, x, y, line, pal::faint(), w);
+                }
+                y += 1;
+            }
+            row(buf, y, "o", "open a .urna file", "");
+            y += 1;
+        }
+        Menu::Near([], cwd) => {
             row(
                 buf,
                 y,
-                &format!("{}", i + 1),
-                &hud::tail(&shown, 34),
-                &human(*size),
+                "o",
+                "open a .urna",
+                &format!(
+                    "no .urna under {}",
+                    hud::tail(&cwd.display().to_string(), 30)
+                ),
             );
             y += 1;
         }
-        row(buf, y, "o", "open another file", "");
-        y += 1;
+        Menu::Near(files, cwd) => {
+            for (i, (p, size)) in files.iter().enumerate() {
+                let shown = p.strip_prefix(cwd).unwrap_or(p).display().to_string();
+                row(
+                    buf,
+                    y,
+                    &format!("{}", i + 1),
+                    &hud::tail(&shown, 34),
+                    &human(*size),
+                );
+                y += 1;
+            }
+            row(buf, y, "o", "open another file", "");
+            y += 1;
+        }
     }
-    row(
-        buf,
-        y + 1,
-        "s",
-        "setup",
-        "embedder payload, python env, doctor",
-    );
-    row(buf, y + 2, "h", "health", "the doctor checks, live");
-    if y + 4 < body.bottom() {
-        hud::link(buf, cx, y + 4, "urna.dev", "https://urna.dev", col_w);
+    if setup_row {
+        row(
+            buf,
+            y + 1,
+            "s",
+            "setup",
+            "embedder payload, python env, doctor",
+        );
+    }
+    let y = if setup_row { y + 1 } else { y };
+    row(buf, y + 1, "h", "health", "the doctor checks, live");
+    if y + 3 < body.bottom() {
+        hud::link(buf, cx, y + 3, "urna.dev", "https://urna.dev", col_w);
     }
     sym
 }
@@ -189,16 +232,18 @@ mod tests {
 
     #[test]
     fn render_survives_any_size() {
+        let sample = Path::new("/tmp/sample/fakenews.urna");
+        let menus = [
+            Menu::Near(&[], Path::new("/tmp")),
+            Menu::First(None),
+            Menu::First(Some(sample)),
+        ];
         for (w, h) in [(20, 5), (80, 24), (160, 50)] {
-            let area = Rect::new(0, 0, w, h);
-            let mut buf = Buffer::empty(area);
-            render(
-                &mut buf,
-                area,
-                Duration::from_secs(2),
-                &[],
-                Path::new("/tmp"),
-            );
+            for menu in &menus {
+                let area = Rect::new(0, 0, w, h);
+                let mut buf = Buffer::empty(area);
+                render(&mut buf, area, Duration::from_secs(2), menu);
+            }
         }
     }
 }

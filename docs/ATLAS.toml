@@ -100,7 +100,7 @@ links = [
 
 [[layers]]
 name = "urna terminal ui"
-role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack (a development build stages its own checkout instead) and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts). The urna.dev palette folded to the terminal's color depth, tachyonfx on every screen change. No network stack is linked; no format or runtime API is touched"
+role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack (a development build stages its own checkout instead) and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts; it opens the file it is given, else the last corpus it opened, else a first-run screen). The urna.dev palette folded to the terminal's color depth, tachyonfx on every screen change. No network stack is linked; no format or runtime API is touched"
 entrypoints = ["rust/clitui/src/tui/mod.rs"]
 links = [
     "rust/clitui/src/tui/setup/mod.rs",
@@ -703,7 +703,7 @@ links = ["rust/clitui/src/tui/setup/mod.rs"]
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/app"
 kind = "directory"
-purpose = "urna tui: the explorer state and loop (mod), draw, keys (keyboard + mouse routing), chrome (header tabs + footer help), home, corpus (inspect + validate model and view), ask (query worker + error wording, the failure's model when an install can fix it) and hits (its view), offer (the install panel over the ask tab: plan, y/r/n consents, progress, retry), health, pick (the ratatui-explorer overlay)"
+purpose = "urna tui: the explorer state and loop (mod: what it opens on, the file given, the last corpus or the first-run screen, and the sample just downloaded after setup), state (the corpora it opened, in <root>/urna/tui.json), draw, keys (keyboard + mouse routing), chrome (header tabs + footer help), home (also the first-run screen: open the sample, open a file), corpus (inspect + validate model and view), ask (query worker + error wording, the failure's model when an install can fix it) and hits (its view), offer (the install panel over the ask tab: plan, y/r/n consents, progress, retry), health, pick (the ratatui-explorer overlay)"
 links = ["rust/clitui/src/tui/app/mod.rs"]
 
 [[inventory.workspace]]

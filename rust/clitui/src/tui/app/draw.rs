@@ -55,17 +55,17 @@ impl App {
                 self.tab,
                 self.corpus.is_some(),
                 self.picker.is_some(),
+                self.first_run.then_some(self.sample.is_some()),
             );
             let spin = self.spinner.frame_str().to_string();
             match self.tab {
                 Tab::Home => {
-                    let sym = home::render(
-                        buf,
-                        body,
-                        self.clock.start.elapsed(),
-                        &self.files,
-                        &self.cwd,
-                    );
+                    let menu = if self.first_run {
+                        home::Menu::First(self.sample.as_deref())
+                    } else {
+                        home::Menu::Near(&self.files, &self.cwd)
+                    };
+                    let sym = home::render(buf, body, self.clock.start.elapsed(), &menu);
                     if self.entered {
                         self.fx.add_unique_effect("logo", fx::logo_in(sym));
                         self.fx.add_unique_effect("shimmer", fx::shimmer(sym));

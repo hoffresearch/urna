@@ -18,7 +18,7 @@ pub(super) fn route(app: &mut App, ev: Event) {
             pick::Pick::Close => app.picker = None,
             pick::Pick::Open(p) => {
                 app.picker = None;
-                app.open(p);
+                app.open(p, Tab::Corpus);
             }
         }
         return;
@@ -110,7 +110,13 @@ fn key(app: &mut App, code: KeyCode, mods: KeyModifiers) {
         KeyCode::Char(d @ '1'..='9') if app.tab == Tab::Home => {
             let i = d as usize - '1' as usize;
             if let Some((p, _)) = app.files.get(i).cloned() {
-                app.open(p);
+                app.open(p, Tab::Corpus);
+            }
+        }
+        // the first-run screen's first action: the sample, ready to ask.
+        KeyCode::Enter if app.tab == Tab::Home && app.first_run => {
+            if let Some(p) = app.sample.clone() {
+                app.open(p, Tab::Ask);
             }
         }
         KeyCode::Down | KeyCode::Char('j') => scroll(app, 1, true),
@@ -171,6 +177,7 @@ fn ask_key(app: &mut App, code: KeyCode) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::tui::app::Launch;
     use crossterm::event::{KeyEvent, MouseButton, MouseEvent};
     use ratatui::layout::Rect;
 
@@ -180,7 +187,7 @@ mod tests {
 
     #[test]
     fn tab_cycles_and_letters_jump() {
-        let mut app = App::new(None);
+        let mut app = App::new(Launch::First, None);
         press(&mut app, KeyCode::Tab);
         assert_eq!(app.tab, Tab::Corpus);
         press(&mut app, KeyCode::BackTab);
@@ -191,7 +198,7 @@ mod tests {
 
     #[test]
     fn the_ask_tab_keeps_letters_as_text() {
-        let mut app = App::new(None);
+        let mut app = App::new(Launch::First, None);
         press(&mut app, KeyCode::Char('a'));
         for c in "quit".chars() {
             press(&mut app, KeyCode::Char(c));
@@ -206,7 +213,7 @@ mod tests {
 
     #[test]
     fn clicking_a_tab_switches_to_it() {
-        let mut app = App::new(None);
+        let mut app = App::new(Launch::First, None);
         app.tab_hits = vec![(Tab::Health, Rect::new(40, 0, 10, 1))];
         let click = MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
@@ -219,8 +226,22 @@ mod tests {
     }
 
     #[test]
+    fn enter_on_the_first_run_screen_opens_the_sample_ready_to_ask() {
+        let sample = std::path::PathBuf::from("/nowhere/sample/fakenews.urna");
+        let mut app = App::new(Launch::First, Some(sample.clone()));
+        press(&mut app, KeyCode::Enter);
+        assert!(matches!(&app.loading, Some((_, p, Tab::Ask)) if *p == sample));
+        // with no sample, enter does nothing; s still runs setup.
+        let mut app = App::new(Launch::First, None);
+        press(&mut app, KeyCode::Enter);
+        assert!(app.loading.is_none() && app.leaving.is_none());
+        press(&mut app, KeyCode::Char('s'));
+        assert!(matches!(app.leaving, Some((_, Exit::Setup))));
+    }
+
+    #[test]
     fn q_leaves_outside_the_ask_tab() {
-        let mut app = App::new(None);
+        let mut app = App::new(Launch::First, None);
         press(&mut app, KeyCode::Char('q'));
         assert!(app.leaving.is_some());
     }

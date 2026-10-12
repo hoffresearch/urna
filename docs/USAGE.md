@@ -524,7 +524,7 @@ urna setup --force                   # reinstall the payload even when it matche
 urna setup --no-python               # payload only; bring your own interpreter via URNA_PYTHON
 urna setup --no-sample               # skip the sample corpus
 urna setup --model minilm-multilingual  # also install a catalog model (repeatable; `all` picks every offered one)
-urna setup --uninstall               # remove the payload, the env, setup's uv and the sample (never the binary, never the hf cache)
+urna setup --uninstall               # remove the payload, the env, setup's uv, the sample and tui.json (never the binary, never the hf cache)
 ```
 
 Without a terminal on both ends (a pipe, CI, a postinstall hook) setup behaves as `--yes`. Exit codes extend doctor's: `0` ready, `2`..`6` a doctor check failed after the steps ran, `10` download failed, `11` the payload does not match the release checksum (nothing is installed), `12` unpack failed, `13` the Python env failed, `14` a step the machine needs is blocked here (no `curl`, no `uv` that could be used or downloaded and no `python3` inside the range, no data dir, `URNA_PYTHON` pins an interpreter without the deps, or a chosen model the catalog leaves out, whose repo code was not allowed, or whose packages would have to go into an env setup does not manage), `15` a model install failed, `16` the sample corpus failed. A failed model leaves urna ready, since the potion embedder works without it: the screen says "urna is ready" with the model's error as a warning under it, and the exit code is still `15`, so a script sees the model it asked for is missing. A failed sample corpus is a warning the same way, with exit `16`; the sample step starts unticked, with the reason, when the machine has no `curl` or no data dir, so it never blocks setup.
@@ -552,11 +552,14 @@ urna tui corpus.urna
 urna                                 # a bare urna on a terminal opens the explorer
 ```
 
+What it opens on: the file it is given (on the corpus tab), else the corpus it opened last, from whatever directory it starts in (on the ask tab, ready for a question), else a first-run screen with two actions, open the sample corpus setup downloaded (`enter`) or open a `.urna` (`o`); without the sample, `s` runs setup, which downloads it. A last corpus deleted or moved since is no corpus: the first-run screen, not an error. Back from `s` with the sample just downloaded, it opens the sample on the ask tab. The corpora it opened, at most nine, most recent first, are kept in `<data root>/urna/tui.json`; `urna setup --uninstall` removes the file.
+
 | Key | Where | Action |
 |---|---|---|
 | `tab` / `shift+tab`, mouse click | Everywhere | Next / previous tab |
 | `o` (`ctrl+o` in ask) | Everywhere | Open a `.urna` (dirs and `.urna` files only) |
 | `1`..`9` | Home | Open a `.urna` found in the working dir or one level below |
+| `enter` | First-run screen | Open the sample corpus on the ask tab |
 | `enter`, `↑↓`, `pgup/pgdn`, `esc` | Ask | Ask, pick a hit, scroll its text, clear the query |
 | `y`, `r`, `n` / `esc` | Ask, install panel open | Install (download consent), allow repo code (separate consent), decline |
 | `r` | Health | Re-run the checks |

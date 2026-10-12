@@ -65,7 +65,16 @@ pub fn header(buf: &mut Buffer, area: Rect, active: Tab, right: &str) -> (Vec<(T
     (hits, mark)
 }
 
-pub fn footer(buf: &mut Buffer, area: Rect, tab: Tab, has_corpus: bool, picking: bool) {
+/// `first_run` is `Some(sample is installed)` while home is the first-run
+/// screen.
+pub fn footer(
+    buf: &mut Buffer,
+    area: Rect,
+    tab: Tab,
+    has_corpus: bool,
+    picking: bool,
+    first_run: Option<bool>,
+) {
     let b = |k: &str, d: &str| Binding::new(k, d);
     let mut keys = match tab {
         _ if picking => vec![
@@ -75,7 +84,11 @@ pub fn footer(buf: &mut Buffer, area: Rect, tab: Tab, has_corpus: bool, picking:
             b("ctrl+h", "hidden"),
             b("esc", "close"),
         ],
-        Tab::Home => vec![b("o", "open"), b("1-9", "recent"), b("s", "setup")],
+        Tab::Home => match first_run {
+            Some(true) => vec![b("enter", "the sample"), b("o", "open"), b("s", "setup")],
+            Some(false) => vec![b("s", "get the sample"), b("o", "open")],
+            None => vec![b("o", "open"), b("1-9", "recent"), b("s", "setup")],
+        },
         Tab::Corpus => vec![b("o", "open"), b("↑↓", "scroll"), b("a", "ask it")],
         Tab::Ask => vec![
             b("enter", "ask"),

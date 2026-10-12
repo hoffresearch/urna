@@ -3,6 +3,12 @@
 //! change of screen. slow work (opening a corpus, asking it, the doctor
 //! checks) runs on worker threads; this loop only draws and routes input.
 //! `s` hands the terminal to `urna setup` and comes back when it ends.
+//!
+//! it opens the file it is given, else the corpus it opened last (on the
+//! ask tab, ready for a question), else the first-run screen; back from
+//! setup with the sample corpus just downloaded, it opens the sample. a
+//! corpus that will not open lands on the first-run screen too, and is
+//! forgotten, so the next launch does not try it again.
 
 pub mod ask;
 mod chrome;
@@ -14,8 +20,9 @@ mod home;
 mod keys;
 mod offer;
 mod pick;
+mod state;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, channel};
 use std::time::{Duration, Instant};
 
@@ -44,13 +51,45 @@ enum Exit {
     Setup,
 }
 
+/// What the explorer opens on.
+#[derive(Debug, PartialEq, Eq)]
+enum Launch {
+    /// `urna tui file.urna`: that file, on the corpus tab.
+    File(PathBuf),
+    /// the corpus opened last, or the sample setup just downloaded, on the
+    /// ask tab.
+    Ask(PathBuf),
+    /// nothing to reopen: the first-run screen.
+    First,
+}
+
+impl Launch {
+    /// A file given wins over the saved last corpus; a last corpus deleted
+    /// or moved since is no corpus.
+    fn pick(file: Option<PathBuf>, last: Option<&Path>) -> Launch {
+        match (file, last) {
+            (Some(f), _) => Launch::File(f),
+            (None, Some(l)) => Launch::Ask(l.to_path_buf()),
+            (None, None) => Launch::First,
+        }
+    }
+}
+
 type Loaded = Result<corpus::Corpus, String>;
 
 struct App {
     tab: Tab,
     entered: bool,
     corpus: Option<corpus::Corpus>,
-    loading: Option<(Receiver<Loaded>, PathBuf)>,
+    /// the corpus being opened and the tab it lands on.
+    loading: Option<(Receiver<Loaded>, PathBuf, Tab)>,
+    /// no corpus to reopen, or the one to reopen would not open: home is
+    /// the first-run screen until one opens.
+    first_run: bool,
+    /// where the corpora opened are remembered, when there is a data dir.
+    state_file: Option<PathBuf>,
+    /// the sample corpus setup laid down, for the first-run screen.
+    sample: Option<PathBuf>,
     sec_scroll: usize,
     ask: ask::Ask,
     health: health::Health,
@@ -70,13 +109,16 @@ struct App {
 }
 
 impl App {
-    fn new(file: Option<PathBuf>) -> Self {
+    fn new(launch: Launch, sample: Option<PathBuf>) -> Self {
         let cwd = std::env::current_dir().unwrap_or_default();
         let mut app = App {
             tab: Tab::Home,
             entered: true,
             corpus: None,
             loading: None,
+            first_run: launch == Launch::First,
+            state_file: state::file(),
+            sample,
             sec_scroll: 0,
             ask: ask::Ask::default(),
             health: health::Health::default(),
@@ -95,8 +137,10 @@ impl App {
             leaving: None,
         };
         app.health.refresh();
-        if let Some(f) = file {
-            app.open(f);
+        match launch {
+            Launch::File(f) => app.open(f, Tab::Corpus),
+            Launch::Ask(f) => app.open(f, Tab::Ask),
+            Launch::First => {}
         }
         app
     }
@@ -111,7 +155,7 @@ impl App {
         }
     }
 
-    fn open(&mut self, path: PathBuf) {
+    fn open(&mut self, path: PathBuf, land: Tab) {
         let (tx, rx) = channel();
         let p = path.clone();
         std::thread::spawn(move || {
@@ -122,7 +166,7 @@ impl App {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         self.toasts.push(format!("opening {name}"), Kind::Info);
-        self.loading = Some((rx, path));
+        self.loading = Some((rx, path, land));
     }
 
     fn leave(&mut self, how: Exit) {
@@ -133,9 +177,10 @@ impl App {
     }
 
     fn pump(&mut self) {
-        if let Some((rx, path)) = &self.loading
+        if let Some((rx, path, land)) = &self.loading
             && let Ok(res) = rx.try_recv()
         {
+            let land = *land;
             let name = path
                 .file_name()
                 .map(|n| n.to_string_lossy().into_owned())
@@ -155,12 +200,26 @@ impl App {
                         ),
                         kind,
                     );
+                    if let Some(f) = &self.state_file {
+                        state::remember(f, &c.path);
+                    }
                     self.corpus = Some(c);
+                    self.first_run = false;
                     self.sec_scroll = 0;
                     self.ask = ask::Ask::default();
-                    self.go(Tab::Corpus);
+                    self.go(land);
                 }
-                Err(e) => self.toasts.push(format!("{name}: {e}"), Kind::Err),
+                Err(e) => {
+                    self.toasts.push(format!("{name}: {e}"), Kind::Err);
+                    if let Some(f) = &self.state_file {
+                        state::forget(f, path);
+                    }
+                    // with nothing open, home goes back to the first-run
+                    // screen rather than the ordinary one.
+                    if self.corpus.is_none() {
+                        self.first_run = true;
+                    }
+                }
             }
             self.loading = None;
         }
@@ -197,7 +256,7 @@ impl App {
         }
     }
 
-    fn run(mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<(Exit, Option<PathBuf>)> {
+    fn run(mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<Exit> {
         loop {
             self.pump();
             let dt = self.clock.tick();
@@ -206,8 +265,7 @@ impl App {
             if let Some((t0, _)) = &self.leaving
                 && t0.elapsed() > Duration::from_millis(380)
             {
-                let how = self.leaving.take().map(|(_, h)| h).unwrap_or(Exit::Quit);
-                return Ok((how, self.corpus.map(|c| c.path)));
+                return Ok(self.leaving.take().map(|(_, h)| h).unwrap_or(Exit::Quit));
             }
             if let Some(ev) = term::next_event()? {
                 keys::route(&mut self, ev);
@@ -219,17 +277,108 @@ impl App {
 /// Runs the explorer; returns the exit code.
 pub fn run(file: Option<PathBuf>) -> anyhow::Result<i32> {
     pyenv::set_quiet(true);
-    let mut file = file;
+    let home = crate::cmd::paths::urna_home();
+    let sample = || home.as_deref().and_then(setup::sample::installed);
+    let saved = state::file().map(|f| state::State::read(&f));
+    let mut launch = Launch::pick(file, saved.as_ref().and_then(state::State::last));
     loop {
         let mut terminal = term::fullscreen()?;
-        let res = App::new(file.take()).run(&mut terminal);
+        let res = App::new(launch, sample()).run(&mut terminal);
         term::leave_fullscreen()?;
         match res? {
-            (Exit::Quit, _) => return Ok(0),
-            (Exit::Setup, open) => {
+            Exit::Quit => return Ok(0),
+            Exit::Setup => {
+                let before = sample().map(|p| stamp(&p));
                 setup::run(setup::Opts::default())?;
-                file = open;
+                let fresh = sample().filter(|p| Some(stamp(p)) != before);
+                let saved = state::file().map(|f| state::State::read(&f));
+                launch = match fresh {
+                    Some(p) => Launch::Ask(p),
+                    None => Launch::pick(None, saved.as_ref().and_then(state::State::last)),
+                };
             }
         }
+    }
+}
+
+/// A file's path and modification time: a sample setup downloads again
+/// lands under the same name with a new time.
+fn stamp(p: &Path) -> (PathBuf, Option<std::time::SystemTime>) {
+    let t = std::fs::metadata(p).and_then(|m| m.modified()).ok();
+    (p.to_path_buf(), t)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_given_wins_then_the_last_corpus_then_the_first_run() {
+        let f = PathBuf::from("/x/given.urna");
+        let last = Path::new("/x/last.urna");
+        assert_eq!(
+            Launch::pick(Some(f.clone()), Some(last)),
+            Launch::File(f.clone())
+        );
+        assert_eq!(Launch::pick(Some(f.clone()), None), Launch::File(f));
+        assert_eq!(
+            Launch::pick(None, Some(last)),
+            Launch::Ask(last.to_path_buf())
+        );
+        assert_eq!(Launch::pick(None, None), Launch::First);
+    }
+
+    #[test]
+    fn the_first_run_screen_shows_until_a_corpus_opens() {
+        let app = App::new(Launch::First, None);
+        assert!(app.first_run && app.tab == Tab::Home && app.loading.is_none());
+        let app = App::new(Launch::Ask(PathBuf::from("/nowhere/x.urna")), None);
+        assert!(!app.first_run);
+        assert!(matches!(&app.loading, Some((_, _, Tab::Ask))));
+        let app = App::new(Launch::File(PathBuf::from("/nowhere/x.urna")), None);
+        assert!(matches!(&app.loading, Some((_, _, Tab::Corpus))));
+    }
+
+    #[test]
+    fn a_corpus_that_will_not_open_lands_on_the_first_run_screen_forgotten() {
+        let d = std::env::temp_dir().join(format!("urna_broken_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let broken = d.join("broken.urna");
+        let other = d.join("other.urna");
+        for p in [&broken, &other] {
+            std::fs::write(p, b"not a corpus").unwrap();
+        }
+        let f = d.join("tui.json");
+        state::remember(&f, &other);
+        state::remember(&f, &broken);
+        let mut app = App::new(Launch::First, None);
+        app.state_file = Some(f.clone());
+        app.first_run = false;
+        let (tx, rx) = channel();
+        app.loading = Some((rx, broken.clone(), Tab::Ask));
+        tx.send(Err("broken".into())).unwrap();
+        app.pump();
+        assert!(app.first_run && app.corpus.is_none() && app.loading.is_none());
+        assert_eq!(app.tab, Tab::Home);
+        assert_eq!(
+            state::State::read(&f).recent,
+            [other.canonicalize().unwrap()]
+        );
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_sample_setup_downloads_again_changes_its_stamp() {
+        let d = std::env::temp_dir().join(format!("urna_stamp_{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("fakenews.urna");
+        std::fs::write(&p, b"v1").unwrap();
+        let before = stamp(&p);
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(d.join(".tmp"), b"v2").unwrap();
+        std::fs::rename(d.join(".tmp"), &p).unwrap();
+        assert_ne!(stamp(&p), before);
+        std::fs::remove_dir_all(&d).unwrap();
     }
 }
