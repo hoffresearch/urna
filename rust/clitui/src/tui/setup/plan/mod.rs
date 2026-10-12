@@ -53,6 +53,9 @@ pub struct Opts {
 #[derive(Clone, Debug)]
 pub struct Item {
     pub task: Task,
+    /// the plan ticks the step on its own; a flag or the user can untick
+    /// it, and `on` starts from it.
+    pub proposed: bool,
     pub on: bool,
     /// runs no matter what (verify).
     pub locked: bool,
@@ -162,9 +165,11 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
             (Some(p), None, false) => format!("present at {}; tick to reinstall", tilde(p)),
             (None, None, _) => fresh,
         };
+        let proposed = missing || broken.is_some() || stale.is_some() || opts.force;
         Item {
             task: Task::Payload,
-            on: (missing || broken.is_some() || stale.is_some() || opts.force) && !opts.no_payload,
+            proposed,
+            on: proposed && !opts.no_payload,
             locked: false,
             blocked,
             detail,
@@ -205,9 +210,11 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
             }
             _ => "needs uv (or curl to download it) or python3 with venv".into(),
         };
+        let proposed = !scan.deps || for_models || stale.is_some();
         Item {
             task: Task::Python,
-            on: (!scan.deps || for_models || stale.is_some()) && !opts.no_python,
+            proposed,
+            on: proposed && !opts.no_python,
             locked: false,
             blocked: if tool.is_none() {
                 Some("no uv, no curl to download it and no python3 on PATH".to_string())
@@ -221,29 +228,32 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
     };
     let verify = Item {
         task: Task::Verify,
+        proposed: true,
         on: true,
         locked: true,
         blocked: None,
         detail: "urna doctor: interpreter, deps, table, one offline embed".into(),
     };
+    let payload_runs = payload.runs();
     vec![
         payload,
         python,
         models_item(scan, opts),
         verify,
-        sample_item(scan, opts),
+        sample_item(scan, opts, payload_runs),
     ]
 }
 
 /// The sample corpus, after verify: offered whenever the catalogue names
 /// one and it is not already in the data dir. before a payload is installed
-/// the catalogue is not at hand yet, so the step reads it when it runs. it
-/// is optional: a machine that cannot fetch it shows why and starts with it
-/// unticked, so it never blocks the run.
-fn sample_item(scan: &Scan, opts: &Opts) -> Item {
+/// the catalogue is not at hand yet, so the step reads it when it runs,
+/// which it only can when the payload step runs before it. it is optional:
+/// a machine that cannot fetch it shows why and starts with it unticked, so
+/// it never blocks the run.
+fn sample_item(scan: &Scan, opts: &Opts, payload_runs: bool) -> Item {
     let about = super::sample::ABOUT;
     let named = scan.kit.as_ref().map(|k| k.catalog.sample.as_ref());
-    let (on, detail) = match (named, &scan.sample) {
+    let (proposed, detail) = match (named, &scan.sample) {
         (_, Some(p)) => (
             false,
             format!("present at {}; tick to download again", tilde(p)),
@@ -256,7 +266,14 @@ fn sample_item(scan: &Scan, opts: &Opts) -> Item {
             ),
         ),
         (Some(None), None) => (false, "the installed payload names no sample corpus".into()),
-        (None, None) => (true, format!("download a sample corpus to try: {about}")),
+        (None, None) if payload_runs => (
+            true,
+            format!("after the payload: download a sample corpus to try: {about}"),
+        ),
+        (None, None) => (
+            false,
+            "no payload is installed, so no catalogue names a sample corpus".into(),
+        ),
     };
     let blocked = if scan.home.is_none() {
         Some("no data dir: set URNA_DATA_DIR".to_string())
@@ -267,11 +284,23 @@ fn sample_item(scan: &Scan, opts: &Opts) -> Item {
     };
     Item {
         task: Task::Sample,
-        on: on && !opts.no_sample && blocked.is_none(),
+        proposed,
+        on: proposed && !opts.no_sample && blocked.is_none(),
         locked: false,
         blocked,
         detail,
     }
+}
+
+/// Whether the done screen should say that `urna setup` again downloads
+/// the sample: the plan proposed it, it did not run, and the user did not
+/// opt out. a step that ran and failed already shows its error.
+pub fn sample_hint(items: &[Item], opts: &Opts) -> bool {
+    !opts.no_sample
+        && items
+            .iter()
+            .find(|i| i.task == Task::Sample)
+            .is_some_and(|i| i.proposed && !i.runs())
 }
 
 /// The python range the installed payload's catalogue names, when it does.
@@ -323,6 +352,7 @@ fn models_item(scan: &Scan, opts: &Opts) -> Item {
     let offered = scan.kit.as_ref().map(|k| k.catalog.models.len());
     let mut item = Item {
         task: Task::Models,
+        proposed: !opts.models.is_empty(),
         on: !opts.models.is_empty(),
         locked: false,
         blocked: None,
