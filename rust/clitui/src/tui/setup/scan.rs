@@ -126,6 +126,32 @@ pub struct Scan {
     /// the sample corpus in `home`, when it holds the bytes the kit's
     /// catalogue names.
     pub sample: Option<PathBuf>,
+    /// the managed venv already holds torch (a model installed before
+    /// brought it): the model screen leaves it out of the sizes.
+    pub torch: bool,
+    /// the machine's total ram, for the model screen's fit mark.
+    pub ram: Option<u64>,
+}
+
+/// Whether the venv at `venv` holds torch, read off its site-packages
+/// (`lib/python3.X/` on unix, `Lib/` on windows) without running python.
+pub fn has_torch(venv: &Path) -> bool {
+    let marker = |site: PathBuf| site.join("torch").join("__init__.py").is_file();
+    if marker(venv.join("Lib").join("site-packages")) {
+        return true;
+    }
+    std::fs::read_dir(venv.join("lib"))
+        .map(|rd| rd.flatten().any(|e| marker(e.path().join("site-packages"))))
+        .unwrap_or(false)
+}
+
+/// The machine's total ram (sysinfo's memory probe alone).
+fn total_ram() -> Option<u64> {
+    use sysinfo::{MemoryRefreshKind, RefreshKind, System};
+    let sys = System::new_with_specifics(
+        RefreshKind::nothing().with_memory(MemoryRefreshKind::nothing().with_ram()),
+    );
+    Some(sys.total_memory()).filter(|n| *n > 0)
 }
 
 pub use crate::cmd::paths::which;
@@ -204,6 +230,8 @@ impl Scan {
             simd: urna_engine::simd::detect_backend().name(),
             kit,
             sample,
+            torch: paths::urna_home().is_some_and(|h| has_torch(&h.join("venv"))),
+            ram: total_ram(),
         }
     }
 
@@ -304,6 +332,7 @@ pub fn tilde(p: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
 
     #[test]
     fn channel_reads_the_install_path() {

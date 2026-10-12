@@ -197,7 +197,7 @@ pub enum Commands {
         /// Resolve the plan + dependency status without loading models.
         #[arg(long)]
         dry_run: bool,
-        /// Allow presets flagged too heavy for this machine (wemm-4b/9b).
+        /// Allow presets flagged too heavy for this machine (none of the shipped ones is).
         #[arg(long)]
         allow_heavy: bool,
     },

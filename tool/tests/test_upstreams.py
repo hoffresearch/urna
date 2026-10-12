@@ -118,28 +118,41 @@ def test_the_catalogue_carries_upstreams_verbatim() -> None:
     cat = json.loads(mc.CATALOG.read_text())
     assert cat["uv"] == held["uv"] and cat["python"] == held["python"]
     assert set(held["uv"]["archives"]) == set(up.UV_ARCHIVES)
-    other = {"uv": {"version": "9.9.9", "archives": {}}, "python": {"requires": ">=3.11,<3.12"}}
+    other = {
+        **held,
+        "uv": {"version": "9.9.9", "archives": {}},
+        "python": {"requires": ">=3.11,<3.12"},
+    }
     built = mc.build(upstreams=other)
+    assert built["torch"] == held["torch"] and built["lock"]["sha256"] == held["lock"]["sha256"]
     assert built["uv"]["version"] == "9.9.9" and built["python"]["requires"] == ">=3.11,<3.12"
     print("happy path (catalogue.json carries upstreams.json, nothing written by hand): OK")
 
 
 def test_a_moved_upstream_fails_check() -> None:
-    saved = up.resolve, up.UPSTREAMS
+    saved = up.resolve, up.UPSTREAMS, up.LOCK
     with tempfile.TemporaryDirectory(prefix="urna-upstreams-") as tmp:
         held = Path(tmp) / "upstreams.json"
+        lock = Path(tmp) / "modellock.txt"
         now = {"uv": {"version": "0.13.0"}, "python": {"requires": ">=3.10,<3.15"}}
         held.write_text(up.render(now))
+        lock.write_text("torch==2.14.1\n")
         try:
-            up.UPSTREAMS = held
-            up.resolve = lambda _sample=None: now
+            up.UPSTREAMS, up.LOCK = held, lock
+            up.resolve = lambda _sample=None: (now, "torch==2.14.1\n")
             assert up.main(["--check"]) == 0
-            up.resolve = lambda _sample=None: {**now, "uv": {"version": "0.14.0"}}
+            up.resolve = lambda _sample=None: (
+                {**now, "uv": {"version": "0.14.0"}},
+                "torch==2.14.1\n",
+            )
+            assert up.main(["--check"]) == 1
+            # a package that moved: the lock differs, upstreams.json alone does not.
+            up.resolve = lambda _sample=None: (now, "torch==2.15.0\n")
             assert up.main(["--check"]) == 1
             assert up.main(["--nope"]) == 2
         finally:
-            up.resolve, up.UPSTREAMS = saved
-    print("error path (a newer uv fails --check until upstreams.json is rewritten): OK")
+            up.resolve, up.UPSTREAMS, up.LOCK = saved
+    print("error path (a newer uv or a moved package fails --check until rewritten): OK")
 
 
 POTION = "sha256:" + "11" * 32

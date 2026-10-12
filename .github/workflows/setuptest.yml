@@ -214,10 +214,10 @@ jobs:
         shell: bash
         run: |
           code=0
-          out=$(urna setup --yes --no-payload --no-python --model wemm-4b) || code=$?
+          out=$(urna setup --yes --no-payload --no-python --model potion) || code=$?
           echo "$out"
           test "$code" = 14
-          grep -q "wemm-4b is not offered: flagged too heavy" <<<"$out"
+          grep -q "potion is not offered: ships inside the payload" <<<"$out"
 
   wheel:
     name: wheel ${{ matrix.os }}

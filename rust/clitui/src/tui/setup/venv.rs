@@ -213,20 +213,42 @@ pub fn uv_command(uv: &Path) -> Command {
     c
 }
 
+/// What a model's packages are resolved against: the payload's lock (exact
+/// versions, torch's cpu build) and the index that build is on. both empty
+/// for a payload from before the lock.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Pins {
+    pub lock: Option<PathBuf>,
+    pub torch_index: Option<String>,
+}
+
 /// The command that adds `pkgs` to the env whose interpreter is `py`: uv
-/// when it is on PATH, else that interpreter's own pip.
-pub fn add_command(uv: Option<&Path>, py: &Path, pkgs: &[String]) -> Command {
+/// when it is on PATH, else that interpreter's own pip. with a lock, only
+/// `pkgs` and what they need install, at the lock's versions (`-c`), and
+/// torch comes as its cpu build: uv finds that index itself with
+/// `--torch-backend cpu`, pip is pointed at it.
+pub fn add_command(uv: Option<&Path>, py: &Path, pkgs: &[String], pins: &Pins) -> Command {
     match uv {
         Some(uv) => {
             let mut c = uv_command(uv);
-            c.args(["pip", "install", "--python"]).arg(py).args(pkgs);
+            c.args(["pip", "install", "--python"]).arg(py);
+            if let Some(lock) = &pins.lock {
+                c.args(["--torch-backend", "cpu", "-c"]).arg(lock);
+            }
+            c.args(pkgs);
             c
         }
         None => {
             let mut c = Command::new(py);
             c.args(["-m", "pip", "install", "--disable-pip-version-check"])
-                .args(["--progress-bar", "off"])
-                .args(pkgs);
+                .args(["--progress-bar", "off"]);
+            if let Some(lock) = &pins.lock {
+                c.arg("-c").arg(lock);
+                if let Some(index) = &pins.torch_index {
+                    c.args(["--extra-index-url", index]);
+                }
+            }
+            c.args(pkgs);
             c
         }
     }
@@ -415,15 +437,19 @@ mod tests {
     fn packages_go_through_uv_or_the_envs_own_pip() {
         let py = Path::new("/h/urna/venv/bin/python");
         let pkgs = vec!["sentence-transformers>=3".to_string()];
-        let uv = format!("{:?}", add_command(Some(Path::new("/u/uv")), py, &pkgs));
+        let uv = format!(
+            "{:?}",
+            add_command(Some(Path::new("/u/uv")), py, &pkgs, &Pins::default())
+        );
         assert!(
             uv.contains("--python") && uv.contains("/h/urna/venv/bin/python"),
             "{uv}"
         );
-        let pip = format!("{:?}", add_command(None, py, &pkgs));
+        let pip = format!("{:?}", add_command(None, py, &pkgs, &Pins::default()));
         assert!(
             pip.starts_with("\"/h/urna/venv/bin/python\"") && pip.contains("pip"),
             "{pip}"
         );
     }
+
 }

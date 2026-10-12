@@ -367,7 +367,7 @@ pub fn needs_remote_code(entries: &[Entry], allowed: &[String]) -> Option<String
         .find(|e| e.remote_code && !allowed.contains(&e.name))
         .map(|e| {
             format!(
-                "{} runs code from its model repo: allow it separately (--allow-remote-code {0}, r in the picker)",
+                "{} runs code from its model repo, reviewed and pinned: allow it separately (--allow-remote-code {0}, r in the picker)",
                 e.name
             )
         })

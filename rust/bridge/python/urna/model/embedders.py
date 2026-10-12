@@ -191,7 +191,7 @@ class _SubprocessSTAdapter:
         device = self.usage.get("device_class")
         if device in (None, "", "auto"):
             device = stbackend._default_device()  # what the worker will actually use
-        return self.usage.get("model_dtype") or stbackend._default_dtype(device)
+        return self.usage.get("model_dtype") or stbackend._default_dtype(device, self.preset)
 
     def fingerprint(self) -> dict:
         from urna.embed import stbackend
