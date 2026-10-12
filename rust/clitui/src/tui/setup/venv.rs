@@ -102,24 +102,50 @@ pub fn version_of(py: &str) -> Option<(u32, u32)> {
     parse_version(&text)
 }
 
-/// For pip, when there is no uv: the newest interpreter on PATH inside
-/// `range` that can create a venv (`python3.14`, …, then `python3`,
-/// `python`).
-pub fn find_python(range: Range) -> Option<String> {
-    let mut names: Vec<String> = (range.lo..range.hi)
-        .rev()
-        .map(|m| format!("python3.{m}"))
-        .collect();
-    names.extend(["python3".to_string(), "python".to_string()]);
+/// For pip, when there is no uv: the newest interpreter on PATH that can
+/// create a venv (`import venv, ensurepip`), inside `range` when the
+/// catalogue names one (`python3.14`, …, then `python3`, `python`). the
+/// scan and the worker both ask here, so the plan's answer is the run's.
+pub fn find_python(range: Option<Range>) -> Option<String> {
+    let mut names: Vec<String> = range
+        .map(|r| (r.lo..r.hi).rev().map(|m| format!("python3.{m}")).collect())
+        .unwrap_or_default();
+    let stock: &[&str] = if cfg!(windows) {
+        &["python", "py"]
+    } else {
+        &["python3", "python"]
+    };
+    names.extend(stock.iter().map(|s| s.to_string()));
     names.iter().find_map(|n| {
         let p = crate::cmd::paths::which(n)?.to_string_lossy().into_owned();
-        let ok = version_of(&p).is_some_and(|v| range.holds(v))
+        if !crate::cmd::pyenv::may_run(&p) {
+            return None;
+        }
+        let fits = match range {
+            Some(r) => version_of(&p).is_some_and(|v| r.holds(v)),
+            None => true,
+        };
+        let ok = fits
             && Command::new(&p)
                 .args(["-c", "import venv, ensurepip"])
                 .output()
                 .is_ok_and(|o| o.status.success());
         ok.then_some(p)
     })
+}
+
+/// The block when no uv can be had and no python fits: `why` says what
+/// kept uv away; the python wanted and the fix are worded here once, for
+/// the plan before the run and the worker during it.
+pub fn no_tool(why: &str, range: Option<Range>) -> String {
+    match range {
+        Some(r) => format!(
+            "{why}, and no {r} is on PATH: install uv (https://docs.astral.sh/uv/) or a python inside the range"
+        ),
+        None => format!(
+            "{why}, and no python3 with venv is on PATH: install uv (https://docs.astral.sh/uv/) or python3"
+        ),
+    }
 }
 
 /// Runs `cmd`, forwarding stdout and stderr line by line to `log`; a
@@ -364,6 +390,27 @@ mod tests {
         assert!(Range::parse(">=3.15,<3.10").is_none());
         assert!(Range::parse("3.12").is_none());
         assert!(Range::parse(">=4.0,<4.1").is_none());
+    }
+
+    #[test]
+    fn no_python_fits_an_impossible_range() {
+        assert_eq!(find_python(Some(Range { lo: 90, hi: 91 })), None);
+    }
+
+    #[test]
+    fn the_missing_tool_is_worded_once_with_the_fix() {
+        let r = Range::parse(">=3.10,<3.15");
+        let why = no_tool("no uv and no curl to download it", r);
+        assert!(
+            why.contains("no python 3.10 to 3.14 is on PATH")
+                && why.contains("install uv (https://docs.astral.sh/uv/)"),
+            "{why}"
+        );
+        let bare = no_tool("no uv and no curl to download it", None);
+        assert!(
+            bare.contains("no python3 with venv") && bare.contains("docs.astral.sh"),
+            "{bare}"
+        );
     }
 
     #[test]

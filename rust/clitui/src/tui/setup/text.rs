@@ -118,7 +118,10 @@ pub fn run(opts: &Opts) -> i32 {
             None => {
                 println!(
                     "  try: urna tui   ·   urna ask corpus.urna \"...\"   ·   https://urna.dev"
-                )
+                );
+                if plan::sample_hint(&items, opts) {
+                    println!("  sample corpus: urna setup again downloads it");
+                }
             }
         }
     } else {

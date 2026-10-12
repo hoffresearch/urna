@@ -42,13 +42,16 @@ impl State {
     /// relative to a folder deleted since still opens; the ones gone from
     /// disk drop out.
     pub fn opened(&mut self, corpus: &Path) {
-        let corpus = corpus
-            .canonicalize()
-            .or_else(|_| std::path::absolute(corpus))
-            .unwrap_or_else(|_| corpus.to_path_buf());
+        let corpus = resolve(corpus);
         self.recent.retain(|p| *p != corpus && p.is_file());
         self.recent.insert(0, corpus);
         self.recent.truncate(KEEP);
+    }
+
+    /// Drops `corpus`, resolved the same way; the others keep their order.
+    pub fn forgot(&mut self, corpus: &Path) {
+        let corpus = resolve(corpus);
+        self.recent.retain(|p| *p != corpus);
     }
 
     /// Writes the file whole or not at all (a temp file renamed over it).
@@ -65,13 +68,30 @@ impl State {
     }
 }
 
-/// Records `corpus` as the one opened last.
-pub fn remember(corpus: &Path) {
-    if let Some(f) = file() {
-        let mut s = State::read(&f);
-        s.opened(corpus);
-        let _ = s.write(&f);
-    }
+/// The path as the file keeps it: canonical when the file is there,
+/// absolute otherwise, as given when not even that works.
+fn resolve(corpus: &Path) -> PathBuf {
+    corpus
+        .canonicalize()
+        .or_else(|_| std::path::absolute(corpus))
+        .unwrap_or_else(|_| corpus.to_path_buf())
+}
+
+/// Records `corpus` in `file` as the one opened last.
+pub fn remember(file: &Path, corpus: &Path) {
+    update(file, |s| s.opened(corpus));
+}
+
+/// Drops `corpus` from `file`, so a corpus that would not open is not
+/// retried on the next launch.
+pub fn forget(file: &Path, corpus: &Path) {
+    update(file, |s| s.forgot(corpus));
+}
+
+fn update(file: &Path, change: impl FnOnce(&mut State)) {
+    let mut s = State::read(file);
+    change(&mut s);
+    let _ = s.write(file);
 }
 
 #[cfg(test)]
@@ -127,6 +147,31 @@ mod tests {
         assert_eq!(s.last(), None);
         s.opened(&d.join("c.urna"));
         assert_eq!(s.recent, [d.join("c.urna"), d.join("a.urna")]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_forgotten_corpus_goes_and_the_others_keep_their_order() {
+        let d = dir("forget");
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        for n in ["a.urna", "b.urna", "c.urna"] {
+            std::fs::write(d.join(n), b"x").unwrap();
+        }
+        let mut s = State::default();
+        for n in ["a.urna", "b.urna", "c.urna"] {
+            s.opened(&d.join(n));
+        }
+        // through another path, like `opened` would see it.
+        s.forgot(&d.join("sub/../b.urna"));
+        assert_eq!(s.recent, [d.join("c.urna"), d.join("a.urna")]);
+        s.forgot(&d.join("nowhere.urna"));
+        assert_eq!(s.recent.len(), 2);
+        // the file round trip: the entry is gone from disk too.
+        let f = d.join("tui.json");
+        remember(&f, &d.join("b.urna"));
+        remember(&f, &d.join("a.urna"));
+        forget(&f, &d.join("b.urna"));
+        assert_eq!(State::read(&f).recent, [d.join("a.urna")]);
         std::fs::remove_dir_all(&d).unwrap();
     }
 

@@ -29,10 +29,13 @@ pub fn potion_url() -> String {
     )
 }
 
-/// The sha256 an lfs pointer names, when `path` is one.
+/// The sha256 an lfs pointer names, when `path` is one. A pointer is about
+/// 130 bytes; the size rules out the real table before anything is read.
 pub fn lfs_oid(path: &Path) -> Option<String> {
-    let head = std::fs::read(path).ok().filter(|b| b.len() < 1024)?;
-    let text = String::from_utf8(head).ok()?;
+    if std::fs::metadata(path).ok()?.len() >= 1024 {
+        return None;
+    }
+    let text = std::fs::read_to_string(path).ok()?;
     if !text.starts_with("version https://git-lfs") {
         return None;
     }
@@ -141,6 +144,9 @@ mod tests {
         assert_eq!(lfs_oid(&d.join("ptr")).as_deref(), Some("abc123"));
         std::fs::write(d.join("real"), b"\x50\x00\x00\x00{\"embeddings\"").unwrap();
         assert_eq!(lfs_oid(&d.join("real")), None);
+        std::fs::write(d.join("large"), vec![0u8; 2048]).unwrap();
+        assert_eq!(lfs_oid(&d.join("large")), None);
+        assert_eq!(lfs_oid(&d.join("absent")), None);
         std::fs::remove_dir_all(&d).unwrap();
     }
 

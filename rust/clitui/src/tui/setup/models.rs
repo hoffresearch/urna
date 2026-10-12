@@ -60,6 +60,14 @@ impl Kit {
             torch_index: self.catalog.torch.as_ref().map(|t| t.index.clone()),
         }
     }
+
+    /// The python range the catalogue names, when it does.
+    pub fn range(&self) -> Option<super::venv::Range> {
+        self.catalog
+            .python
+            .as_ref()
+            .and_then(|p| super::venv::Range::parse(&p.requires))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

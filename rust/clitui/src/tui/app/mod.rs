@@ -6,7 +6,9 @@
 //!
 //! it opens the file it is given, else the corpus it opened last (on the
 //! ask tab, ready for a question), else the first-run screen; back from
-//! setup with the sample corpus just downloaded, it opens the sample.
+//! setup with the sample corpus just downloaded, it opens the sample. a
+//! corpus that will not open lands on the first-run screen too, and is
+//! forgotten, so the next launch does not try it again.
 
 pub mod ask;
 mod chrome;
@@ -81,8 +83,11 @@ struct App {
     corpus: Option<corpus::Corpus>,
     /// the corpus being opened and the tab it lands on.
     loading: Option<(Receiver<Loaded>, PathBuf, Tab)>,
-    /// no corpus to reopen: home is the first-run screen until one opens.
+    /// no corpus to reopen, or the one to reopen would not open: home is
+    /// the first-run screen until one opens.
     first_run: bool,
+    /// where the corpora opened are remembered, when there is a data dir.
+    state_file: Option<PathBuf>,
     /// the sample corpus setup laid down, for the first-run screen.
     sample: Option<PathBuf>,
     sec_scroll: usize,
@@ -112,6 +117,7 @@ impl App {
             corpus: None,
             loading: None,
             first_run: launch == Launch::First,
+            state_file: state::file(),
             sample,
             sec_scroll: 0,
             ask: ask::Ask::default(),
@@ -194,14 +200,26 @@ impl App {
                         ),
                         kind,
                     );
-                    state::remember(&c.path);
+                    if let Some(f) = &self.state_file {
+                        state::remember(f, &c.path);
+                    }
                     self.corpus = Some(c);
                     self.first_run = false;
                     self.sec_scroll = 0;
                     self.ask = ask::Ask::default();
                     self.go(land);
                 }
-                Err(e) => self.toasts.push(format!("{name}: {e}"), Kind::Err),
+                Err(e) => {
+                    self.toasts.push(format!("{name}: {e}"), Kind::Err);
+                    if let Some(f) = &self.state_file {
+                        state::forget(f, path);
+                    }
+                    // with nothing open, home goes back to the first-run
+                    // screen rather than the ordinary one.
+                    if self.corpus.is_none() {
+                        self.first_run = true;
+                    }
+                }
             }
             self.loading = None;
         }
@@ -319,6 +337,35 @@ mod tests {
         assert!(matches!(&app.loading, Some((_, _, Tab::Ask))));
         let app = App::new(Launch::File(PathBuf::from("/nowhere/x.urna")), None);
         assert!(matches!(&app.loading, Some((_, _, Tab::Corpus))));
+    }
+
+    #[test]
+    fn a_corpus_that_will_not_open_lands_on_the_first_run_screen_forgotten() {
+        let d = std::env::temp_dir().join(format!("urna_broken_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        let broken = d.join("broken.urna");
+        let other = d.join("other.urna");
+        for p in [&broken, &other] {
+            std::fs::write(p, b"not a corpus").unwrap();
+        }
+        let f = d.join("tui.json");
+        state::remember(&f, &other);
+        state::remember(&f, &broken);
+        let mut app = App::new(Launch::First, None);
+        app.state_file = Some(f.clone());
+        app.first_run = false;
+        let (tx, rx) = channel();
+        app.loading = Some((rx, broken.clone(), Tab::Ask));
+        tx.send(Err("broken".into())).unwrap();
+        app.pump();
+        assert!(app.first_run && app.corpus.is_none() && app.loading.is_none());
+        assert_eq!(app.tab, Tab::Home);
+        assert_eq!(
+            state::State::read(&f).recent,
+            [other.canonicalize().unwrap()]
+        );
+        std::fs::remove_dir_all(&d).unwrap();
     }
 
     #[test]
