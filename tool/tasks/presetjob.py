@@ -13,13 +13,21 @@ loads it and embeds one query with downloads off; setup must exit 0 and say
 the query was answered. a preset whose estimated minimum ram is more than
 this machine has is skipped and listed, not failed.
 
+on an apple-silicon mac the device is settled before the loop: the smallest
+preset is installed first, which brings torch into the env, and mps is
+probed there with one matmul. github's mac runner is a vm whose metal
+reports mps available but cannot compile torch's kernels; when the probe
+fails, every preset runs on the cpu (`URNA_ST_DEVICE=cpu` for each setup)
+and the summary says so. when it passes, that first install counts.
+
 last, torch's own memory (torch and sentence-transformers imported, no
 model) is measured in the env and compared with the catalogue's value for
 this platform: off by more than a quarter, or missing, fails with the value
-to write into upstreams.json's `torch.rss`.
+to write into upstreams.json's `torch.rss`. a measurement of 0 is the probe
+failing, never a value to write.
 
-exit codes: 0 every preset passed (skips listed), 1 a preset or the memory
-check failed, 2 usage.
+exit codes: 0 every preset passed (skips listed), 1 a preset, the env or the
+memory check failed, 2 usage (an unknown --only name included).
 """
 
 from __future__ import annotations
@@ -37,12 +45,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "rust" / "bridge" / "python" / "urna" / "model" / "catalogue.json"
 RSS_SLACK = 0.25
+PROBE_TIMEOUT = 300
 MEASURE = (
     "import sys, resource\n"
     "import torch, transformers, sentence_transformers\n"
     "r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss\n"
     "print(r if sys.platform == 'darwin' else r * 1024)\n"
 )
+# PROCESS_MEMORY_COUNTERS: cb, PageFaultCount, then eight SIZE_T, the first
+# of them PeakWorkingSetSize. the handle keeps its width and the BOOL is
+# checked: a failed call raises instead of printing the zeroed struct.
 MEASURE_WINDOWS = (
     "import ctypes, ctypes.wintypes as w\n"
     "import torch, transformers, sentence_transformers\n"
@@ -50,11 +62,25 @@ MEASURE_WINDOWS = (
     "    _fields_ = [('cb', w.DWORD), ('faults', w.DWORD)] + [\n"
     "        (n, ctypes.c_size_t)\n"
     "        for n in ('peak', 'ws', 'qpp', 'qp', 'qnpp', 'qnp', 'pf', 'ppf')]\n"
+    "k32 = ctypes.WinDLL('kernel32', use_last_error=True)\n"
+    "psapi = ctypes.WinDLL('psapi', use_last_error=True)\n"
+    "k32.GetCurrentProcess.restype = w.HANDLE\n"
+    "psapi.GetProcessMemoryInfo.argtypes = [w.HANDLE, ctypes.POINTER(C), w.DWORD]\n"
+    "psapi.GetProcessMemoryInfo.restype = w.BOOL\n"
     "c = C(); c.cb = ctypes.sizeof(C)\n"
-    "ctypes.windll.psapi.GetProcessMemoryInfo(\n"
-    "    ctypes.windll.kernel32.GetCurrentProcess(), ctypes.byref(c), c.cb)\n"
+    "if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb):\n"
+    "    raise ctypes.WinError(ctypes.get_last_error())\n"
     "print(c.peak)\n"
 )
+MPS_AVAILABLE = "import torch; print(torch.backends.mps.is_available())"
+MPS_PROBE = (
+    "import torch\na = torch.ones(64, 64, device='mps')\nprint(float((a @ a).sum().item()))\n"
+)
+MPS_PROBE_SUM = "262144.0"  # 64 * 64 elements, each a row of 64 ones
+
+
+class NoTorch(Exception):
+    """The env has no torch to probe: its first install did not build it."""
 
 
 def target() -> str:
@@ -91,15 +117,25 @@ def total_ram() -> int | None:
     return s.phys if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s)) else None
 
 
-def real_device(data: Path, tgt: str) -> str:
-    """The device the env's torch will run on: mps only where torch says it
-    is there (a mac runner is a vm, which may have none)."""
-    py = venv_python(data)
-    if device(tgt) != "mps" or not py.is_file():
-        return device(tgt)
-    code = "import torch; print(torch.backends.mps.is_available())"
-    out = subprocess.run([str(py), "-c", code], capture_output=True, text=True)
-    return "mps" if out.stdout.strip() == "True" else "cpu"
+def mps_fault(py: Path) -> str | None:
+    """Why the env's torch cannot run on mps, or None when it can: torch may
+    find no device (a mac runner is a vm), or one whose metal cannot compile
+    its kernels, as github's does; only a matmul that runs tells the two
+    apart from a working gpu."""
+    out = subprocess.run([str(py), "-c", MPS_AVAILABLE], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise NoTorch(f"the env's torch does not import: {out.stderr.strip()[-400:]}")
+    if out.stdout.strip() != "True":
+        return "torch finds no mps device on this machine"
+    try:
+        out = subprocess.run(
+            [str(py), "-c", MPS_PROBE], capture_output=True, text=True, timeout=PROBE_TIMEOUT
+        )
+    except subprocess.TimeoutExpired:
+        return f"mps is available but a kernel did not finish in {PROBE_TIMEOUT} s"
+    if out.returncode != 0 or out.stdout.strip() != MPS_PROBE_SUM:
+        return "mps is available but cannot compile a kernel on this machine"
+    return None
 
 
 def min_ram(entry: dict, catalog: dict, tgt: str, dev: str) -> int | None:
@@ -110,15 +146,30 @@ def min_ram(entry: dict, catalog: dict, tgt: str, dev: str) -> int | None:
     return entry["params"] * per + catalog.get("torch", {}).get("rss", {}).get(tgt, 0)
 
 
+def too_big(entry: dict, catalog: dict, tgt: str, dev: str, ram: int | None) -> str | None:
+    """The skip line for a preset whose estimate is more than this machine has."""
+    need = min_ram(entry, catalog, tgt, dev)
+    if need and ram and need > ram:
+        return (
+            f"{entry['name']}: needs ~{need / (1 << 30):.1f} GB, this machine has "
+            f"{ram / (1 << 30):.1f} GB"
+        )
+    return None
+
+
 def venv_python(data: Path) -> Path:
     venv = data / "urna" / "venv"
     return venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
 
 
-def run_one(urna: Path, entry: dict, data: Path) -> tuple[bool, str]:
+def run_one(urna: Path, entry: dict, data: Path, st_device: str | None) -> tuple[bool, str]:
+    """One `urna setup` for `entry`; `st_device` pins the sentence-transformers
+    device for the query step, through to `presetqry.py`."""
     hf = Path(tempfile.mkdtemp(prefix=f"presetjob-hf-{entry['name']}-"))
     env = {**os.environ, "URNA_DATA_DIR": str(data), "HF_HOME": str(hf)}
     env.pop("URNA_ALLOW_DOWNLOAD", None)
+    if st_device:
+        env["URNA_ST_DEVICE"] = st_device
     cmd = [str(urna), "setup", "--yes", "--no-sample", "--model", entry["name"]]
     if entry["remote_code"]:
         cmd += ["--allow-remote-code", entry["name"]]
@@ -131,13 +182,25 @@ def run_one(urna: Path, entry: dict, data: Path) -> tuple[bool, str]:
     return ok, text
 
 
+def report(ok: bool, text: str) -> None:
+    """A pass shows the line setup prints for the model; a failure, all."""
+    done = [ln for ln in text.splitlines() if "ok models:" in ln]
+    print("\n".join(done) if ok else text, flush=True)
+
+
 def check_rss(catalog: dict, data: Path, tgt: str) -> str | None:
     """An error when torch's measured memory is not the catalogue's."""
     code = MEASURE_WINDOWS if sys.platform == "win32" else MEASURE
     out = subprocess.run([str(venv_python(data)), "-c", code], capture_output=True, text=True)
     if out.returncode != 0:
         return f"measuring torch's memory failed: {out.stderr.strip()[-400:]}"
-    got = int(out.stdout.strip())
+    text = out.stdout.strip()
+    got = int(text) if text.isdigit() else 0
+    if got <= 0:
+        return (
+            f"measuring torch's memory gave {text or 'nothing'}: the probe is broken, "
+            "there is no value to write"
+        )
     held = catalog.get("torch", {}).get("rss", {}).get(tgt)
     print(f"torch's own memory on {tgt}: {got} bytes ({got / (1 << 30):.2f} GB)")
     if held is None or abs(got - held) > RSS_SLACK * held:
@@ -154,31 +217,52 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--only", nargs="*", default=[])
     args = ap.parse_args(argv)
     catalog = json.loads(CATALOG.read_text())
+    names = [e["name"] for e in catalog["models"]]
+    unknown = [n for n in args.only if n not in names]
+    if unknown:
+        ap.error(f"unknown preset {', '.join(unknown)}; setup offers {', '.join(names)}")
     tgt = target()
     ram = total_ram()
     entries = [e for e in catalog["models"] if not args.only or e["name"] in args.only]
     data = Path(tempfile.mkdtemp(prefix="presetjob-data-"))
+    dev, st_device = device(tgt), None
+    done: dict[str, tuple[bool, str]] = {}
+    fits = [e for e in entries if not too_big(e, catalog, tgt, dev, ram)]
+    if dev == "mps" and fits:
+        first = min(fits, key=lambda e: e["bytes"])
+        print(f"== {first['name']} (the env mps is probed in)", flush=True)
+        done[first["name"]] = run_one(args.urna, first, data, None)
+        try:
+            fault = mps_fault(venv_python(data))
+        except NoTorch as e:
+            report(False, done[first["name"]][1])
+            print(f"\nFAILED {e}")
+            return 1
+        if fault:
+            print(f"{fault}: the presets run on the cpu", flush=True)
+            dev, st_device = "cpu", "cpu"
+            done.clear()
+        else:
+            report(*done[first["name"]])
     failed, skipped = [], []
     for e in entries:
-        need = min_ram(e, catalog, tgt, real_device(data, tgt))
-        if need and ram and need > ram:
-            skipped.append(
-                f"{e['name']}: needs ~{need / (1 << 30):.1f} GB, this machine has "
-                f"{ram / (1 << 30):.1f} GB"
-            )
-            print(f"skip {skipped[-1]}", flush=True)
+        skip = too_big(e, catalog, tgt, dev, ram)
+        if skip:
+            skipped.append(skip)
+            print(f"skip {skip}", flush=True)
             continue
-        print(f"== {e['name']}", flush=True)
-        ok, text = run_one(args.urna, e, data)
-        # a pass shows the line setup prints for the model; a failure, all.
-        done = [ln for ln in text.splitlines() if "ok models:" in ln]
-        print("\n".join(done) if ok else text, flush=True)
+        if e["name"] in done:
+            ok = done[e["name"]][0]
+        else:
+            print(f"== {e['name']}", flush=True)
+            ok, text = run_one(args.urna, e, data, st_device)
+            report(ok, text)
         if not ok:
             failed.append(e["name"])
     rss = check_rss(catalog, data, tgt) if venv_python(data).is_file() else None
     print(
         f"\npresets: {len(entries) - len(failed) - len(skipped)} passed, "
-        f"{len(failed)} failed, {len(skipped)} skipped on {tgt}"
+        f"{len(failed)} failed, {len(skipped)} skipped on {tgt}, device {dev}"
     )
     for s in skipped:
         print(f"  skipped {s}")

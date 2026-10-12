@@ -103,6 +103,12 @@ def missing_packages(entry: dict) -> list[str]:
 
 def check_expected(entry: dict, expect: str | None) -> None:
     if entry["kind"] == "st_multimodal":
+        if expect:
+            print(
+                f"note: {entry['name']}'s model_hash names the dtype of the device it runs "
+                f"on; whether it is the corpus's {expect} is checked by the query that follows",
+                file=sys.stderr,
+            )
         return
     if expect and expect != entry["model_hash"]:
         raise Refused(

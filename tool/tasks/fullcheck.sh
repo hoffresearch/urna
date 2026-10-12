@@ -304,6 +304,13 @@ python_tests() {
   "$PY" tool/tests/test_upstreams.py
   ok "upstreams: uv, the python range and the sample (7 cases)"
 
+  # the preset job: an unknown --only name is a usage error, a measured 0 is
+  # the probe failing, and an mps that compiles no kernel (github's mac
+  # runner) runs every preset on the cpu (subprocess stubbed, no urna).
+  step "python tool/tests/test_presetjob.py"
+  "$PY" tool/tests/test_presetjob.py
+  ok "presetjob: preset job (4 cases)"
+
   # the model fetch: confirmed downloads only, the pinned files only, kept
   # only when the fingerprint is the catalog's (an 18 MB hub model; the
   # download cases skip by name when huggingface.co does not answer).

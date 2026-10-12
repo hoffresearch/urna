@@ -9,7 +9,12 @@
 #
 # each platform setup installs on: linux x86_64 and aarch64, windows, an
 # apple-silicon mac. a preset whose estimated ram is more than the runner
-# has (the mac runner has 7 GB) is skipped and listed, not failed.
+# has (the mac runner has 7 GB) is skipped and listed, not failed. the mac
+# runner is a vm whose metal reports mps available but cannot compile
+# torch's kernels: the script probes mps in the env after the first install
+# and, when the probe fails, runs every preset on the cpu
+# (URNA_ST_DEVICE=cpu), saying so once; a real apple-silicon mac runs them
+# on mps.
 
 name: presetjob
 

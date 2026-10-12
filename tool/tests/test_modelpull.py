@@ -131,7 +131,8 @@ def test_a_device_dtype_hash_is_left_to_the_query(d: Path) -> None:
     cat = _catalog(d, _entry("multi", kind="st_multimodal"), tag="st")
     plan = _run(hf, cat, "plan", "multi", "--expect-hash", "sha256:" + "2" * 64)
     assert plan.returncode == 0, plan.stderr
-    print("edge (an st_multimodal corpus hash does not refuse the plan): OK")
+    assert "checked by the query that follows" in plan.stderr, plan.stderr
+    print("edge (an st_multimodal corpus hash does not refuse the plan, says so): OK")
 
 
 def test_two_bars_for_one_file_never_go_back() -> None:
