@@ -9,6 +9,7 @@
 
 pub mod agent;
 pub mod benchmark;
+pub mod buildid;
 pub mod cite;
 pub mod doctor;
 pub mod embed_failure;

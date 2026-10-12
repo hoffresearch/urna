@@ -79,19 +79,26 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
             .and_then(|s| s.home.clone())
             .map(|h| tilde(&h))
             .unwrap_or_default();
-        let version = ui
-            .opts
-            .version
-            .clone()
-            .unwrap_or_else(|| env!("CARGO_PKG_VERSION").into());
+        let tree = ui
+            .scan
+            .as_ref()
+            .and_then(|s| crate::tui::setup::plan::from_tree(s, &ui.opts));
+        let source = match tree {
+            Some(t) => format!("this build's checkout, {}", tilde(t)),
+            None => format!(
+                "github release v{}",
+                ui.opts
+                    .version
+                    .as_deref()
+                    .unwrap_or(env!("CARGO_PKG_VERSION"))
+                    .trim_start_matches('v')
+            ),
+        };
         let rows = [
             ("payload", format!("{home}/python")),
             ("python env", format!("{home}/venv")),
             ("models", "the shared hugging face cache".into()),
-            (
-                "source",
-                format!("github release v{}", version.trim_start_matches('v')),
-            ),
+            ("source", source),
             ("network", "curl; the hf hub for picked models".into()),
             ("binary", "left to its package manager".into()),
         ];

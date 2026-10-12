@@ -134,6 +134,12 @@ jobs:
       - name: "fetch the potion table (embedder payload), verified against its lfs pointer"
         run: "sh tool/tasks/getpotion.sh"
         shell: "bash"
+      - name: "name the release tag the binary builds for"
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "URNA_RELEASE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+          fi
+        shell: "bash"
       - name: Install dist
         run: ${{ matrix.install_dist.run }}
       # Get the dist-manifest

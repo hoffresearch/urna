@@ -84,9 +84,11 @@ links = [
 
 [[layers]]
 name = "urna"
-role = "Thin clap front-end over format and runtime APIs, two verb groups in one binary: the ENGINE verbs in cmd/*.rs (inspect, validate, stats, media, search, search-ann, search-graph, search-space over named bands, search-text, benchmark, cite, doctor: file + vector in; only search-text and doctor spawn Python) and the AGENT verbs in cmd/agent/*.rs (ask, retrieve, build: text or spec in, offline embed routed by manifest model through the ONE three-layer model gate in cmd/embed_gate.rs, capability route, tier-1 cited spans, --disclose answer|explain honesty, the declarative build launcher); --help orders and tags the groups"
+role = "Thin clap front-end over format and runtime APIs, two verb groups in one binary: the ENGINE verbs in cmd/*.rs (inspect, validate, stats, media, search, search-ann, search-graph, search-space over named bands, search-text, benchmark, cite, doctor: file + vector in; only search-text and doctor spawn Python) and the AGENT verbs in cmd/agent/*.rs (ask, retrieve, build: text or spec in, offline embed routed by manifest model through the ONE three-layer model gate in cmd/embed_gate.rs, capability route, tier-1 cited spans, --disclose answer|explain honesty, the declarative build launcher); --help orders and tags the groups; build.rs names the binary a release (its tag, which must be v + the crate version) or a development build (<version>+dev.<sha>)"
 entrypoints = ["rust/clitui/src/main.rs"]
 links = [
+    "rust/clitui/build.rs",
+    "rust/clitui/src/cmd/buildid.rs",
     "rust/clitui/src/cli.rs",
     "rust/clitui/src/cmd/mod.rs",
     "rust/clitui/src/cmd/agent/mod.rs",
@@ -98,10 +100,11 @@ links = [
 
 [[layers]]
 name = "urna terminal ui"
-role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts). The urna.dev palette folded to the terminal's color depth, tachyonfx on every screen change. No network stack is linked; no format or runtime API is touched"
+role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack (a development build stages its own checkout instead) and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts). The urna.dev palette folded to the terminal's color depth, tachyonfx on every screen change. No network stack is linked; no format or runtime API is touched"
 entrypoints = ["rust/clitui/src/tui/mod.rs"]
 links = [
     "rust/clitui/src/tui/setup/mod.rs",
+    "rust/clitui/src/tui/setup/tree.rs",
     "rust/clitui/src/tui/app/mod.rs",
     "rust/clitui/src/cmd/health.rs",
     "rust/clitui/src/cmd/paths.rs",
@@ -2430,8 +2433,8 @@ links = []
 [[inventory.data_docs_python_script_tests]]
 path = "docs/CONTRIBUTING.md"
 kind = "contributor-doc"
-purpose = "Setup, branching, testing, and style guidance"
-links = ["tool/tasks/fullcheck.sh"]
+purpose = "Setup, the local gate and its tools, branching, testing, and style guidance"
+links = ["tool/tasks/fullcheck.sh", "tool/tasks/cleanhost.sh"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "docs/USAGE.md"

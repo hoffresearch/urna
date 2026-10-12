@@ -432,7 +432,13 @@ def check_binary(directory: Path, target: str, golden: Path, version: str) -> li
         shown = subprocess.run([str(exe), "--version"], capture_output=True, text=True)
         valid = subprocess.run([str(exe), "validate", str(golden)], capture_output=True, text=True)
     errors = []
-    if shown.returncode != 0 or shown.stdout.split() != ["urna", version]:
+    # the rehearsal builds a branch, which is a development build of the
+    # version (`<version>+dev.<sha>`, rust/clitui/build.rs); only the tag's
+    # build is named by the version alone.
+    name = re.escape(version) + r"(\+dev(\.[0-9a-f]+)?)?"
+    said = shown.stdout.split()
+    named = len(said) == 2 and said[0] == "urna" and re.fullmatch(name, said[1])
+    if shown.returncode != 0 or not named:
         said = f"{shown.stdout.strip()!r} (exit {shown.returncode})"
         errors.append(f"{archive.name}: --version says {said}, not 'urna {version}'")
     if valid.returncode != 0:

@@ -85,6 +85,13 @@ tui-scrollbar = { version = "0.2.8", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
 
+# the uv archive setup downloads on windows is a .zip (a .tar.gz elsewhere,
+# read with flate2 + tar); reading deflate is all it needs. `deflate-flate2`
+# selects no flate2 backend itself: the flate2 above (`tui`, default
+# features) brings it, both are the same crate.
+[target.'cfg(windows)'.dependencies]
+zip = { version = "9", default-features = false, features = ["deflate-flate2"], optional = true }
+
 [features]
 default = ["tui"]
 tui = [
@@ -97,7 +104,14 @@ tui = [
     "dep:tui-scrollbar",
     "dep:flate2",
     "dep:tar",
+    "dep:zip",
 ]
+
+[build-dependencies]
+# build.rs names a development build by its git sha (issue #530). 9.1 is
+# the last line whose msrv (1.88) matches this crate's; 10.x needs 1.96.
+vergen-gitcl = "9.1.0"
+anyhow = { workspace = true }
 
 [dev-dependencies]
 # tests/setup_e2e.rs packs a real payload tarball for `urna setup` to fetch

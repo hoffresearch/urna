@@ -9,6 +9,12 @@ the catalog ships in the payload as `urna/model/catalogue.json`; no remote index
 `rust/bridge/python/urna/model/catalogue.json` is this module's output, checked in:
 `tool/tasks/embedpack.py` and `tool/tests/test_embedpack.py` refuse a stale copy.
 
+beside the models it carries what setup takes from upstreams: the uv release
+it downloads when a machine has none (a url and sha256 per platform) and the
+python range torch has wheels for. `tool/tasks/upstreams.py` resolves them
+over the network into `upstreams.json`; this module only copies that file,
+so `--check` stays a bare-python, offline check.
+
 usage:  python rust/bridge/python/urna/model/catalogue.py            print the catalog
         python rust/bridge/python/urna/model/catalogue.py --write    rewrite catalogue.json
         python rust/bridge/python/urna/model/catalogue.py --check    exit 1 when stale
@@ -30,6 +36,7 @@ from urna.model.presetmap import PRESETS, ModelPreset  # noqa: E402
 
 SCHEMA = 1
 CATALOG = Path(__file__).resolve().with_name("catalogue.json")
+UPSTREAMS = Path(__file__).resolve().with_name("upstreams.json")
 
 
 def exclusion(preset: ModelPreset) -> str | None:
@@ -98,8 +105,15 @@ def _entry(preset: ModelPreset) -> dict:
     }
 
 
-def build(presets: dict[str, ModelPreset] = PRESETS) -> dict:
-    """The catalog for `presets`, in registry order; the test-only fake
+def load_upstreams(path: Path | None = None) -> dict:
+    """`upstreams.json`: `{"uv": {...}, "python": {...}}`, resolved by
+    `tool/tasks/upstreams.py`."""
+    return json.loads((path or UPSTREAMS).read_text())
+
+
+def build(presets: dict[str, ModelPreset] = PRESETS, upstreams: dict | None = None) -> dict:
+    """The catalog for `presets`, in registry order, with the upstream
+    values of `upstreams` (default: `upstreams.json`); the test-only fake
     preset is left out of both lists."""
     models: list[dict] = []
     excluded: list[dict] = []
@@ -121,7 +135,14 @@ def build(presets: dict[str, ModelPreset] = PRESETS) -> dict:
             if pin is not None:
                 pins.setdefault(pin[0], (pin[1], preset.name))
         models.append(_entry(preset))
-    return {"schema": SCHEMA, "models": models, "excluded": excluded}
+    up = load_upstreams() if upstreams is None else upstreams
+    return {
+        "schema": SCHEMA,
+        "uv": up["uv"],
+        "python": up["python"],
+        "models": models,
+        "excluded": excluded,
+    }
 
 
 def render(catalog: dict) -> str:

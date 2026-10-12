@@ -6,7 +6,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::cmd::{embed_gate, paths, pyenv};
+use super::models::Kit;
+use crate::cmd::{buildid, embed_gate, paths, pyenv};
 use crate::tui::hud::Badge;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -88,7 +89,14 @@ impl Payload {
 
 #[derive(Clone, Debug)]
 pub struct Scan {
+    /// the crate version: the release a release build fetches.
     pub version: &'static str,
+    /// what the binary reports (`cmd::buildid::NAME`): the version for a
+    /// release, `<version>+dev.<sha>` for a development build.
+    pub name: &'static str,
+    /// the checkout a development build installs its payload from; `None`
+    /// for a release, and when `URNA_RELEASE_BASE` names where to fetch one.
+    pub tree: Option<PathBuf>,
     pub target: String,
     pub exe: PathBuf,
     pub channel: Channel,
@@ -107,7 +115,11 @@ pub struct Scan {
     pub deps: bool,
     /// the venv setup manages exists in `home` (model packages go only there).
     pub venv: bool,
-    /// a python able to create a venv (`python3 -m venv`), when present.
+    /// the python minor that venv runs, `(3, 12)`.
+    pub venv_version: Option<(u32, u32)>,
+    /// a python able to create a venv (`python3 -m venv`), inside the
+    /// range the installed payload's catalogue names when it names one:
+    /// the one pip would build from, resolved the way the worker does.
     pub base_python: Option<String>,
     pub uv: Option<PathBuf>,
     pub curl: Option<PathBuf>,
@@ -116,25 +128,7 @@ pub struct Scan {
     pub kit: Option<super::models::Kit>,
 }
 
-/// First match for `name` on PATH (with the PATHEXT suffixes on windows).
-pub fn which(name: &str) -> Option<PathBuf> {
-    let path = std::env::var_os("PATH")?;
-    let exts: Vec<String> = if cfg!(windows) {
-        std::env::var("PATHEXT")
-            .unwrap_or_else(|_| ".EXE;.CMD;.BAT".into())
-            .split(';')
-            .map(|e| e.to_ascii_lowercase())
-            .chain(std::iter::once(String::new()))
-            .collect()
-    } else {
-        vec![String::new()]
-    };
-    std::env::split_paths(&path).find_map(|dir| {
-        exts.iter()
-            .map(|e| dir.join(format!("{name}{e}")))
-            .find(|p| p.is_file())
-    })
-}
+pub use crate::cmd::paths::which;
 
 fn output(cmd: &mut Command) -> Option<String> {
     let o = cmd.output().ok().filter(|o| o.status.success())?;
@@ -143,19 +137,6 @@ fn output(cmd: &mut Command) -> Option<String> {
         s = String::from_utf8_lossy(&o.stderr).trim().to_string();
     }
     Some(s)
-}
-
-fn base_python() -> Option<String> {
-    let names: &[&str] = if cfg!(windows) {
-        &["python", "py"]
-    } else {
-        &["python3", "python"]
-    };
-    names.iter().find_map(|n| {
-        let p = which(n)?;
-        let s = p.to_string_lossy().into_owned();
-        output(Command::new(&s).args(["-c", "import venv, ensurepip"])).map(|_| s)
-    })
 }
 
 impl Scan {
@@ -169,11 +150,20 @@ impl Scan {
             .unwrap_or_default();
         let embedder = Some(embed_gate::default_potion_embedder_path()).filter(|p| p.is_file());
         let interp = pyenv::resolve_interpreter();
-        let python = output(Command::new(&interp).arg("--version")).map(|v| (interp.clone(), v));
+        let python = pyenv::may_run(&interp)
+            .then(|| output(Command::new(&interp).arg("--version")))
+            .flatten()
+            .map(|v| (interp.clone(), v));
         let deps = python.is_some()
             && output(Command::new(&interp).args(["-c", "import numpy, tokenizers"])).is_some();
+        let kit = paths::urna_home().and_then(|h| super::models::Kit::in_home(&h));
+        let base_python = super::venv::find_python(kit.as_ref().and_then(Kit::range));
         Scan {
             version: env!("CARGO_PKG_VERSION"),
+            name: buildid::NAME,
+            tree: buildid::dev_tree()
+                .filter(|_| std::env::var_os("URNA_RELEASE_BASE").is_none_or(|b| b.is_empty()))
+                .map(Path::to_path_buf),
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
             channel: Channel::of(&exe),
             exe,
@@ -184,12 +174,32 @@ impl Scan {
             pinned_python: std::env::var("URNA_PYTHON").ok().filter(|s| !s.is_empty()),
             deps,
             venv: paths::urna_home().is_some_and(|h| paths::venv_python(&h.join("venv")).is_file()),
-            base_python: base_python(),
-            uv: which("uv"),
+            venv_version: paths::urna_home()
+                .map(|h| paths::venv_python(&h.join("venv")))
+                .filter(|p| p.is_file())
+                .and_then(|p| super::venv::version_of(&p.to_string_lossy())),
+            base_python,
+            uv: paths::uv(),
             curl: which("curl"),
             simd: urna_engine::simd::detect_backend().name(),
-            kit: paths::urna_home().and_then(|h| super::models::Kit::in_home(&h)),
+            kit,
         }
+    }
+
+    /// The payload stamp this binary wants: its own name when it installs
+    /// from its checkout, else the release of its version.
+    pub fn wants(&self) -> &str {
+        if self.tree.is_some() {
+            self.name
+        } else {
+            self.version
+        }
+    }
+
+    /// The python range the installed payload's catalogue names, when it
+    /// does; before a payload is installed there is none.
+    pub fn range(&self) -> Option<super::venv::Range> {
+        self.kit.as_ref().and_then(Kit::range)
     }
 
     /// The rows the scan screen reveals, in order: label, value, badge.
@@ -198,7 +208,7 @@ impl Scan {
         let mut v = vec![
             (
                 "urna",
-                format!("{} · {}", self.version, self.target),
+                format!("{} · {}", self.name, self.target),
                 Badge::Ok,
             ),
             (
@@ -222,7 +232,7 @@ impl Scan {
                 ),
                 Badge::Warn,
             ),
-            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.version) => (
+            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.wants()) => (
                 "embedder",
                 format!("{} · {}, setup replaces it", tilde(p), pl.label()),
                 Badge::Warn,
@@ -256,10 +266,17 @@ impl Scan {
                 Badge::Warn,
             )
         });
-        let tool = match (&self.uv, &self.base_python) {
-            (Some(uv), _) => (format!("uv · {}", tilde(uv)), Badge::Ok),
-            (None, Some(py)) => (format!("pip · {}", tilde(Path::new(py))), Badge::Ok),
-            (None, None) => ("no uv, no python3".into(), Badge::Fail),
+        let tool = match (&self.uv, &self.curl, &self.base_python) {
+            (Some(uv), _, _) => (format!("uv · {}", tilde(uv)), Badge::Ok),
+            (None, Some(_), _) => ("uv · setup downloads it".into(), Badge::Ok),
+            (None, None, Some(py)) => (format!("pip · {}", tilde(Path::new(py))), Badge::Ok),
+            (None, None, None) => (
+                match self.range() {
+                    Some(r) => format!("no uv, no curl to fetch it, no {r}"),
+                    None => "no uv, no curl to fetch it, no python3".into(),
+                },
+                Badge::Fail,
+            ),
         };
         v.push(("env tool", tool.0, tool.1));
         v.push(match &self.curl {
@@ -294,14 +311,6 @@ mod tests {
         assert_eq!(c("/home/u/.local/bin/urna"), Channel::OneLiner);
         assert_eq!(c("/src/urna/target/release/urna"), Channel::Dev);
         assert_eq!(c("/usr/bin/urna"), Channel::Other);
-    }
-
-    #[test]
-    fn which_finds_a_shell_and_misses_nonsense() {
-        if cfg!(unix) {
-            assert!(which("sh").is_some());
-        }
-        assert!(which("urna-definitely-not-a-binary-xyz").is_none());
     }
 
     #[test]

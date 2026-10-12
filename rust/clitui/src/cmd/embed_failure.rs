@@ -12,6 +12,9 @@ use std::path::PathBuf;
 pub enum EmbedFailure {
     /// the embedder script is not where the resolution ladder looked.
     ScriptMissing { script: PathBuf },
+    /// the only python found is macOS's stub, which is never run: it opens
+    /// Apple's Command Line Tools installer (`pyenv::may_run`).
+    PythonMissing { python: String },
     /// the installed payload lacks files the embedder needs (`home` when the
     /// script lives in one; the file list, or the payload module python
     /// could not import).
@@ -115,6 +118,9 @@ impl EmbedFailure {
             Self::ScriptMissing { .. } => {
                 "the embedder script is not installed here (esc, then s runs setup)".into()
             }
+            Self::PythonMissing { .. } => {
+                "no python env here (esc, then s runs setup, which builds one)".into()
+            }
             Self::PayloadIncomplete { missing, .. } => format!(
                 "the embedder payload is incomplete, missing {} (esc, then s repairs it)",
                 missing.join(", ")
@@ -155,6 +161,13 @@ impl fmt::Display for EmbedFailure {
                  embedder payload; --embedder points at a script by hand",
                 script.display()
             ),
+            Self::PythonMissing { python } => {
+                write!(
+                    f,
+                    "no python to run the embedder\nhint: {}",
+                    super::pyenv::stub_hint(python)
+                )
+            }
             Self::PayloadIncomplete { home, missing } => {
                 let at = home
                     .as_ref()

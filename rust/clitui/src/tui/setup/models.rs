@@ -32,8 +32,37 @@ pub struct Excluded {
     pub reason: String,
 }
 
+/// One uv archive: where it is and the sha256 its release publishes.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+pub struct Archive {
+    pub url: String,
+    pub sha256: String,
+}
+
+/// The uv release setup downloads when the machine has none, one archive
+/// per platform urna ships, keyed `<arch>-<os>` (`Scan::target`).
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+pub struct UvRelease {
+    pub version: String,
+    pub archives: std::collections::BTreeMap<String, Archive>,
+}
+
+/// The python range the env is built on: the cpython minors torch has
+/// wheels for (`>=3.10,<3.15`), read off torch's wheels.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+pub struct PythonRange {
+    pub requires: String,
+    pub torch: String,
+}
+
+/// A payload from 0.5.4 or older carries no `uv` and no `python`: setup then
+/// uses the uv on PATH and lets it pick the python, as it did.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Catalog {
+    #[serde(default)]
+    pub uv: Option<UvRelease>,
+    #[serde(default)]
+    pub python: Option<PythonRange>,
     pub models: Vec<Entry>,
     pub excluded: Vec<Excluded>,
 }
@@ -113,6 +142,14 @@ impl Kit {
     pub fn in_home(home: &Path) -> Option<Kit> {
         Kit::at(&home.join(crate::cmd::payload::PACKAGE).join("model"))
     }
+
+    /// The python range the catalogue names, when it does.
+    pub fn range(&self) -> Option<super::venv::Range> {
+        self.catalog
+            .python
+            .as_ref()
+            .and_then(|p| super::venv::Range::parse(&p.requires))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -150,7 +187,8 @@ pub enum Refusal {
     NeedsDownload { bytes: u64 },
     /// the model runs repo code and that was not separately allowed.
     NeedsRemoteCode { name: String },
-    /// a step ran and failed; the detail is its last error line.
+    /// a step ran and failed; the detail is its error, one line or the
+    /// lines of uv's own error.
     Failed { step: &'static str, detail: String },
 }
 
@@ -267,6 +305,34 @@ fn last_error(text: &str) -> String {
         .to_string()
 }
 
+/// The error of a failed package install, whole: from uv's first `error:`
+/// line, or the `×` that opens a resolver failure, to the end (its causes
+/// and hints sit below it), else the last lines. the command echo
+/// (`$ ...`) and blank lines are left out; at most 24 lines.
+fn install_error(lines: &[String]) -> String {
+    const LAST: usize = 6;
+    const MOST: usize = 24;
+    let kept: Vec<&str> = lines
+        .iter()
+        .map(|l| l.trim_end())
+        .filter(|l| !l.trim().is_empty() && !l.starts_with("$ "))
+        .collect();
+    let start = kept
+        .iter()
+        .position(|l| {
+            let t = l.trim_start();
+            t.starts_with("error:") || t.starts_with('×') || t.starts_with("ERROR:")
+        })
+        .unwrap_or(kept.len().saturating_sub(LAST));
+    let tail = &kept[start..];
+    let tail = &tail[..tail.len().min(MOST)];
+    if tail.is_empty() {
+        "no output".into()
+    } else {
+        tail.join("\n")
+    }
+}
+
 /// `urna-progress: <done> <total> <file>` to `Progress::Bytes`.
 fn progress_line(line: &str) -> Option<Progress> {
     let rest = line.strip_prefix("urna-progress:")?.trim();
@@ -309,14 +375,14 @@ pub fn install(
             p.packages_missing.join(" ")
         )));
         let cmd = venv::add_command(uv, py, &p.packages_missing);
-        let mut tail = String::new();
+        let mut lines = Vec::new();
         let status = venv::stream_status(cmd, &mut |l| {
-            tail = l.clone();
+            lines.push(l.clone());
             log(Progress::Log(l));
         })
         .map_err(|e| failed("packages", format!("{e:#}")))?;
         if !status.success() {
-            return Err(failed("packages", tail));
+            return Err(failed("packages", install_error(&lines)));
         }
     }
     log(Progress::Step(if p.cached {
@@ -437,6 +503,39 @@ pub(crate) mod tests {
             "the hash does not match"
         );
         assert_eq!(last_error("Segmentation fault\n"), "Segmentation fault");
+    }
+
+    #[test]
+    fn a_failed_install_keeps_uvs_whole_error() {
+        let s = |v: &[&str]| v.iter().map(|l| l.to_string()).collect::<Vec<_>>();
+        // the case #529 names: the hint alone said nothing.
+        let resolver = s(&[
+            "$ uv pip install --python /h/venv/bin/python sentence-transformers>=3",
+            "Resolved 30 packages in 1.2s",
+            "  × No solution found when resolving dependencies:",
+            "  ╰─▶ Because torch==2.14.1 has no wheels with a matching Python ABI tag and",
+            "      sentence-transformers>=3 depends on torch, we can conclude that",
+            "      sentence-transformers>=3 cannot be used.",
+            "",
+            "      hint: You require CPython 3.15 (`cp315`), but we only found wheels for",
+            "      `torch` (v2.14.1) with the following Python ABI tags: `cp310` .. `cp314`",
+        ]);
+        let got = install_error(&resolver);
+        assert!(got.starts_with("  × No solution found"), "{got}");
+        assert!(got.contains("no wheels with a matching Python ABI") && got.contains("hint:"));
+        assert!(!got.contains("Resolved 30") && !got.contains("$ uv"));
+        let plain = s(&[
+            "Downloading x",
+            "error: Failed to fetch: `https://pypi.org/simple/torch/`",
+            "  Caused by: dns error",
+        ]);
+        assert_eq!(
+            install_error(&plain),
+            "error: Failed to fetch: `https://pypi.org/simple/torch/`\n  Caused by: dns error"
+        );
+        let none = s(&["a", "b", "c", "d", "e", "f", "g", "h"]);
+        assert_eq!(install_error(&none), "c\nd\ne\nf\ng\nh");
+        assert_eq!(install_error(&[]), "no output");
     }
 
     #[test]

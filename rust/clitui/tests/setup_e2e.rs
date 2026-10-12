@@ -311,9 +311,13 @@ fn uninstall_removes_the_payload_and_keeps_the_binary() {
     urna(&d, &rel, &["setup", "--yes", "--force", "--no-python"]);
     assert!(d.join("data/urna/python").is_dir());
     assert!(d.join("data/urna/VERSION").is_file());
+    // the uv setup downloads when a machine has none goes with the rest.
+    std::fs::create_dir_all(d.join("data/urna/bin")).unwrap();
+    std::fs::write(d.join("data/urna/bin/uv"), b"uv").unwrap();
     let out = urna(&d, &rel, &["setup", "--uninstall"]);
     assert_eq!(out.status.code(), Some(0));
     assert!(!d.join("data/urna/python").exists());
+    assert!(!d.join("data/urna/bin").exists(), "setup's uv left behind");
     assert!(!d.join("data/urna/VERSION").exists(), "VERSION left behind");
     assert!(Path::new(env!("CARGO_BIN_EXE_urna")).is_file());
 }
@@ -535,4 +539,131 @@ fn output(cmd: &mut Command) -> std::process::Output {
         }
     }
     cmd.output().unwrap()
+}
+
+/// A fake uv as the catalogue's archive (`uv-<t>/uv` in a `.tar.gz`): a
+/// shell script that logs its arguments to `<data>/uv.log`, makes `venv`
+/// lay down a python that answers like 3.12 with numpy and tokenizers, and
+/// passes `pip install`. enough to prove setup downloads the uv the
+/// catalogue names, checks it, and builds the env on the range.
+#[cfg(unix)]
+fn fake_uv_release(dir: &Path, sha: Option<&str>) -> String {
+    let script = format!(
+        r#"#!/bin/sh
+echo "$@" >> "{log}"
+if [ "$1" = venv ]; then
+  for a; do last="$a"; done
+  /bin/mkdir -p "$last/bin"
+  printf '#!/bin/sh\ncase "$1" in --version) echo "Python 3.12.0";; *) echo "numpy 2.0 · tokenizers 0.20";; esac\n' > "$last/bin/python"
+  /bin/chmod 755 "$last/bin/python"
+fi
+exit 0
+"#,
+        log = dir.join("uv.log").display()
+    );
+    let tgz = dir.join("uv-fake.tar.gz");
+    let gz = GzEncoder::new(std::fs::File::create(&tgz).unwrap(), Compression::fast());
+    let mut b = tar::Builder::new(gz);
+    let mut h = tar::Header::new_gnu();
+    h.set_size(script.len() as u64);
+    h.set_mode(0o755);
+    h.set_cksum();
+    b.append_data(&mut h, "uv-fake/uv", script.as_bytes())
+        .unwrap();
+    b.into_inner().unwrap().finish().unwrap();
+    let digest = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
+    let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
+    format!(
+        r#"{{"schema": 1, "excluded": [], "models": [],
+        "uv": {{"version": "0.13.0", "archives": {{"{target}": {{"url": "{}", "sha256": "{}"}}}}}},
+        "python": {{"requires": ">=3.10,<3.15", "torch": "2.14.1"}}}}"#,
+        file_url(&tgz),
+        sha.unwrap_or(&digest)
+    )
+}
+
+/// `isolated`, with PATH holding curl and nothing else: no uv, no python.
+#[cfg(unix)]
+fn bare_machine(dir: &Path, rel: &Path, args: &[&str]) -> Command {
+    let tools = dir.join("tools");
+    std::fs::create_dir_all(&tools).unwrap();
+    let curl = String::from_utf8(
+        Command::new("sh")
+            .args(["-c", "command -v curl"])
+            .output()
+            .unwrap()
+            .stdout,
+    )
+    .unwrap();
+    let link = tools.join("curl");
+    if !link.exists() {
+        std::os::unix::fs::symlink(curl.trim(), &link).unwrap();
+    }
+    let mut c = isolated(dir, rel, args);
+    c.env("PATH", &tools).env_remove("URNA_PYTHON");
+    c
+}
+
+#[cfg(unix)]
+#[test]
+fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
+    if !has_curl() {
+        eprintln!("skip: no curl on PATH");
+        return;
+    }
+    let d = scratch("uvfetch");
+    let rel = release(&d, None);
+    let data = d.join("data");
+    // the payload, then a catalogue that names the fake uv.
+    let out = output(&mut isolated(&d, &rel, &["setup", "--yes", "--no-python"]));
+    assert!(text(&out).contains("ok embedder payload"), "{}", text(&out));
+    let catalogue = data.join("urna/python/urna/model/catalogue.json");
+    std::fs::write(&catalogue, fake_uv_release(&data, None)).unwrap();
+    // an env from before, on a python outside the range: rebuilt, not reused.
+    let old = data.join("urna/venv/bin/python");
+    std::fs::create_dir_all(old.parent().unwrap()).unwrap();
+    std::fs::write(&old, "#!/bin/sh\necho Python 3.15.0\n").unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(&old, std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(data.join("urna/venv/marker"), b"old").unwrap();
+
+    let out = output(&mut bare_machine(
+        &d,
+        &rel,
+        &["setup", "--yes", "--no-payload"],
+    ));
+    let s = text(&out);
+    assert!(
+        s.contains("runs python 3.15, outside python 3.10 to 3.14"),
+        "the plan says the env is rebuilt: {s}"
+    );
+    assert!(s.contains("uv 0.13.0 · sha256 ok"), "{s}");
+    assert!(s.contains("ok python env"), "{s}");
+    assert!(data.join("urna/bin/uv").is_file(), "{s}");
+    assert!(
+        !data.join("urna/venv/marker").exists(),
+        "the old env was reused: {s}"
+    );
+    let log = std::fs::read_to_string(data.join("uv.log")).unwrap();
+    assert!(
+        log.contains("venv --allow-existing --quiet --python >=3.10,<3.15"),
+        "{log}"
+    );
+
+    // a uv whose bytes are not the catalogue's: refused, nothing installed,
+    // and with no python on PATH the step names the fix.
+    std::fs::remove_dir_all(data.join("urna/bin")).unwrap();
+    std::fs::remove_dir_all(data.join("urna/venv")).unwrap();
+    std::fs::write(&catalogue, fake_uv_release(&data, Some(&"0".repeat(64)))).unwrap();
+    let out = output(&mut bare_machine(
+        &d,
+        &rel,
+        &["setup", "--yes", "--no-payload"],
+    ));
+    let s = text(&out);
+    assert_eq!(out.status.code(), Some(14), "{s}");
+    assert!(s.contains("does not match the catalogue's sha256"), "{s}");
+    assert!(s.contains("no python 3.10 to 3.14 is on PATH"), "{s}");
+    assert!(s.contains("install uv (https://docs.astral.sh/uv/)"), "{s}");
+    assert!(!data.join("urna/bin/uv").exists(), "{s}");
 }
