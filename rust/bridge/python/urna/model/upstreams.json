@@ -38,7 +38,10 @@
       "x86_64-windows": 126374771
     },
     "rss": {
-      "aarch64-macos": 448593920
+      "aarch64-macos": 448593920,
+      "aarch64-linux": 489562112,
+      "x86_64-linux": 476839936,
+      "x86_64-windows": 431493120
     }
   },
   "lock": {
