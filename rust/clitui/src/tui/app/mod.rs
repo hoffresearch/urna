@@ -290,3 +290,48 @@ fn stamp(p: &Path) -> (PathBuf, Option<std::time::SystemTime>) {
     (p.to_path_buf(), t)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_file_given_wins_then_the_last_corpus_then_the_first_run() {
+        let f = PathBuf::from("/x/given.urna");
+        let last = Path::new("/x/last.urna");
+        assert_eq!(
+            Launch::pick(Some(f.clone()), Some(last)),
+            Launch::File(f.clone())
+        );
+        assert_eq!(Launch::pick(Some(f.clone()), None), Launch::File(f));
+        assert_eq!(
+            Launch::pick(None, Some(last)),
+            Launch::Ask(last.to_path_buf())
+        );
+        assert_eq!(Launch::pick(None, None), Launch::First);
+    }
+
+    #[test]
+    fn the_first_run_screen_shows_until_a_corpus_opens() {
+        let app = App::new(Launch::First, None);
+        assert!(app.first_run && app.tab == Tab::Home && app.loading.is_none());
+        let app = App::new(Launch::Ask(PathBuf::from("/nowhere/x.urna")), None);
+        assert!(!app.first_run);
+        assert!(matches!(&app.loading, Some((_, _, Tab::Ask))));
+        let app = App::new(Launch::File(PathBuf::from("/nowhere/x.urna")), None);
+        assert!(matches!(&app.loading, Some((_, _, Tab::Corpus))));
+    }
+
+    #[test]
+    fn a_sample_setup_downloads_again_changes_its_stamp() {
+        let d = std::env::temp_dir().join(format!("urna_stamp_{}", std::process::id()));
+        std::fs::create_dir_all(&d).unwrap();
+        let p = d.join("fakenews.urna");
+        std::fs::write(&p, b"v1").unwrap();
+        let before = stamp(&p);
+        std::thread::sleep(Duration::from_millis(20));
+        std::fs::write(d.join(".tmp"), b"v2").unwrap();
+        std::fs::rename(d.join(".tmp"), &p).unwrap();
+        assert_ne!(stamp(&p), before);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+}

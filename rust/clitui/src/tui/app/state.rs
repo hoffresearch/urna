@@ -74,3 +74,73 @@ pub fn remember(corpus: &Path) {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dir(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("urna_state_{tag}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d.canonicalize().unwrap()
+    }
+
+    #[test]
+    fn a_missing_or_broken_file_is_a_first_run() {
+        let d = dir("broken");
+        assert_eq!(State::read(&d.join("tui.json")), State::default());
+        std::fs::write(d.join("tui.json"), b"{not json").unwrap();
+        assert_eq!(State::read(&d.join("tui.json")), State::default());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn the_last_corpus_comes_first_once_and_resolved() {
+        let d = dir("recent");
+        std::fs::create_dir_all(d.join("sub")).unwrap();
+        for n in ["a.urna", "b.urna"] {
+            std::fs::write(d.join(n), b"x").unwrap();
+        }
+        let mut s = State::default();
+        s.opened(&d.join("a.urna"));
+        s.opened(&d.join("b.urna"));
+        // the same file through another path is one entry, moved first.
+        s.opened(&d.join("sub/../a.urna"));
+        assert_eq!(s.recent, [d.join("a.urna"), d.join("b.urna")]);
+        assert_eq!(s.last(), Some(d.join("a.urna").as_path()));
+        let f = d.join("tui.json");
+        s.write(&f).unwrap();
+        assert_eq!(State::read(&f), s);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_moved_last_corpus_is_none_and_gone_files_drop_out() {
+        let d = dir("moved");
+        for n in ["a.urna", "b.urna"] {
+            std::fs::write(d.join(n), b"x").unwrap();
+        }
+        let mut s = State::default();
+        s.opened(&d.join("a.urna"));
+        s.opened(&d.join("b.urna"));
+        std::fs::rename(d.join("b.urna"), d.join("c.urna")).unwrap();
+        assert_eq!(s.last(), None);
+        s.opened(&d.join("c.urna"));
+        assert_eq!(s.recent, [d.join("c.urna"), d.join("a.urna")]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn it_keeps_at_most_nine() {
+        let d = dir("nine");
+        let mut s = State::default();
+        for i in 0..12 {
+            let p = d.join(format!("{i}.urna"));
+            std::fs::write(&p, b"x").unwrap();
+            s.opened(&p);
+        }
+        assert_eq!(s.recent.len(), KEEP);
+        assert_eq!(s.recent[0], d.join("11.urna"));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+}

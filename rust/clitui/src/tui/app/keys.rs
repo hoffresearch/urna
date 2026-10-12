@@ -226,6 +226,20 @@ mod tests {
     }
 
     #[test]
+    fn enter_on_the_first_run_screen_opens_the_sample_ready_to_ask() {
+        let sample = std::path::PathBuf::from("/nowhere/sample/fakenews.urna");
+        let mut app = App::new(Launch::First, Some(sample.clone()));
+        press(&mut app, KeyCode::Enter);
+        assert!(matches!(&app.loading, Some((_, p, Tab::Ask)) if *p == sample));
+        // with no sample, enter does nothing; s still runs setup.
+        let mut app = App::new(Launch::First, None);
+        press(&mut app, KeyCode::Enter);
+        assert!(app.loading.is_none() && app.leaving.is_none());
+        press(&mut app, KeyCode::Char('s'));
+        assert!(matches!(app.leaving, Some((_, Exit::Setup))));
+    }
+
+    #[test]
     fn q_leaves_outside_the_ask_tab() {
         let mut app = App::new(Launch::First, None);
         press(&mut app, KeyCode::Char('q'));

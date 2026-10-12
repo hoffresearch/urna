@@ -48,6 +48,7 @@ pip install ruff pyyaml numpy tokenizers pillow sentence-transformers pandas zst
 Run `./tool/tasks/fullcheck.sh` before every push and push only when it exits 0. Each check it skips prints `SKIP` with the reason; CI then runs that check first, so install what it names instead. Besides the setup above it needs:
 
 - the install on a clean machine (`tool/tasks/cleanhost.sh`, run when the paths `cleanhost.yml` filters on changed): on macOS with Apple silicon, tart (`brew install openai/tools/tart`; Homebrew asks once to trust the tap's two formulas: `brew trust --formula openai/tools/tart` and `brew trust --formula openai/tools/softnet`); on Linux, docker or podman. The first macOS run pulls the vanilla image (~25 GB, kept in `~/.tart`), and each run clones it into a VM that uses 8 GB of RAM and is deleted at the end. `TART=<path>` points at a tart outside `PATH`; `URNA_CLEANHOST=0` skips the step, which then runs again on the next fullcheck;
+- the media quality gate (`tool/tests/test_mediagate.py`): ffmpeg and the jpeg-xl tools, `cjxl`, `djxl` and `ssimulacra2` (`brew install ffmpeg jpeg-xl`; Debian's `libjxl-tools` has `cjxl` and `djxl` but not `ssimulacra2`, which then comes from a libjxl build); without them the suite prints `SKIP`;
 - for a change under `.github/`: `brew install actionlint zizmor`, run as USAGE section 10 shows.
 
 ## Conventions and writing style
