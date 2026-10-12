@@ -33,6 +33,10 @@ sys.path.insert(0, str(REPO / "tool" / "tasks"))
 import presetjob as pj  # noqa: E402
 
 TWO = ["minilm-multilingual", "harrier-270m"]
+FAULT = (
+    "Failed to created pipeline state object, error: Error Domain=CompilerError Code=2 "
+    '"error: unsupported deferred-static-alloca-size function body"'
+)
 HELD = 448593920  # upstreams.json's torch.rss for aarch64-macos
 
 
@@ -51,13 +55,18 @@ class Stub:
         if cmd[1:3] == ["setup", "--yes"]:
             pj.venv_python(self.data).parent.mkdir(parents=True, exist_ok=True)
             pj.venv_python(self.data).write_text("")
-            self.setups.append((cmd[cmd.index("--model") + 1], kw["env"]))
+            name, env = cmd[cmd.index("--model") + 1], kw["env"]
+            self.setups.append((name, env))
+            # "model-breaks": the probe passes, but a model on mps hits
+            # metal's compiler; on the cpu it answers.
+            if self.mps == "model-breaks" and name != TWO[0] and "URNA_ST_DEVICE" not in env:
+                return _done(f"fail(15) models: {name}: query failed: RuntimeError: {FAULT}", 15)
             return _done(f"answered a query\nok models: {cmd[-1]}")
         code = cmd[2]
         if code == pj.MPS_AVAILABLE:
             return _done("False" if self.mps == "none" else "True")
         if code == pj.MPS_PROBE:
-            if self.mps == "works":
+            if self.mps in ("works", "model-breaks"):
                 return _done(pj.MPS_PROBE_SUM)
             return _done("", 1, "RuntimeError: Failed to created pipeline state object")
         if code in (pj.MEASURE, pj.MEASURE_WINDOWS):
@@ -146,6 +155,20 @@ def test_a_working_mps_keeps_the_device_and_the_first_install() -> None:
     assert code == 0 and "torch finds no mps device" in out and "device cpu" in out, out
     assert stub.setups[-1][1]["URNA_ST_DEVICE"] == "cpu"
     print("happy path (a working mps stays, the env build counts; no device is the cpu): OK")
+
+
+def test_a_model_metal_refuses_moves_the_rest_to_the_cpu() -> None:
+    code, out, stub = _job("model-breaks", *TWO, "qwen3-embedding-0.6b")
+    assert code == 0, out
+    names = [n for n, _ in stub.setups]
+    assert names == [*TWO, "harrier-270m", "qwen3-embedding-0.6b"], names
+    assert "URNA_ST_DEVICE" not in stub.setups[1][1], "the first try is on mps"
+    assert all(env["URNA_ST_DEVICE"] == "cpu" for _, env in stub.setups[2:])
+    assert out.count("the presets run on the cpu from here") == 1, out
+    assert "== harrier-270m (again, on the cpu)" in out, out
+    assert "presets: 3 passed, 0 failed, 0 skipped on aarch64-macos, device cpu" in out, out
+    assert pj.mps_broke(FAULT) and not pj.mps_broke("ImportError: torch")
+    print("edge (a model metal refuses after a passing probe: cpu from there, run again): OK")
 
 
 def main() -> int:

@@ -15,10 +15,13 @@ this machine has is skipped and listed, not failed.
 
 on an apple-silicon mac the device is settled before the loop: the smallest
 preset is installed first, which brings torch into the env, and mps is
-probed there with one matmul. github's mac runner is a vm whose metal
-reports mps available but cannot compile torch's kernels; when the probe
-fails, every preset runs on the cpu (`URNA_ST_DEVICE=cpu` for each setup)
-and the summary says so. when it passes, that first install counts.
+probed there with the kernels the models use (linear and attention, in half
+and single precision). github's mac runner is a vm whose metal reports mps
+available but cannot compile torch's kernels; when the probe fails, every
+preset runs on the cpu (`URNA_ST_DEVICE=cpu` for each setup) and the summary
+says so. when it passes, that first install counts. a model whose query
+still fails with metal's compiler error moves the rest to the cpu and runs
+again there: the real kernels are the last word, not the probe.
 
 last, torch's own memory (torch and sentence-transformers imported, no
 model) is measured in the env and compared with the catalogue's value for
@@ -73,10 +76,26 @@ MEASURE_WINDOWS = (
     "print(c.peak)\n"
 )
 MPS_AVAILABLE = "import torch; print(torch.backends.mps.is_available())"
+# the kernels a sentence-transformers model runs: a linear layer and
+# attention, in the dtypes the backend loads in (float16 on mps, bfloat16
+# for a preset that names it) and float32. torch 2.14 compiles these as
+# metal cooperative-tensor matmuls, the ones a vm's metal refuses.
 MPS_PROBE = (
-    "import torch\na = torch.ones(64, 64, device='mps')\nprint(float((a @ a).sum().item()))\n"
+    "import torch\n"
+    "f = torch.nn.functional\n"
+    "for dt in (torch.float16, torch.bfloat16, torch.float32):\n"
+    "    x = torch.randn(1, 128, 1024, device='mps', dtype=dt)\n"
+    "    w = torch.randn(1024, 1024, device='mps', dtype=dt)\n"
+    "    q = torch.randn(1, 8, 128, 64, device='mps', dtype=dt)\n"
+    "    y = f.linear(x, w)\n"
+    "    s = f.scaled_dot_product_attention(q, q, q)\n"
+    "    assert torch.isfinite(y.float()).all() and torch.isfinite(s.float()).all()\n"
+    "torch.mps.synchronize()\n"
+    "print('ok')\n"
 )
-MPS_PROBE_SUM = "262144.0"  # 64 * 64 elements, each a row of 64 ones
+MPS_PROBE_SUM = "ok"
+# what a query prints when metal compiles no kernel for the model it loaded.
+MPS_FAULT_MARKS = ("Failed to created pipeline state object", "Error Domain=CompilerError")
 
 
 class NoTorch(Exception):
@@ -136,6 +155,11 @@ def mps_fault(py: Path) -> str | None:
     if out.returncode != 0 or out.stdout.strip() != MPS_PROBE_SUM:
         return "mps is available but cannot compile a kernel on this machine"
     return None
+
+
+def mps_broke(text: str) -> bool:
+    """A setup run that failed because metal compiled no kernel for the model."""
+    return any(mark in text for mark in MPS_FAULT_MARKS)
 
 
 def min_ram(entry: dict, catalog: dict, tgt: str, dev: str) -> int | None:
@@ -256,6 +280,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             print(f"== {e['name']}", flush=True)
             ok, text = run_one(args.urna, e, data, st_device)
+            if not ok and dev == "mps" and mps_broke(text):
+                report(ok, text)
+                print(
+                    "metal compiled no kernel for this model, which the probe did not "
+                    "catch: the presets run on the cpu from here",
+                    flush=True,
+                )
+                dev, st_device = "cpu", "cpu"
+                print(f"== {e['name']} (again, on the cpu)", flush=True)
+                ok, text = run_one(args.urna, e, data, st_device)
             report(ok, text)
         if not ok:
             failed.append(e["name"])
