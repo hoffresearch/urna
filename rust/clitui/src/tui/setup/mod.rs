@@ -16,6 +16,7 @@ pub mod plan;
 pub mod scan;
 mod screen;
 pub mod text;
+pub mod tree;
 mod ui;
 pub mod unpack;
 pub mod uv;

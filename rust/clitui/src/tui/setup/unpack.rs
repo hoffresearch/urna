@@ -49,16 +49,37 @@ use crate::cmd::payload::{DIR, PACKAGE, missing};
 /// Unpacks `tar_gz` into `root` (the parent of `urna/`), calling
 /// `on_entry(n)` after each entry; returns the installed package dir.
 pub fn install(tar_gz: &Path, root: &Path, mut on_entry: impl FnMut(usize)) -> Result<PathBuf> {
+    let staging = staging(root)?;
+    let result = unpack_into(tar_gz, &staging, &mut on_entry)
+        .and_then(|_| swap(&staging, root, Fault::default()));
+    finish(&staging);
+    result
+}
+
+/// An empty staging dir in `root` (`.urna-setup-<pid>`, which `job::sweep`
+/// removes after an interrupted run).
+pub fn staging(root: &Path) -> Result<PathBuf> {
     std::fs::create_dir_all(root).with_context(|| format!("create {}", root.display()))?;
     let staging = root.join(format!(".urna-setup-{}", std::process::id()));
     if staging.exists() {
         std::fs::remove_dir_all(&staging)?;
     }
     std::fs::create_dir_all(&staging)?;
-    let result = unpack_into(tar_gz, &staging, &mut on_entry)
-        .and_then(|_| swap(&staging, root, Fault::default()));
-    finish(&staging);
+    Ok(staging)
+}
+
+/// Lays down a payload already staged as `<staging>/urna` (a development
+/// build stages its checkout there), with the same checks and restorable
+/// swap as an unpacked tarball; removes the staging dir either way.
+pub fn install_staged(staging: &Path, root: &Path) -> Result<PathBuf> {
+    let result = swap(staging, root, Fault::default());
+    finish(staging);
     result
+}
+
+/// Removes a staging dir a step gave up on before laying it down.
+pub fn discard(staging: &Path) {
+    finish(staging);
 }
 
 /// Removes the staging dir, unless it still holds the previous payload: a

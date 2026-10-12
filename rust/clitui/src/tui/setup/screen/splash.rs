@@ -81,10 +81,10 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
         pal::faint(),
     );
     let whereami = match &ui.scan {
-        Some(s) => format!("v{} · {} · {}", s.version, s.target, s.channel.name()),
+        Some(s) => format!("v{} · {} · {}", s.name, s.target, s.channel.name()),
         None => format!(
             "v{} · probing this machine {}",
-            env!("CARGO_PKG_VERSION"),
+            crate::cmd::buildid::NAME,
             ui.spinner.frame_str()
         ),
     };

@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use super::models::Kit;
-use crate::cmd::{embed_gate, paths, pyenv};
+use crate::cmd::{buildid, embed_gate, paths, pyenv};
 use crate::tui::hud::Badge;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,7 +89,14 @@ impl Payload {
 
 #[derive(Clone, Debug)]
 pub struct Scan {
+    /// the crate version: the release a release build fetches.
     pub version: &'static str,
+    /// what the binary reports (`cmd::buildid::NAME`): the version for a
+    /// release, `<version>+dev.<sha>` for a development build.
+    pub name: &'static str,
+    /// the checkout a development build installs its payload from; `None`
+    /// for a release, and when `URNA_RELEASE_BASE` names where to fetch one.
+    pub tree: Option<PathBuf>,
     pub target: String,
     pub exe: PathBuf,
     pub channel: Channel,
@@ -153,6 +160,10 @@ impl Scan {
         let base_python = super::venv::find_python(kit.as_ref().and_then(Kit::range));
         Scan {
             version: env!("CARGO_PKG_VERSION"),
+            name: buildid::NAME,
+            tree: buildid::dev_tree()
+                .filter(|_| std::env::var_os("URNA_RELEASE_BASE").is_none_or(|b| b.is_empty()))
+                .map(Path::to_path_buf),
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
             channel: Channel::of(&exe),
             exe,
@@ -175,6 +186,16 @@ impl Scan {
         }
     }
 
+    /// The payload stamp this binary wants: its own name when it installs
+    /// from its checkout, else the release of its version.
+    pub fn wants(&self) -> &str {
+        if self.tree.is_some() {
+            self.name
+        } else {
+            self.version
+        }
+    }
+
     /// The python range the installed payload's catalogue names, when it
     /// does; before a payload is installed there is none.
     pub fn range(&self) -> Option<super::venv::Range> {
@@ -187,7 +208,7 @@ impl Scan {
         let mut v = vec![
             (
                 "urna",
-                format!("{} · {}", self.version, self.target),
+                format!("{} · {}", self.name, self.target),
                 Badge::Ok,
             ),
             (
@@ -211,7 +232,7 @@ impl Scan {
                 ),
                 Badge::Warn,
             ),
-            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.version) => (
+            (Some(p), Some(pl)) if pl.version.as_deref() != Some(self.wants()) => (
                 "embedder",
                 format!("{} · {}, setup replaces it", tilde(p), pl.label()),
                 Badge::Warn,

@@ -2,8 +2,11 @@
 //! that is already satisfied starts unticked (ticking it reinstalls); a
 //! step the machine cannot run is blocked with the reason, never hidden.
 
+use std::path::Path;
+
 use super::models::{self, Entry};
 use super::scan::{Scan, tilde};
+use super::tree;
 use super::venv;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -71,14 +74,21 @@ pub fn blocked_code(items: &[Item]) -> i32 {
     }
 }
 
-/// The release the payload comes from: `--version` when given, else this
-/// binary's own (a leading `v` is accepted either way).
+/// The payload stamp wanted: the release `--version` names, else what this
+/// binary wants (its own release, or its own name for a development build
+/// that installs its checkout); a leading `v` is accepted either way.
 pub fn wanted_version(scan: &Scan, opts: &Opts) -> String {
     opts.version
         .as_deref()
-        .unwrap_or(scan.version)
+        .unwrap_or(scan.wants())
         .trim_start_matches('v')
         .to_string()
+}
+
+/// The checkout the payload is copied from: a development build's own,
+/// unless `--version` asks for a release.
+pub fn from_tree<'a>(scan: &'a Scan, opts: &Opts) -> Option<&'a Path> {
+    scan.tree.as_deref().filter(|_| opts.version.is_none())
 }
 
 pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
@@ -88,14 +98,28 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
         .map(tilde)
         .unwrap_or_else(|| "?".into());
     let payload = {
+        let tree = from_tree(scan, opts);
+        // a checkout whose table is real needs no download at all.
+        let downloads = tree.is_none_or(|t| tree::table_oid(t).is_some());
         let blocked = if scan.home.is_none() {
             Some("no data dir: set URNA_DATA_DIR".to_string())
-        } else if scan.curl.is_none() {
+        } else if let Some(why) = tree.and_then(tree::gone) {
+            Some(why)
+        } else if downloads && scan.curl.is_none() {
             Some("curl is not on PATH".to_string())
         } else {
             None
         };
         let want = wanted_version(scan, opts);
+        // a release is named by its tag, a development build by its name.
+        let label = match tree {
+            Some(_) => want.clone(),
+            None => format!("v{want}"),
+        };
+        let get = match tree {
+            Some(_) => format!("copy {label} from the checkout"),
+            None => format!("download {label}, verify sha256"),
+        };
         // a payload from another release (or from before the stamp) is
         // replaced, so upgrading the binary upgrades the scripts it runs; one
         // missing a required file is repaired the same way.
@@ -107,16 +131,27 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
         // setup manages the payload in its own data dir: one found in
         // another data root (or a checkout) does not count as installed.
         let missing = scan.payload.is_none();
-        let fresh = format!(
-            "download ~30 MB from the v{want} release, verify sha256, unpack to {home}/python"
-        );
+        let fresh = match tree {
+            Some(t) => format!(
+                "copy this build's payload from the checkout {}, the potion table {}, to {home}/python",
+                tilde(t),
+                if downloads {
+                    "from huggingface.co (sha256 checked against its lfs pointer)"
+                } else {
+                    "included"
+                }
+            ),
+            None => format!(
+                "download ~30 MB from the v{want} release, verify sha256, unpack to {home}/python"
+            ),
+        };
         let detail = match (&scan.embedder, stale, missing) {
             _ if broken.is_some() => format!(
-                "installed payload is missing {}: download v{want}, verify sha256, replace {home}/python (the venv stays)",
+                "installed payload is missing {}: {get}, replace {home}/python (the venv stays)",
                 broken.map(|p| p.missing.join(" ")).unwrap_or_default()
             ),
             (_, Some(p), _) => format!(
-                "installed payload is {}, v{want} is wanted: download it, verify sha256, replace {home}/python (the venv stays)",
+                "installed payload is {}, {label} is wanted: {get}, replace {home}/python (the venv stays)",
                 p.label()
             ),
             (Some(p), None, true) => format!("{fresh}; {} resolves until then", tilde(p)),

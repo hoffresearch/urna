@@ -7,3 +7,12 @@
 - name: fetch the potion table (embedder payload), verified against its lfs pointer
   shell: bash
   run: sh tool/tasks/getpotion.sh
+# a release build names the tag it builds, and rust/clitui/build.rs fails
+# it when that tag is not `v` + the crate version. only on a tag push:
+# GITHUB_REF_NAME is set in every job, and on a branch it is no release.
+- name: name the release tag the binary builds for
+  shell: bash
+  run: |
+    if [ "$GITHUB_REF_TYPE" = tag ]; then
+      echo "URNA_RELEASE_TAG=$GITHUB_REF_NAME" >> "$GITHUB_ENV"
+    fi

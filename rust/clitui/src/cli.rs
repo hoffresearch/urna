@@ -39,7 +39,7 @@ const AFTER_HELP: &str = concat!(
 /// split (`cmd/*` vs `cmd/agent/*`).
 #[derive(Parser)]
 #[command(name = "urna")]
-#[command(version)]
+#[command(version = cmd::buildid::NAME)]
 #[command(
     about = "urna: single-file, memory-mapped, hash-verified vector database with stable citations",
     long_about = None,

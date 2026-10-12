@@ -107,6 +107,12 @@ tui = [
     "dep:zip",
 ]
 
+[build-dependencies]
+# build.rs names a development build by its git sha (issue #530). 9.1 is
+# the last line whose msrv (1.88) matches this crate's; 10.x needs 1.96.
+vergen-gitcl = "9.1.0"
+anyhow = { workspace = true }
+
 [dev-dependencies]
 # tests/setup_e2e.rs packs a real payload tarball for `urna setup` to fetch
 # from a file:// release.

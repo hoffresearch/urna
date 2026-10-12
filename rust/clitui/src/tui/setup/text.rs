@@ -16,7 +16,7 @@ pub fn run(opts: &Opts) -> i32 {
     println!(
         "{} {} {}",
         t.bold("urna setup"),
-        scan.version,
+        scan.name,
         t.fg(&scan.target, tone::FAINT)
     );
     for (label, value, badge) in scan.facts() {

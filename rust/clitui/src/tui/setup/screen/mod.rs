@@ -80,7 +80,7 @@ fn header_rows(area: Rect) -> u16 {
 /// The header: the mark, the title and the version, the stepper, a rule.
 /// Returns the mark's rect (the frame keeps it breathing).
 fn header(buf: &mut Buffer, area: Rect, ui: &Ui) -> Option<Rect> {
-    let v = format!("v{} ", env!("CARGO_PKG_VERSION"));
+    let v = format!("v{} ", crate::cmd::buildid::NAME);
     let vx = area.right().saturating_sub(v.len() as u16);
     if header_rows(area) == 1 {
         let x = hud::put(

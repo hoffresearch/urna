@@ -52,10 +52,14 @@ pub fn spawn(scan: Scan, tasks: Vec<Task>, opts: Opts) -> Receiver<Ev> {
     std::thread::spawn(move || {
         pyenv::set_quiet(true);
         let version = super::plan::wanted_version(&scan, &opts);
+        let tree = super::plan::from_tree(&scan, &opts);
         for task in tasks {
             let _ = tx.send(Ev::Start(task));
             let res = match task {
-                Task::Payload => payload(&scan, &version, &tx),
+                Task::Payload => match tree {
+                    Some(t) => payload_tree(&scan, t, &version, &tx),
+                    None => payload(&scan, &version, &tx),
+                },
                 Task::Python => python(&scan, &tx),
                 Task::Models => install_models(&opts, &tx),
                 Task::Verify => verify(&tx),
@@ -131,6 +135,91 @@ fn payload(scan: &Scan, version: &str, tx: &Sender<Ev>) -> Result<String, Failur
         &got[..12],
         tilde(&package)
     ))
+}
+
+/// A development build's payload: its checkout staged in the release
+/// layout, the potion table fetched from upstream when the checkout holds
+/// only its lfs pointer, then laid down like a downloaded payload.
+fn payload_tree(
+    scan: &Scan,
+    tree: &std::path::Path,
+    name: &str,
+    tx: &Sender<Ev>,
+) -> Result<String, Failure> {
+    let t = Task::Payload;
+    if let Some(why) = super::tree::gone(tree) {
+        return Err((codes::BLOCKED, why));
+    }
+    let root = paths::install_root().ok_or((codes::BLOCKED, "no data dir".into()))?;
+    sweep(&root);
+    let _ = tx.send(Ev::Log(format!("source {}", tree.display())));
+    let _ = tx.send(Ev::Note(t, "copying the checkout".into()));
+    let staging = unpack::staging(&root).map_err(fail(codes::UNPACK))?;
+    let staged = super::tree::stage(tree, &staging).map_err(fail(codes::UNPACK));
+    let fetched = staged.and_then(|table| match table {
+        Some(to) => fetch_table(scan, tree, &to, tx).map(Some),
+        None => Ok(None),
+    });
+    let laid = fetched.and_then(|sha| {
+        super::tree::stamp(&staging, name).map_err(fail(codes::UNPACK))?;
+        Ok(sha)
+    });
+    let sha = match laid {
+        Ok(sha) => sha,
+        Err(e) => {
+            unpack::discard(&staging);
+            return Err(e);
+        }
+    };
+    let _ = tx.send(Ev::Note(t, "installing".into()));
+    let package = unpack::install_staged(&staging, &root).map_err(fail(codes::UNPACK))?;
+    let _ = tx.send(Ev::Log(format!("installed into {}", package.display())));
+    let table = match sha {
+        Some(sha) => format!("potion table sha256 {}… (lfs pointer)", &sha[..12]),
+        None => "potion table from the checkout".into(),
+    };
+    Ok(format!("{name} · {table} · {}", tilde(&package)))
+}
+
+/// Downloads the potion table into `to`, accepted only when its sha256 is
+/// the oid of the checkout's lfs pointer; returns that sha256.
+fn fetch_table(
+    scan: &Scan,
+    tree: &std::path::Path,
+    to: &std::path::Path,
+    tx: &Sender<Ev>,
+) -> Result<String, Failure> {
+    let t = Task::Payload;
+    let curl = scan
+        .curl
+        .as_deref()
+        .ok_or((codes::BLOCKED, "curl is not on PATH".into()))?;
+    let want = super::tree::table_oid(tree).ok_or((
+        codes::UNPACK,
+        "the checkout's potion table is no lfs pointer".into(),
+    ))?;
+    let url = super::tree::potion_url();
+    let _ = tx.send(Ev::Log(format!("potion table {url}")));
+    let _ = tx.send(Ev::Note(t, "downloading the potion table".into()));
+    let total = net::content_length(curl, &url);
+    let got = net::download(curl, &url, to, |n| {
+        let _ = tx.send(Ev::Bytes(t, n, total));
+    })
+    .map_err(fail(codes::DOWNLOAD))?;
+    if got != want {
+        let _ = tx.send(Ev::Log(format!("sha256 got  {got}")));
+        let _ = tx.send(Ev::Log(format!("sha256 want {want}")));
+        return Err((
+            codes::CHECKSUM,
+            format!(
+                "the potion table does not match its lfs pointer (got {}…, want {}…); nothing was installed",
+                &got[..12],
+                &want[..12]
+            ),
+        ));
+    }
+    let _ = tx.send(Ev::Log(format!("sha256 ok {got} (lfs pointer)")));
+    Ok(got)
 }
 
 /// Removes what an interrupted run left in the data root: a partial
@@ -347,7 +436,11 @@ fn install_models(opts: &Opts, tx: &Sender<Ev>) -> Result<String, Failure> {
 
 fn verify(tx: &Sender<Ev>) -> Result<String, Failure> {
     let _ = tx.send(Ev::Note(Task::Verify, "running the doctor checks".into()));
-    let rows = health::collect();
+    // the payload setup manages, not whatever a checkout nearby resolves to.
+    let rows = match paths::urna_home() {
+        Some(home) => health::collect_installed(&home),
+        None => health::collect(),
+    };
     let code = health::exit_code(&rows);
     let first_fail = rows
         .iter()

@@ -50,15 +50,29 @@ fn run_capture(cmd: &mut ProcCommand) -> Option<std::process::Output> {
 }
 
 /// Every check, in order. A missing interpreter or a missing embedder stops
-/// the list there (the later checks need them).
+/// the list there (the later checks need them). The embedder is the one
+/// `ask` resolves from here (`embed_gate`'s ladder: the checkout first).
 pub fn collect() -> Vec<Row> {
+    collect_with(None)
+}
+
+/// The same checks on the payload installed in `home` (`<root>/urna`), the
+/// one setup lays down, whatever the current directory resolves to: a
+/// checkout nearby must not pass setup's verify for a payload that cannot
+/// serve `ask`.
+#[cfg(feature = "tui")]
+pub fn collect_installed(home: &Path) -> Vec<Row> {
+    collect_with(Some(home))
+}
+
+fn collect_with(installed: Option<&Path>) -> Vec<Row> {
     let mut rows = Vec::new();
     rows.push(Row::new(
         Level::Ok,
         "version",
         format!(
             "urna {}, format v{}",
-            env!("CARGO_PKG_VERSION"),
+            super::buildid::NAME,
             urna_format::layout::URNA_FORMAT_VERSION
         ),
     ));
@@ -72,6 +86,22 @@ pub fn collect() -> Vec<Row> {
         ));
     } else {
         rows.push(Row::new(Level::Ok, "simd", simd.name()));
+    }
+
+    if let Some(home) = installed {
+        let missing = super::payload::missing(home);
+        rows.push(match missing.as_slice() {
+            [] => Row::new(Level::Ok, "payload", home.display().to_string()),
+            gone => Row::new(
+                Level::Fail(codes::EMBEDDER_MISSING),
+                "payload",
+                format!(
+                    "{} is missing {} (run `urna setup`)",
+                    home.display(),
+                    gone.join(", ")
+                ),
+            ),
+        });
     }
 
     let interpreter = super::pyenv::resolve_interpreter();
@@ -118,12 +148,20 @@ pub fn collect() -> Vec<Row> {
         ));
     }
 
-    let embedder = super::embed_gate::default_potion_embedder_path();
+    let embedder = match installed {
+        Some(home) => ["python", "urna", "embed", "potionqry.py"]
+            .iter()
+            .fold(home.to_path_buf(), |p, c| p.join(c)),
+        None => super::embed_gate::default_potion_embedder_path(),
+    };
     if !embedder.exists() {
         rows.push(Row::new(
             Level::Fail(codes::EMBEDDER_MISSING),
             "embedder",
-            match super::paths::data_roots().first() {
+            match super::paths::data_roots()
+                .first()
+                .filter(|_| installed.is_none())
+            {
                 Some(root) => format!(
                     "not found (looked in the repo layout and {}) (run `urna setup`)",
                     super::payload::package_in(root).display()
@@ -219,6 +257,21 @@ fn embedder_run(interpreter: &str, embedder: &Path) -> Row {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(feature = "tui")]
+    #[test]
+    fn verify_fails_a_payload_missing_a_file_wherever_it_runs() {
+        // the checkout this test runs in holds every script; the installed
+        // payload is what counts.
+        let home = std::env::temp_dir().join(format!("urna_health_{}", std::process::id()));
+        std::fs::create_dir_all(home.join("python/urna")).unwrap();
+        let rows = collect_installed(&home);
+        let row = rows.iter().find(|r| r.what == "payload").unwrap();
+        assert_eq!(row.level, Level::Fail(codes::EMBEDDER_MISSING));
+        assert!(row.detail.contains("potionqry.py"), "{}", row.detail);
+        assert_ne!(exit_code(&rows), 0);
+        std::fs::remove_dir_all(&home).unwrap();
+    }
 
     #[test]
     fn exit_code_is_the_first_failure() {
