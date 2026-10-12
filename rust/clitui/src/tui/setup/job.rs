@@ -245,8 +245,9 @@ pub fn sweep(root: &std::path::Path) {
 
 /// The tool that builds the env: the uv on PATH (or one setup downloaded
 /// before), else the uv the catalogue names, downloaded and checked now,
-/// else pip from an interpreter inside the range. the catalogue is read
-/// from the payload the step before may just have laid down.
+/// else pip from the interpreter the scan resolved inside the range (found
+/// again when the payload step just changed the range). the catalogue is
+/// read from the payload the step before may just have laid down.
 fn env_tool(
     scan: &Scan,
     kit: Option<&Kit>,
@@ -259,7 +260,7 @@ fn env_tool(
         return Ok(Tool::Uv(uv));
     }
     let release = kit.and_then(|k| k.catalog.uv.as_ref());
-    let mut why = match (release, scan.curl.as_deref()) {
+    let why = match (release, scan.curl.as_deref()) {
         (Some(rel), Some(curl)) => {
             let _ = tx.send(Ev::Note(t, format!("downloading uv {}", rel.version)));
             let total =
@@ -281,9 +282,10 @@ fn env_tool(
         (Some(_), None) => "curl is not on PATH, so uv cannot be downloaded".into(),
         (None, _) => "the installed payload names no uv to download".into(),
     };
-    let base = match range {
-        Some(r) => venv::find_python(r),
-        None => scan.base_python.clone(),
+    let base = if range == scan.range() {
+        scan.base_python.clone()
+    } else {
+        venv::find_python(range)
     };
     if let Some(py) = base {
         let _ = tx.send(Ev::Log(format!(
@@ -292,13 +294,11 @@ fn env_tool(
         )));
         return Ok(Tool::Pip(py));
     }
-    if let Some(r) = range {
-        why = format!("{why}, and no {r} is on PATH");
-    }
     Err((
         codes::BLOCKED,
         format!(
-            "{why}: install uv (https://docs.astral.sh/uv/) or a python inside the range, then run `urna setup` again"
+            "{}, then run `urna setup` again",
+            venv::no_tool(&why, range)
         ),
     ))
 }
@@ -306,10 +306,7 @@ fn env_tool(
 fn python(scan: &Scan, tx: &Sender<Ev>) -> Result<String, Failure> {
     let home = paths::urna_home().ok_or((codes::BLOCKED, "no data dir".into()))?;
     let kit = Kit::in_home(&home);
-    let range = kit
-        .as_ref()
-        .and_then(|k| k.catalog.python.as_ref())
-        .and_then(|p| Range::parse(&p.requires));
+    let range = kit.as_ref().and_then(Kit::range);
     let tool = env_tool(scan, kit.as_ref(), range, &home, tx)?;
     let dir = home.join("venv");
     let _ = tx.send(Ev::Note(

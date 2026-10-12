@@ -158,6 +158,14 @@ impl Kit {
     pub fn in_home(home: &Path) -> Option<Kit> {
         Kit::at(&home.join(crate::cmd::payload::PACKAGE).join("model"))
     }
+
+    /// The python range the catalogue names, when it does.
+    pub fn range(&self) -> Option<super::venv::Range> {
+        self.catalog
+            .python
+            .as_ref()
+            .and_then(|p| super::venv::Range::parse(&p.requires))
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
