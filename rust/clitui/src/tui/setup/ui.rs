@@ -60,6 +60,9 @@ pub struct Ui {
     /// `None` follows the tail of the log.
     pub scroll: Option<usize>,
     pub health: Vec<health::Row>,
+    /// the sample corpus in the data dir once the run ended, for the done
+    /// screen to point at.
+    pub sample: Option<std::path::PathBuf>,
     pub code: i32,
     job: Option<Receiver<Ev>>,
     pub finished: bool,
@@ -98,6 +101,7 @@ impl Ui {
             log: Vec::new(),
             scroll: None,
             health: Vec::new(),
+            sample: None,
             code: 0,
             job: None,
             finished: false,
@@ -213,6 +217,8 @@ impl Ui {
                 self.flashes.push((t, ok));
             }
             Ev::End => {
+                self.sample =
+                    crate::cmd::paths::urna_home().and_then(|h| super::sample::installed(&h));
                 self.finished = true;
                 self.since = Instant::now();
             }

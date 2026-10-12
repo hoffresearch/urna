@@ -104,8 +104,26 @@ pub fn run(opts: &Opts) -> i32 {
                 msg.lines().next().unwrap_or("")
             );
         }
-        println!("  try: urna tui   ·   urna ask corpus.urna \"...\"   ·   https://urna.dev");
-        println!("  to build a corpus: urna build --spec corpus.toml, from a checkout of the repo");
+        let sample = crate::cmd::paths::urna_home().and_then(|h| super::sample::installed(&h));
+        match sample {
+            Some(p) => {
+                let at = super::scan::tilde(&p);
+                println!("  sample corpus: {at}");
+                println!(
+                    "    {}; a hit is true or fake news alike",
+                    super::sample::ABOUT
+                );
+                println!("  try: urna tui {at}   ·   urna ask {at} \"...\"   ·   https://urna.dev");
+            }
+            None => {
+                println!(
+                    "  try: urna tui   ·   urna ask corpus.urna \"...\"   ·   https://urna.dev"
+                );
+                if plan::sample_hint(&items, opts) {
+                    println!("  sample corpus: urna setup again downloads it");
+                }
+            }
+        }
     } else {
         println!("{} {}", t.bold("urna setup:"), t.fg("failed", tone::LOW));
     }

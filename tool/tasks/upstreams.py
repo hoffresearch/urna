@@ -9,16 +9,30 @@ having them written by hand, resolved once here and committed as
   of torch's latest release on pypi (`cp310` .. `cp314` gives
   `>=3.10,<3.15`), so setup never builds its env on a python the models
   cannot install torch on.
+- sample: the corpus setup offers a first-time user, one release of the
+  fakenews-ptbr benchmark on hugging face, taken by name (`--sample v0.1`).
+  the dataset's commit is resolved once and the file's size and the
+  release's `SHA256SUMS` are read at that commit, so a push between two
+  reads cannot mix releases. the release must be built with the potion the
+  payload ships (its manifest's `model_hash`), since setup offers it with
+  no other model. a commit that serves the same bytes as the one held is
+  not taken, so a push elsewhere in the dataset changes nothing here.
 
 they are read when the catalogue is generated, never when a user runs
 setup: the catalogue ships in the payload, `catalogue.py --check` (bare
 python, no network) refuses one that does not match this file, and a user
-only gets a uv or a range urna's ci has run. a value resolved on the user's
-machine would reach every user untested; one kept by hand ages.
+only gets a uv, a range or a sample urna's ci has run. a value resolved on
+the user's machine would reach every user untested; one kept by hand ages.
 
-usage:  python tool/tasks/upstreams.py           print what the upstreams say now
-        python tool/tasks/upstreams.py --write   rewrite upstreams.json and catalogue.json
-        python tool/tasks/upstreams.py --check   exit 1 when an upstream moved
+usage:  python tool/tasks/upstreams.py                  print what the upstreams say now
+        python tool/tasks/upstreams.py --write          rewrite upstreams.json and catalogue.json
+        python tool/tasks/upstreams.py --check          exit 1 when an upstream moved
+        python tool/tasks/upstreams.py --sample v0.2 --write
+                                                        take another sample release
+
+without `--sample` the release upstreams.json holds is kept; nothing lists
+the dataset's releases or orders them. the potion check loads the payload's
+potion table, so it runs with numpy and tokenizers (the repo's `.venv`).
 
 GH_TOKEN or GITHUB_TOKEN, when set, lifts github's anonymous rate limit.
 """
@@ -29,6 +43,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -51,6 +66,12 @@ UV_ARCHIVES = {
     "x86_64-linux": "uv-x86_64-unknown-linux-musl.tar.gz",
     "x86_64-windows": "uv-x86_64-pc-windows-msvc.zip",
 }
+
+# the sample corpus: the potion build of the benchmark, the one that runs
+# on the payload alone (no torch, no other model).
+SAMPLE_REPO = "brennercruvinel/fakenews-ptbr-urna-benchmark"
+SAMPLE_BUILD = "potion-tiny"
+SAMPLE_FILE = "fakenews.urna"
 
 
 def _get(url: str, accept: str = "application/json") -> bytes:
@@ -116,8 +137,81 @@ def resolve_python() -> dict:
     return {"requires": python_range(wheels), "torch": version}
 
 
-def resolve() -> dict:
-    return {"uv": resolve_uv(), "python": resolve_python()}
+def parse_sums(text: str) -> dict[str, str]:
+    """A `SHA256SUMS` file (`<hex>  <name>` per line) to `{name: hex}`."""
+    sums = {}
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) == 2:
+            sums[parts[1].lstrip("*")] = parse_sha256(line)
+    return sums
+
+
+def potion_model_hash() -> str:
+    """The `model_hash` of the potion the payload ships, from its table."""
+    from urna.embed.potiontab import PotionEmbedder
+
+    return PotionEmbedder().model_hash()
+
+
+def resolve_sample(release: str, held: dict | None = None) -> dict:
+    if not re.fullmatch(r"v\d+(\.\d+)*", release):
+        raise SystemExit(f"--sample takes a release name like v0.1, not {release!r}")
+    api = f"https://huggingface.co/api/datasets/{SAMPLE_REPO}"
+    commit = json.loads(_get(f"{api}/revision/main"))["sha"]
+    folder = f"release/{release}/{SAMPLE_BUILD}"
+    path = f"{folder}/{SAMPLE_FILE}"
+
+    def at(name: str) -> bytes:
+        url = f"https://huggingface.co/datasets/{SAMPLE_REPO}/resolve/{commit}/{folder}/{name}"
+        return _get(url, accept="*/*")
+
+    try:
+        listing = json.loads(_get(f"{api}/tree/{commit}/{folder}"))
+    except urllib.error.HTTPError as e:
+        if e.code != 404:
+            raise
+        listing = []
+    tree = {e["path"]: e for e in listing}
+    if path not in tree:
+        raise SystemExit(f"{SAMPLE_REPO}@{commit[:8]} has no {path}")
+    sha = parse_sums(at("SHA256SUMS").decode()).get(SAMPLE_FILE)
+    if sha is None:
+        raise SystemExit(f"{folder}/SHA256SUMS at {commit[:8]} lists no {SAMPLE_FILE}")
+    manifest = json.loads(at("manifest.json"))["inspect"]["manifest"]
+    want = potion_model_hash()
+    if manifest["model_hash"] != want:
+        raise SystemExit(
+            f"{release} is built with {manifest['embedding_model']} "
+            f"({manifest['model_hash']}), not the payload's potion ({want})"
+        )
+    if held and held.get("release") == release and held.get("sha256") == sha:
+        commit = held["commit"]
+    return {
+        "repo": SAMPLE_REPO,
+        "release": release,
+        "commit": commit,
+        "path": path,
+        "url": f"https://huggingface.co/datasets/{SAMPLE_REPO}/resolve/{commit}/{path}",
+        "size": tree[path]["size"],
+        "sha256": sha,
+    }
+
+
+def held_upstreams() -> dict:
+    return json.loads(UPSTREAMS.read_text()) if UPSTREAMS.is_file() else {}
+
+
+def resolve(sample: str | None = None) -> dict:
+    held = held_upstreams().get("sample")
+    release = sample or (held or {}).get("release")
+    if release is None:
+        raise SystemExit("upstreams.json holds no sample: name its release with --sample v0.1")
+    return {
+        "uv": resolve_uv(),
+        "python": resolve_python(),
+        "sample": resolve_sample(release, held),
+    }
 
 
 def render(upstreams: dict) -> str:
@@ -125,11 +219,19 @@ def render(upstreams: dict) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = sys.argv[1:] if argv is None else argv
-    if args not in ([], ["--write"], ["--check"]):
+    args = list(sys.argv[1:] if argv is None else argv)
+    sample = None
+    if "--sample" in args:
+        i = args.index("--sample")
+        if i + 1 >= len(args):
+            print(__doc__, file=sys.stderr)
+            return 2
+        sample = args.pop(i + 1)
+        args.pop(i)
+    if args not in ([], ["--write"], ["--check"]) or (sample and args == ["--check"]):
         print(__doc__, file=sys.stderr)
         return 2
-    text = render(resolve())
+    text = render(resolve(sample))
     if args == ["--write"]:
         UPSTREAMS.write_text(text)
         print(f"wrote {UPSTREAMS}")

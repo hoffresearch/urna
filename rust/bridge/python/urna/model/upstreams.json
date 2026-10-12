@@ -27,5 +27,14 @@
   "python": {
     "requires": ">=3.10,<3.15",
     "torch": "2.14.1"
+  },
+  "sample": {
+    "repo": "brennercruvinel/fakenews-ptbr-urna-benchmark",
+    "release": "v0.1",
+    "commit": "b58d0c8be8dbc3b8b387a8b9047a1abbf4819f73",
+    "path": "release/v0.1/potion-tiny/fakenews.urna",
+    "url": "https://huggingface.co/datasets/brennercruvinel/fakenews-ptbr-urna-benchmark/resolve/b58d0c8be8dbc3b8b387a8b9047a1abbf4819f73/release/v0.1/potion-tiny/fakenews.urna",
+    "size": 19604805,
+    "sha256": "84b0861e1712fd320f46b59361641820c611807bb8c1c474c4106654505b6ad9"
   }
 }

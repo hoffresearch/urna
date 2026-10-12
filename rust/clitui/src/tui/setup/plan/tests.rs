@@ -26,6 +26,7 @@ fn bare() -> Scan {
         curl: Some(PathBuf::from("/usr/bin/curl")),
         simd: "neon",
         kit: None,
+        sample: None,
     }
 }
 
@@ -137,6 +138,7 @@ fn a_ready_machine_only_verifies_unless_forced() {
         missing: Vec::new(),
     });
     s.deps = true;
+    s.sample = Some(PathBuf::from("/h/.local/share/urna/sample/fakenews.urna"));
     let p = plan(&s, &Opts::default());
     assert_eq!(p.iter().filter(|i| i.runs()).count(), 1);
     let forced = plan(
@@ -458,5 +460,109 @@ fn a_development_build_whose_checkout_is_gone_is_blocked() {
     assert!(
         why.contains("/nowhere/rust/bridge/python") && why.contains("cargo install"),
         "{why}"
+    );
+}
+
+/// `installed` with a payload whose catalogue names the sample corpus.
+fn naming_a_sample() -> Scan {
+    let mut s = installed(Some("0.5.0"));
+    let mut catalog = models::tests::sample();
+    catalog.sample = Some(models::Sample {
+        repo: "hoffresearch/fakenews-ptbr".into(),
+        release: "v1.0.0".into(),
+        commit: "c".repeat(40),
+        path: "fakenews.urna".into(),
+        url: "https://example/fakenews.urna".into(),
+        size: 20_000_000,
+        sha256: "ab".repeat(32),
+    });
+    s.kit = Some(models::Kit {
+        script: PathBuf::from("/h/.local/share/urna/python/urna/model/installer.py"),
+        catalog,
+    });
+    s
+}
+
+#[test]
+fn the_sample_waits_for_a_payload_to_name_it() {
+    // no payload yet: the catalogue comes with it, so the step is on only
+    // when the payload step runs first.
+    let p = plan(&bare(), &Opts::default());
+    assert!(p[4].runs(), "{}", p[4].detail);
+    assert!(
+        p[4].detail.starts_with("after the payload:"),
+        "{}",
+        p[4].detail
+    );
+    let no_payload = Opts {
+        no_payload: true,
+        ..Opts::default()
+    };
+    let p = plan(&bare(), &no_payload);
+    assert!(!p[4].proposed && !p[4].runs(), "{}", p[4].detail);
+    assert!(
+        p[4].detail.contains("no payload is installed"),
+        "{}",
+        p[4].detail
+    );
+    // a blocked payload holds it back the same way.
+    let mut no_curl = bare();
+    no_curl.curl = None;
+    let p = plan(&no_curl, &Opts::default());
+    assert!(!p[0].runs() && !p[4].proposed, "{}", p[4].detail);
+}
+
+#[test]
+fn a_catalogue_naming_a_sample_offers_it_unless_opted_out() {
+    let s = naming_a_sample();
+    let p = plan(&s, &Opts::default());
+    assert!(p[4].proposed && p[4].runs(), "{}", p[4].detail);
+    assert!(p[4].detail.contains("(20 MB)"), "{}", p[4].detail);
+    let no_sample = Opts {
+        no_sample: true,
+        ..Opts::default()
+    };
+    let p = plan(&s, &no_sample);
+    assert!(p[4].proposed && !p[4].runs(), "--no-sample unticks it");
+    // a payload from 0.5.4 or older names none.
+    let p = plan(&with_upstreams(), &Opts::default());
+    assert!(!p[4].proposed && !p[4].runs(), "{}", p[4].detail);
+    assert!(
+        p[4].detail.contains("names no sample corpus"),
+        "{}",
+        p[4].detail
+    );
+}
+
+#[test]
+fn the_done_hint_names_setup_only_when_the_sample_was_left_out() {
+    let o = Opts::default();
+    let s = naming_a_sample();
+    let mut p = plan(&s, &o);
+    assert!(!sample_hint(&p, &o), "it runs: nothing to hint");
+    p[4].on = false;
+    assert!(sample_hint(&p, &o), "unticked by the user");
+    let no_sample = Opts {
+        no_sample: true,
+        ..Opts::default()
+    };
+    assert!(!sample_hint(&plan(&s, &no_sample), &no_sample), "opted out");
+    assert!(
+        !sample_hint(&plan(&with_upstreams(), &o), &o),
+        "the catalogue names none"
+    );
+    let no_payload = Opts {
+        no_payload: true,
+        ..Opts::default()
+    };
+    assert!(
+        !sample_hint(&plan(&bare(), &no_payload), &no_payload),
+        "no catalogue to come"
+    );
+    let mut no_curl = naming_a_sample();
+    no_curl.curl = None;
+    assert!(
+        sample_hint(&plan(&no_curl, &o), &o),
+        "blocked here: setup again once curl is on PATH"
     );
 }

@@ -2,10 +2,10 @@
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Modifier;
+use ratatui::style::{Modifier, Style};
 
 use crate::tui::hud::{self, Badge};
-use crate::tui::setup::plan::Task;
+use crate::tui::setup::plan::{self, Task};
 use crate::tui::setup::ui::Ui;
 use crate::tui::{art, fx, pal};
 
@@ -101,23 +101,46 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
     if !reasons.is_empty() {
         yy += 1;
     }
-    let next: &[(&str, &str)] = if ok {
-        &[
-            ("urna tui", "open the explorer"),
-            ("urna ask corpus.urna \"...\"", "ask a corpus"),
+    let next: Vec<(String, String)> = match (ok, &ui.sample) {
+        (true, Some(p)) => next_with_sample(p),
+        (true, None) => {
+            let mut next = vec![
+                ("urna tui".into(), "open the explorer".into()),
+                ("urna ask corpus.urna \"...\"".into(), "ask a corpus".into()),
+            ];
+            if plan::sample_hint(&ui.plan, &ui.opts) {
+                next.push((
+                    "urna setup".into(),
+                    "again, to download the sample corpus".into(),
+                ));
+            }
+            next
+        }
+        (false, _) => vec![
+            ("urna setup".into(), "run it again".into()),
             (
-                "urna build --spec corpus.toml",
-                "build one, from a checkout of the repo",
+                "urna setup --yes > setup.log".into(),
+                "the plain log, to share".into(),
             ),
-        ]
-    } else {
-        &[
-            ("urna setup", "run it again"),
-            ("urna setup --yes > setup.log", "the plain log, to share"),
-            ("urna doctor", "re-check without changing anything"),
-        ]
+            (
+                "urna doctor".into(),
+                "re-check without changing anything".into(),
+            ),
+        ],
     };
-    for (cmd, what) in next {
+    if ok && ui.sample.is_some() && yy < body.bottom() {
+        hud::put(buf, status.x, yy, "sample corpus", pal::dim(), 18);
+        hud::put(
+            buf,
+            status.x + 19,
+            yy,
+            crate::tui::setup::sample::ABOUT,
+            Style::new().fg(pal::INK),
+            status.width.saturating_sub(19),
+        );
+        yy += 1;
+    }
+    for (cmd, what) in &next {
         if yy >= body.bottom() {
             break;
         }
@@ -125,10 +148,10 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
             buf,
             status.x,
             yy,
-            &[("$ ", pal::faint()), (cmd, pal::key())],
+            &[("$ ", pal::faint()), (cmd.as_str(), pal::key())],
             status.width,
         );
-        let dx = x.max(status.x + 34);
+        let dx = (x + 2).max(status.x + 34);
         hud::put(
             buf,
             dx,
@@ -167,4 +190,14 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
         ui.fx
             .add_effect(fx::flash(status, if ok { pal::HIGH } else { pal::LOW }));
     }
+}
+
+/// The sample's two commands, under the line that says what it holds:
+/// open it in the explorer, ask it from a shell.
+fn next_with_sample(p: &std::path::Path) -> Vec<(String, String)> {
+    let at = crate::tui::setup::scan::tilde(p);
+    vec![
+        (format!("urna tui {at}"), String::new()),
+        (format!("urna ask {at} \"...\""), String::new()),
+    ]
 }

@@ -227,8 +227,10 @@ path = [
     "rust/clitui/src/tui/setup/models.rs",
     "rust/bridge/python/urna/model/installer.py",
     "rust/clitui/src/cmd/health.rs",
+    "rust/clitui/src/tui/setup/sample.rs",
+    "rust/clitui/src/cmd/validate.rs",
 ]
-summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack into a staging dir (entries escaping it abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker; packages only into that venv, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's; repo code needs --allow-remote-code), and run the doctor checks; the inline screen and the --yes printer render the same event stream"
+summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack into a staging dir (entries escaping it abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker; packages only into that venv, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's; repo code needs --allow-remote-code), run the doctor checks, then fetch the sample corpus the catalog pins (a dataset commit and its sha256, refused on any other bytes or on a failed validate check) into <root>/urna/sample; the inline screen and the --yes printer render the same event stream"
 
 [[flows]]
 name = "tui-model-install"
@@ -695,7 +697,7 @@ links = [
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/setup"
 kind = "directory"
-purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), unpack (staged, traversal-safe), venv (uv or venv+pip, streamed with exit status), models (the payload's model catalog and the one model install setup and the explorer share: packages into the managed venv, then urna/model/installer.py's verified fetch), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker)"
+purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), unpack (staged, traversal-safe), venv (uv or venv+pip, streamed with exit status), models (the payload's model catalog and the one model install setup and the explorer share: packages into the managed venv, then urna/model/installer.py's verified fetch), sample (the sample corpus the catalog pins: download, sha256, validate checks, saved under <root>/urna/sample), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker)"
 links = ["rust/clitui/src/tui/setup/mod.rs"]
 
 [[inventory.workspace]]
@@ -1090,7 +1092,7 @@ links = ["rust/engine/src/lib.rs"]
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/cmd/validate.rs"
 kind = "rust-source"
-purpose = "Full integrity validation command"
+purpose = "Full integrity validation command: check() runs every check and prints nothing (setup validates the sample corpus with it), run() prints the report"
 links = ["rust/format/src/reader/mod.rs"]
 
 [[inventory.urna_clitui]]

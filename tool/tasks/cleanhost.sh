@@ -22,10 +22,13 @@
 #   - setup and doctor exit 0;
 #   - the env's python is inside the range the payload's catalogue names;
 #   - setup downloaded the uv the catalogue names (none was there before);
+#   - setup saved the sample corpus the catalogue names, it validates, and
+#     `urna ask` on it answers with a citation, outside any checkout;
 #   - macos: Apple's Command Line Tools installer never opened, and
 #     `xcode-select -p` still fails (nothing installed them on the way).
 # the machine reaches the network for what a user's would: uv, a python
-# (python-build-standalone, through uv), pypi and the hugging face hub.
+# (python-build-standalone, through uv), pypi and the hugging face hub (the
+# model and the sample).
 #
 # needs: python3 3.11+, curl, and docker/podman (linux) or tart (macos);
 # the potion table comes through tool/tasks/getpotion.sh. tart from
@@ -113,6 +116,12 @@ have = sys.version_info[:2]
 print(f"cleanhost(guest): env python {have[0]}.{have[1]}, catalogue range {spec}")
 sys.exit(0 if have[0] == 3 and lo <= have[1] < hi else 1)
 PY
+sample="\$(ls "\$data"/sample/*.urna 2>/dev/null | head -n 1)"
+[ -n "\$sample" ] || fail "setup saved no sample corpus under \$data/sample"
+urna validate "\$sample" >/dev/null || fail "urna validate rejects the sample"
+(cd / && urna ask "\$sample" "imposto sobre pix" -k 1) | grep -q "urna://" \
+    || fail "urna ask on the sample gave no cited hit"
+echo "cleanhost(guest): sample \$sample validates and answers"
 if [ "\$(uname -s)" = Darwin ]; then
     sleep 3
     pgrep -fl "Install Command Line Developer Tools" && fail "Apple's Command Line Tools installer opened"

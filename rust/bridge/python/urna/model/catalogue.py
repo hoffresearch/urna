@@ -10,8 +10,9 @@ the catalog ships in the payload as `urna/model/catalogue.json`; no remote index
 `tool/tasks/embedpack.py` and `tool/tests/test_embedpack.py` refuse a stale copy.
 
 beside the models it carries what setup takes from upstreams: the uv release
-it downloads when a machine has none (a url and sha256 per platform) and the
-python range torch has wheels for. `tool/tasks/upstreams.py` resolves them
+it downloads when a machine has none (a url and sha256 per platform), the
+python range torch has wheels for and the sample corpus it offers (a dataset
+commit, path, size and sha256). `tool/tasks/upstreams.py` resolves them
 over the network into `upstreams.json`; this module only copies that file,
 so `--check` stays a bare-python, offline check.
 
@@ -106,7 +107,7 @@ def _entry(preset: ModelPreset) -> dict:
 
 
 def load_upstreams(path: Path | None = None) -> dict:
-    """`upstreams.json`: `{"uv": {...}, "python": {...}}`, resolved by
+    """`upstreams.json`: `{"uv": {...}, "python": {...}, "sample": {...}}`, resolved by
     `tool/tasks/upstreams.py`."""
     return json.loads((path or UPSTREAMS).read_text())
 
@@ -140,6 +141,7 @@ def build(presets: dict[str, ModelPreset] = PRESETS, upstreams: dict | None = No
         "schema": SCHEMA,
         "uv": up["uv"],
         "python": up["python"],
+        "sample": up.get("sample"),
         "models": models,
         "excluded": excluded,
     }

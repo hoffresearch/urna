@@ -89,13 +89,14 @@ fn release_at(
 ) -> PathBuf {
     let rel = dir.join(name);
     std::fs::create_dir_all(&rel).unwrap();
+    std::fs::copy(golden(), rel.join(SAMPLE)).unwrap();
     let tgz = rel.join(PAYLOAD);
     let gz = GzEncoder::new(std::fs::File::create(&tgz).unwrap(), Compression::fast());
     let mut b = tar::Builder::new(gz);
     let mut entries: Vec<(String, Vec<u8>)> = REQUIRED
         .iter()
         .filter(|f| Some(**f) != drop)
-        .map(|f| (format!("urna/{f}"), body(f, version)))
+        .map(|f| (format!("urna/{f}"), body(f, version, &rel)))
         .collect();
     entries.push(("urna/VERSION".into(), format!("{version}\n").into_bytes()));
     for (name, body) in &entries {
@@ -113,12 +114,29 @@ fn release_at(
     rel
 }
 
-/// A stub file's body; the catalog is the real one, since setup reads it.
-fn body(f: &str, version: &str) -> Vec<u8> {
+/// The sample corpus a test release serves in place of the hub's.
+const SAMPLE: &str = "sample.urna";
+
+/// A small valid `.urna`, the format crate's golden file.
+fn golden() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../format/tests/fixtures/golden_v1_minimal.urna")
+}
+
+/// A stub file's body; the catalog is the real one, since setup reads it,
+/// with its sample pointed at the copy in `rel`, so no test reaches the hub.
+fn body(f: &str, version: &str, rel: &Path) -> Vec<u8> {
     if f == "python/urna/model/catalogue.json" {
         let real = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../../rust/bridge/python/urna/model/catalogue.json");
-        return std::fs::read(real).unwrap();
+        let mut cat: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(real).unwrap()).unwrap();
+        let bytes = std::fs::read(golden()).unwrap();
+        let s = &mut cat["sample"];
+        s["url"] = file_url(&rel.join(SAMPLE)).into();
+        s["path"] = format!("release/test/{SAMPLE}").into();
+        s["size"] = bytes.len().into();
+        s["sha256"] = hex::encode(Sha256::digest(&bytes)).into();
+        return serde_json::to_vec_pretty(&cat).unwrap();
     }
     format!("{f}@{version}").into_bytes()
 }
@@ -666,4 +684,51 @@ fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
     assert!(s.contains("no python 3.10 to 3.14 is on PATH"), "{s}");
     assert!(s.contains("install uv (https://docs.astral.sh/uv/)"), "{s}");
     assert!(!data.join("urna/bin/uv").exists(), "{s}");
+}
+
+#[test]
+fn the_sample_is_saved_checked_and_other_bytes_are_refused() {
+    if !has_curl() {
+        eprintln!("skip: no curl on PATH");
+        return;
+    }
+    let d = scratch("sample");
+    let rel = release(&d, None);
+    let s = text(&urna(&d, &rel, &["setup", "--yes", "--no-python"]));
+    assert!(s.contains("ok sample corpus"), "{s}");
+    let saved = d.join("data/urna/sample").join(SAMPLE);
+    assert_eq!(
+        std::fs::read(&saved).unwrap(),
+        std::fs::read(golden()).unwrap()
+    );
+
+    // the release serves other bytes than the catalogue's sha256.
+    let d = scratch("sample_bad");
+    let rel = release(&d, None);
+    std::fs::write(rel.join(SAMPLE), b"not the sample").unwrap();
+    let s = text(&urna(&d, &rel, &["setup", "--yes", "--no-python"]));
+    assert!(s.contains("fail(16) sample corpus"), "{s}");
+    assert!(s.contains("does not match the catalogue's sha256"), "{s}");
+    let left: Vec<_> = std::fs::read_dir(d.join("data/urna/sample"))
+        .map(|r| r.flatten().map(|e| e.file_name()).collect())
+        .unwrap_or_default();
+    assert!(left.is_empty(), "left behind: {left:?}");
+}
+
+#[test]
+fn no_sample_skips_the_step() {
+    if !has_curl() {
+        eprintln!("skip: no curl on PATH");
+        return;
+    }
+    let d = scratch("no_sample");
+    let rel = release(&d, None);
+    let s = text(&urna(
+        &d,
+        &rel,
+        &["setup", "--yes", "--no-python", "--no-sample"],
+    ));
+    assert!(s.contains("skip sample corpus"), "{s}");
+    assert!(!s.contains("==> sample corpus"), "{s}");
+    assert!(!d.join("data/urna/sample").exists(), "{s}");
 }

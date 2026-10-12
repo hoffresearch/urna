@@ -1,17 +1,21 @@
 """Prove the upstream values the catalogue carries are read, not written.
 
 `tool/tasks/upstreams.py` resolves the uv release setup downloads (a url
-and a sha256 per platform) and the python range torch has wheels for, and
-writes them to `upstreams.json`; `catalogue.py` copies that file into the
-catalogue the payload ships. no network here: the github and pypi answers
-are stubbed.
+and a sha256 per platform), the python range torch has wheels for and the
+sample corpus setup offers, and writes them to `upstreams.json`;
+`catalogue.py` copies that file into the catalogue the payload ships. no
+network here: the github, pypi and hugging face answers are stubbed.
 
 - happy path: the range is the cpython minors every platform has a wheel
   for (torch 2.14.1's names give `>=3.10,<3.15`); uv's archives are taken
   per urna platform with the sha256 their release publishes; the checked-in
-  catalogue carries upstreams.json verbatim;
+  catalogue carries upstreams.json verbatim; the sample is read at one
+  commit (its size from the tree, its sha256 from the release's
+  `SHA256SUMS`), and a newer commit serving the same bytes keeps the held one;
 - error path: a platform with no archive, or no `.sha256`, fails; minors
-  with a gap fail; a moved upstream fails `--check`;
+  with a gap fail; a moved upstream fails `--check`; a sample built with
+  another model than the payload's potion, a release missing from the tree
+  or a name that is no release fails;
 - edge: a free-threaded tag (`cp314t`) counts as its minor, a platform with
   fewer minors narrows the range, an sdist is ignored.
 
@@ -21,6 +25,7 @@ Run: python tool/tests/test_upstreams.py
 import json
 import sys
 import tempfile
+import urllib.error
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -127,14 +132,87 @@ def test_a_moved_upstream_fails_check() -> None:
         held.write_text(up.render(now))
         try:
             up.UPSTREAMS = held
-            up.resolve = lambda: now
+            up.resolve = lambda _sample=None: now
             assert up.main(["--check"]) == 0
-            up.resolve = lambda: {**now, "uv": {"version": "0.14.0"}}
+            up.resolve = lambda _sample=None: {**now, "uv": {"version": "0.14.0"}}
             assert up.main(["--check"]) == 1
             assert up.main(["--nope"]) == 2
         finally:
             up.resolve, up.UPSTREAMS = saved
     print("error path (a newer uv fails --check until upstreams.json is rewritten): OK")
+
+
+POTION = "sha256:" + "11" * 32
+SUMS = f"{'cd' * 32}  fakenews.urna\n{'ef' * 32}  manifest.json\n"
+
+
+def stub_hub(commit: str, model_hash: str = POTION, release: str = "v0.1"):
+    """The hub's answers for one dataset commit; every read is recorded,
+    so the test sees each one names that commit."""
+    seen: list[str] = []
+    folder = f"release/{release}/potion-tiny"
+
+    def get(url: str, accept: str = "application/json") -> bytes:
+        seen.append(url)
+        if url.endswith("/revision/main"):
+            return json.dumps({"sha": commit}).encode()
+        if f"/tree/{commit}/{folder}" in url:
+            entry = {"path": f"{folder}/fakenews.urna", "size": 19604805}
+            return json.dumps([entry]).encode()
+        if url.endswith(f"/resolve/{commit}/{folder}/SHA256SUMS"):
+            return SUMS.encode()
+        if url.endswith(f"/resolve/{commit}/{folder}/manifest.json"):
+            manifest = {"model_hash": model_hash, "embedding_model": "minishlab/potion-base-8M/v1"}
+            return json.dumps({"inspect": {"manifest": manifest}}).encode()
+        if "/tree/" in url:
+            raise urllib.error.HTTPError(url, 404, "not found", {}, None)  # type: ignore[arg-type]
+        raise AssertionError(f"unexpected read: {url}")
+
+    return get, seen
+
+
+def test_the_sample_is_read_at_one_commit() -> None:
+    saved = up._get, up.potion_model_hash
+    try:
+        up.potion_model_hash = lambda: POTION
+        up._get, seen = stub_hub("a" * 40)
+        s = up.resolve_sample("v0.1")
+        assert s["commit"] == "a" * 40
+        assert s["path"] == "release/v0.1/potion-tiny/fakenews.urna"
+        assert s["url"].endswith(f"/resolve/{'a' * 40}/release/v0.1/potion-tiny/fakenews.urna")
+        assert s["size"] == 19604805 and s["sha256"] == "cd" * 32
+        reads = [u for u in seen if not u.endswith("/revision/main")]
+        assert reads and all("a" * 40 in u for u in reads), seen
+        # a push elsewhere in the dataset: same bytes, the held commit stays.
+        up._get, _ = stub_hub("b" * 40)
+        assert up.resolve_sample("v0.1", held=s)["commit"] == "a" * 40
+        assert up.resolve_sample("v0.1", held={**s, "sha256": "00" * 32})["commit"] == "b" * 40
+    finally:
+        up._get, up.potion_model_hash = saved
+    print("happy path (the sample: one commit, its size and SHA256SUMS; same bytes keep it): OK")
+
+
+def test_a_sample_the_payload_cannot_ask_is_refused() -> None:
+    saved = up._get, up.potion_model_hash
+    try:
+        up.potion_model_hash = lambda: POTION
+        other = stub_hub("a" * 40, model_hash="sha256:" + "22" * 32)[0]
+        cases = [
+            ("v0.1", other, "not the payload's potion"),
+            ("v0.9", stub_hub("a" * 40)[0], "has no release/v0.9"),
+            ("latest", stub_hub("a" * 40)[0], "a release name"),
+        ]
+        for release, get, why in cases:
+            up._get = get
+            try:
+                up.resolve_sample(release)
+            except SystemExit as e:
+                assert why in str(e), str(e)
+                continue
+            raise AssertionError(f"{release} was accepted")
+    finally:
+        up._get, up.potion_model_hash = saved
+    print("error path (another model, a missing release or no release name is refused): OK")
 
 
 def main() -> None:
@@ -143,6 +221,8 @@ def main() -> None:
     test_uv_archives_per_platform()
     test_the_catalogue_carries_upstreams_verbatim()
     test_a_moved_upstream_fails_check()
+    test_the_sample_is_read_at_one_commit()
+    test_a_sample_the_payload_cannot_ask_is_refused()
     print("all upstream tests passed")
 
 

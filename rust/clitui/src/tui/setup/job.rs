@@ -16,11 +16,12 @@ use super::venv::{self, Built, Range, Tool};
 use crate::cmd::health::{self, Row};
 use crate::cmd::{paths, pyenv};
 
-/// A step whose failure leaves urna ready: the models are optional, the
-/// potion embedder works without them. the run still exits non-zero
-/// (`codes::MODEL`), so a script sees the model it asked for is missing.
+/// A step whose failure leaves urna ready: the models and the sample are
+/// optional, the potion embedder works without them. the run still exits
+/// non-zero (`codes::MODEL`, `codes::SAMPLE`), so a script sees what it
+/// asked for is missing.
 pub fn optional(task: Task) -> bool {
-    task == Task::Models
+    matches!(task, Task::Models | Task::Sample)
 }
 
 /// setup's own exit codes, above doctor's 2..=6 so the two never collide.
@@ -31,6 +32,7 @@ pub mod codes {
     pub const PYTHON: i32 = 13;
     pub const BLOCKED: i32 = 14;
     pub const MODEL: i32 = 15;
+    pub const SAMPLE: i32 = 16;
 }
 
 pub type Failure = (i32, String);
@@ -63,6 +65,7 @@ pub fn spawn(scan: Scan, tasks: Vec<Task>, opts: Opts) -> Receiver<Ev> {
                 Task::Python => python(&scan, &tx),
                 Task::Models => install_models(&opts, &tx),
                 Task::Verify => verify(&tx),
+                Task::Sample => sample(&scan, &tx),
             };
             let _ = tx.send(Ev::Done(task, res));
         }
@@ -451,6 +454,53 @@ fn verify(tx: &Sender<Ev>) -> Result<String, Failure> {
         None => Ok("every check passes, offline".into()),
         Some(msg) => Err((code, msg)),
     }
+}
+
+/// The sample corpus the installed payload's catalogue names, read now:
+/// the payload step may just have laid it down.
+fn sample(scan: &Scan, tx: &Sender<Ev>) -> Result<String, Failure> {
+    let t = Task::Sample;
+    let fail = |why: String| (codes::SAMPLE, why);
+    let curl = scan
+        .curl
+        .as_deref()
+        .ok_or_else(|| fail("curl is not on PATH".into()))?;
+    let home = paths::urna_home().ok_or_else(|| fail("no data dir".into()))?;
+    let kit = Kit::in_home(&home)
+        .ok_or_else(|| fail("no payload is installed, so no catalogue names a sample".into()))?;
+    let s = kit
+        .catalog
+        .sample
+        .ok_or_else(|| fail("the installed payload names no sample corpus".into()))?;
+    if let Some(p) = super::sample::present(&home, &s) {
+        return Ok(format!(
+            "{} {} already here · {}",
+            s.repo,
+            s.release,
+            tilde(&p)
+        ));
+    }
+    let _ = tx.send(Ev::Log(format!("source {}", s.url)));
+    let _ = tx.send(Ev::Note(
+        t,
+        format!("downloading {}", super::sample::size(&s)),
+    ));
+    let p = super::sample::install(curl, &s, &home, |n| {
+        let _ = tx.send(Ev::Bytes(t, n, Some(s.size)));
+    })
+    .map_err(|e| fail(format!("{e:#}")))?;
+    let _ = tx.send(Ev::Log(format!(
+        "sha256 ok {} · urna validate ok",
+        s.sha256
+    )));
+    Ok(format!(
+        "{} {} · {} · sha256 {}… · {}",
+        s.repo,
+        s.release,
+        super::sample::size(&s),
+        &s.sha256[..12],
+        tilde(&p)
+    ))
 }
 
 #[cfg(test)]

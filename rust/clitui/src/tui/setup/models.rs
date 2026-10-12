@@ -55,14 +55,30 @@ pub struct PythonRange {
     pub torch: String,
 }
 
-/// A payload from 0.5.4 or older carries no `uv` and no `python`: setup then
-/// uses the uv on PATH and lets it pick the python, as it did.
+/// The sample corpus setup offers: one release of a dataset on hugging
+/// face, pinned to a commit, with the size and sha256 read at that commit.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+pub struct Sample {
+    pub repo: String,
+    pub release: String,
+    pub commit: String,
+    pub path: String,
+    pub url: String,
+    pub size: u64,
+    pub sha256: String,
+}
+
+/// A payload from 0.5.4 or older carries no `uv`, no `python` and no
+/// `sample`: setup then uses the uv on PATH, lets it pick the python, as it
+/// did, and offers no sample.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub struct Catalog {
     #[serde(default)]
     pub uv: Option<UvRelease>,
     #[serde(default)]
     pub python: Option<PythonRange>,
+    #[serde(default)]
+    pub sample: Option<Sample>,
     pub models: Vec<Entry>,
     pub excluded: Vec<Excluded>,
 }
