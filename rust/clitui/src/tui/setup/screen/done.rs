@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 
 use crate::tui::hud::{self, Badge};
-use crate::tui::setup::plan::Task;
+use crate::tui::setup::plan::{self, Task};
 use crate::tui::setup::ui::Ui;
 use crate::tui::{art, fx, pal};
 
@@ -103,14 +103,19 @@ pub fn draw(buf: &mut Buffer, body: Rect, ui: &mut Ui) {
     }
     let next: Vec<(String, String)> = match (ok, &ui.sample) {
         (true, Some(p)) => next_with_sample(p),
-        (true, None) => vec![
-            ("urna tui".into(), "open the explorer".into()),
-            ("urna ask corpus.urna \"...\"".into(), "ask a corpus".into()),
-            (
-                "urna setup".into(),
-                "again, to download the sample corpus".into(),
-            ),
-        ],
+        (true, None) => {
+            let mut next = vec![
+                ("urna tui".into(), "open the explorer".into()),
+                ("urna ask corpus.urna \"...\"".into(), "ask a corpus".into()),
+            ];
+            if plan::sample_hint(&ui.plan, &ui.opts) {
+                next.push((
+                    "urna setup".into(),
+                    "again, to download the sample corpus".into(),
+                ));
+            }
+            next
+        }
         (false, _) => vec![
             ("urna setup".into(), "run it again".into()),
             (
