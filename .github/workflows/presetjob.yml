@@ -1,0 +1,67 @@
+# every model preset setup offers, installed from the lock on a clean
+# runner and asked one query (#534): `tool/tasks/presetjob.py` runs `urna
+# setup --yes --model NAME` for each, one at a time, the hugging face cache
+# emptied between them, then checks torch's own memory against the
+# catalogue's. it runs when the lock changes, the only time what setup
+# installs changes; there is no schedule: a pinned file that left the hub,
+# or a newer uv, torch or sample, shows when the lock or
+# tool/tasks/upstreams.py runs again.
+#
+# each platform setup installs on: linux x86_64 and aarch64, windows, an
+# apple-silicon mac. a preset whose estimated ram is more than the runner
+# has (the mac runner has 7 GB) is skipped and listed, not failed. the mac
+# runner is a vm whose metal reports mps available but cannot compile
+# torch's kernels: the script probes mps in the env after the first install
+# (linear and attention kernels, half and single precision) and, when the
+# probe or a model's own query fails on metal's compiler, runs the presets
+# on the cpu (URNA_ST_DEVICE=cpu), saying so; a real apple-silicon mac runs
+# them on mps.
+
+name: presetjob
+
+on:
+  pull_request:
+    paths:
+      - "rust/bridge/python/urna/model/modellock.txt"
+      - "tool/tasks/presetjob.py"
+      - ".github/workflows/presetjob.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  presets:
+    name: presets ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-24.04-arm, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: build urna and stage its payload as a release
+        run: |
+          cargo build --locked --release -p urna
+          sh tool/tasks/getpotion.sh
+          python tool/tasks/embedpack.py "$RUNNER_TEMP/stage" --tar "$RUNNER_TEMP/release/urna-embedder-payload.tar.gz"
+      - name: install every preset and ask each one query
+        run: |
+          case "$RUNNER_TEMP" in
+            [A-Za-z]:*) base="file:///$(cygpath -m "$RUNNER_TEMP")/release" ;;
+            *) base="file://$RUNNER_TEMP/release" ;;
+          esac
+          export URNA_RELEASE_BASE="$base"
+          python tool/tasks/presetjob.py --urna target/release/urna

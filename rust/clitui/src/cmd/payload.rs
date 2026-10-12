@@ -28,7 +28,7 @@ pub fn package_in(root: &Path) -> PathBuf {
 /// setup refuses a payload missing one, and the scan reports an installed
 /// payload missing one so setup repairs it. `tool/tests/test_embedpack.py`
 /// checks that this list and the staged payload are the same set of files.
-pub const REQUIRED: [&str; 24] = [
+pub const REQUIRED: [&str; 26] = [
     "VERSION",
     "python/urna/__init__.py",
     "python/urna/embed/__init__.py",
@@ -43,8 +43,10 @@ pub const REQUIRED: [&str; 24] = [
     "python/urna/model/__init__.py",
     "python/urna/model/catalogue.json",
     "python/urna/model/embedders.py",
+    "python/urna/model/installed.py",
     "python/urna/model/installer.py",
     "python/urna/model/modelhash.py",
+    "python/urna/model/modellock.txt",
     "python/urna/model/presetmap.py",
     "python/urna/model/potionb8m/README.md",
     "python/urna/model/potionb8m/config.json",

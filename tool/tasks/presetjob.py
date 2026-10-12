@@ -1,0 +1,311 @@
+"""Install every model preset the catalogue offers through `urna setup`, one
+at a time, and prove each answers a query: what `.github/workflows/presetjob.yml`
+runs on a clean runner whenever the lock changes.
+
+  python tool/tasks/presetjob.py --urna target/release/urna [--only NAME ...]
+
+the presets share one data dir, so one env, as on a user's machine; the
+hugging face cache is a new, empty one for each, so every weights file comes
+from the hub at its pinned revision. each runs `urna setup --yes --no-sample
+--model NAME` (with --allow-remote-code NAME when it runs repo code), which
+installs its packages from the lock, fetches and verifies its files, then
+loads it and embeds one query with downloads off; setup must exit 0 and say
+the query was answered. a preset whose estimated minimum ram is more than
+this machine has is skipped and listed, not failed.
+
+on an apple-silicon mac the device is settled before the loop: the smallest
+preset is installed first, which brings torch into the env, and mps is
+probed there with the kernels the models use (linear and attention, in half
+and single precision). github's mac runner is a vm whose metal reports mps
+available but cannot compile torch's kernels; when the probe fails, every
+preset runs on the cpu (`URNA_ST_DEVICE=cpu` for each setup) and the summary
+says so. when it passes, that first install counts. a model whose query
+still fails with metal's compiler error moves the rest to the cpu and runs
+again there: the real kernels are the last word, not the probe.
+
+last, torch's own memory (torch and sentence-transformers imported, no
+model) is measured in the env and compared with the catalogue's value for
+this platform: off by more than a quarter, or missing, fails with the value
+to write into upstreams.json's `torch.rss`. a measurement of 0 is the probe
+failing, never a value to write.
+
+exit codes: 0 every preset passed (skips listed), 1 a preset, the env or the
+memory check failed, 2 usage (an unknown --only name included).
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import platform
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+CATALOG = ROOT / "rust" / "bridge" / "python" / "urna" / "model" / "catalogue.json"
+RSS_SLACK = 0.25
+PROBE_TIMEOUT = 300
+MEASURE = (
+    "import sys, resource\n"
+    "import torch, transformers, sentence_transformers\n"
+    "r = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss\n"
+    "print(r if sys.platform == 'darwin' else r * 1024)\n"
+)
+# PROCESS_MEMORY_COUNTERS: cb, PageFaultCount, then eight SIZE_T, the first
+# of them PeakWorkingSetSize. the handle keeps its width and the BOOL is
+# checked: a failed call raises instead of printing the zeroed struct.
+MEASURE_WINDOWS = (
+    "import ctypes, ctypes.wintypes as w\n"
+    "import torch, transformers, sentence_transformers\n"
+    "class C(ctypes.Structure):\n"
+    "    _fields_ = [('cb', w.DWORD), ('faults', w.DWORD)] + [\n"
+    "        (n, ctypes.c_size_t)\n"
+    "        for n in ('peak', 'ws', 'qpp', 'qp', 'qnpp', 'qnp', 'pf', 'ppf')]\n"
+    "k32 = ctypes.WinDLL('kernel32', use_last_error=True)\n"
+    "psapi = ctypes.WinDLL('psapi', use_last_error=True)\n"
+    "k32.GetCurrentProcess.restype = w.HANDLE\n"
+    "psapi.GetProcessMemoryInfo.argtypes = [w.HANDLE, ctypes.POINTER(C), w.DWORD]\n"
+    "psapi.GetProcessMemoryInfo.restype = w.BOOL\n"
+    "c = C(); c.cb = ctypes.sizeof(C)\n"
+    "if not psapi.GetProcessMemoryInfo(k32.GetCurrentProcess(), ctypes.byref(c), c.cb):\n"
+    "    raise ctypes.WinError(ctypes.get_last_error())\n"
+    "print(c.peak)\n"
+)
+MPS_AVAILABLE = "import torch; print(torch.backends.mps.is_available())"
+# the kernels a sentence-transformers model runs: a linear layer and
+# attention, in the dtypes the backend loads in (float16 on mps, bfloat16
+# for a preset that names it) and float32. torch 2.14 compiles these as
+# metal cooperative-tensor matmuls, the ones a vm's metal refuses.
+MPS_PROBE = (
+    "import torch\n"
+    "f = torch.nn.functional\n"
+    "for dt in (torch.float16, torch.bfloat16, torch.float32):\n"
+    "    x = torch.randn(1, 128, 1024, device='mps', dtype=dt)\n"
+    "    w = torch.randn(1024, 1024, device='mps', dtype=dt)\n"
+    "    q = torch.randn(1, 8, 128, 64, device='mps', dtype=dt)\n"
+    "    y = f.linear(x, w)\n"
+    "    s = f.scaled_dot_product_attention(q, q, q)\n"
+    "    assert torch.isfinite(y.float()).all() and torch.isfinite(s.float()).all()\n"
+    "torch.mps.synchronize()\n"
+    "print('ok')\n"
+)
+MPS_PROBE_SUM = "ok"
+# what a query prints when metal compiles no kernel for the model it loaded.
+MPS_FAULT_MARKS = ("Failed to created pipeline state object", "Error Domain=CompilerError")
+
+
+class NoTorch(Exception):
+    """The env has no torch to probe: its first install did not build it."""
+
+
+def target() -> str:
+    """This machine the way the binary names it (`Scan::target`)."""
+    arch = {"arm64": "aarch64", "amd64": "x86_64"}.get(platform.machine().lower())
+    arch = arch or platform.machine().lower()
+    osname = {"darwin": "macos", "win32": "windows"}.get(sys.platform, sys.platform)
+    return f"{arch}-{osname}"
+
+
+def device(tgt: str) -> str:
+    return "mps" if tgt == "aarch64-macos" else "cpu"
+
+
+def total_ram() -> int | None:
+    if sys.platform == "darwin":
+        out = subprocess.run(["sysctl", "-n", "hw.memsize"], capture_output=True, text=True)
+        return int(out.stdout) if out.returncode == 0 else None
+    if sys.platform.startswith("linux"):
+        for line in Path("/proc/meminfo").read_text().splitlines():
+            if line.startswith("MemTotal:"):
+                return int(line.split()[1]) * 1024
+        return None
+    import ctypes
+
+    class Status(ctypes.Structure):
+        _fields_ = [("len", ctypes.c_ulong), ("load", ctypes.c_ulong)] + [
+            (n, ctypes.c_ulonglong)
+            for n in ("phys", "avail", "pagef", "availpf", "virt", "availv", "ext")
+        ]
+
+    s = Status()
+    s.len = ctypes.sizeof(Status)
+    return s.phys if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(s)) else None
+
+
+def mps_fault(py: Path) -> str | None:
+    """Why the env's torch cannot run on mps, or None when it can: torch may
+    find no device (a mac runner is a vm), or one whose metal cannot compile
+    its kernels, as github's does; only a matmul that runs tells the two
+    apart from a working gpu."""
+    out = subprocess.run([str(py), "-c", MPS_AVAILABLE], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise NoTorch(f"the env's torch does not import: {out.stderr.strip()[-400:]}")
+    if out.stdout.strip() != "True":
+        return "torch finds no mps device on this machine"
+    try:
+        out = subprocess.run(
+            [str(py), "-c", MPS_PROBE], capture_output=True, text=True, timeout=PROBE_TIMEOUT
+        )
+    except subprocess.TimeoutExpired:
+        return f"mps is available but a kernel did not finish in {PROBE_TIMEOUT} s"
+    if out.returncode != 0 or out.stdout.strip() != MPS_PROBE_SUM:
+        return "mps is available but cannot compile a kernel on this machine"
+    return None
+
+
+def mps_broke(text: str) -> bool:
+    """A setup run that failed because metal compiled no kernel for the model."""
+    return any(mark in text for mark in MPS_FAULT_MARKS)
+
+
+def min_ram(entry: dict, catalog: dict, tgt: str, dev: str) -> int | None:
+    """The estimate the model screen shows (`Entry::min_ram`), on `dev`."""
+    per = entry.get("dtype_bytes", {}).get(dev)
+    if not per or not entry.get("params"):
+        return None
+    return entry["params"] * per + catalog.get("torch", {}).get("rss", {}).get(tgt, 0)
+
+
+def too_big(entry: dict, catalog: dict, tgt: str, dev: str, ram: int | None) -> str | None:
+    """The skip line for a preset whose estimate is more than this machine has."""
+    need = min_ram(entry, catalog, tgt, dev)
+    if need and ram and need > ram:
+        return (
+            f"{entry['name']}: needs ~{need / (1 << 30):.1f} GB, this machine has "
+            f"{ram / (1 << 30):.1f} GB"
+        )
+    return None
+
+
+def venv_python(data: Path) -> Path:
+    venv = data / "urna" / "venv"
+    return venv / ("Scripts/python.exe" if sys.platform == "win32" else "bin/python")
+
+
+def run_one(urna: Path, entry: dict, data: Path, st_device: str | None) -> tuple[bool, str]:
+    """One `urna setup` for `entry`; `st_device` pins the sentence-transformers
+    device for the query step, through to `presetqry.py`."""
+    hf = Path(tempfile.mkdtemp(prefix=f"presetjob-hf-{entry['name']}-"))
+    env = {**os.environ, "URNA_DATA_DIR": str(data), "HF_HOME": str(hf)}
+    env.pop("URNA_ALLOW_DOWNLOAD", None)
+    if st_device:
+        env["URNA_ST_DEVICE"] = st_device
+    cmd = [str(urna), "setup", "--yes", "--no-sample", "--model", entry["name"]]
+    if entry["remote_code"]:
+        cmd += ["--allow-remote-code", entry["name"]]
+    try:
+        out = subprocess.run(cmd, env=env, capture_output=True, text=True)
+    finally:
+        shutil.rmtree(hf, ignore_errors=True)
+    text = out.stdout + out.stderr
+    ok = out.returncode == 0 and "answered a query" in text
+    return ok, text
+
+
+def report(ok: bool, text: str) -> None:
+    """A pass shows the line setup prints for the model; a failure, all."""
+    done = [ln for ln in text.splitlines() if "ok models:" in ln]
+    print("\n".join(done) if ok else text, flush=True)
+
+
+def check_rss(catalog: dict, data: Path, tgt: str) -> str | None:
+    """An error when torch's measured memory is not the catalogue's."""
+    code = MEASURE_WINDOWS if sys.platform == "win32" else MEASURE
+    out = subprocess.run([str(venv_python(data)), "-c", code], capture_output=True, text=True)
+    if out.returncode != 0:
+        return f"measuring torch's memory failed: {out.stderr.strip()[-400:]}"
+    text = out.stdout.strip()
+    got = int(text) if text.isdigit() else 0
+    if got <= 0:
+        return (
+            f"measuring torch's memory gave {text or 'nothing'}: the probe is broken, "
+            "there is no value to write"
+        )
+    held = catalog.get("torch", {}).get("rss", {}).get(tgt)
+    print(f"torch's own memory on {tgt}: {got} bytes ({got / (1 << 30):.2f} GB)")
+    if held is None or abs(got - held) > RSS_SLACK * held:
+        return (
+            f"upstreams.json's torch.rss.{tgt} is {held}, measured {got}: write "
+            f'"{tgt}": {got} into it and run python tool/tasks/upstreams.py --write'
+        )
+    return None
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--urna", type=Path, required=True)
+    ap.add_argument("--only", nargs="*", default=[])
+    args = ap.parse_args(argv)
+    catalog = json.loads(CATALOG.read_text())
+    names = [e["name"] for e in catalog["models"]]
+    unknown = [n for n in args.only if n not in names]
+    if unknown:
+        ap.error(f"unknown preset {', '.join(unknown)}; setup offers {', '.join(names)}")
+    tgt = target()
+    ram = total_ram()
+    entries = [e for e in catalog["models"] if not args.only or e["name"] in args.only]
+    data = Path(tempfile.mkdtemp(prefix="presetjob-data-"))
+    dev, st_device = device(tgt), None
+    done: dict[str, tuple[bool, str]] = {}
+    fits = [e for e in entries if not too_big(e, catalog, tgt, dev, ram)]
+    if dev == "mps" and fits:
+        first = min(fits, key=lambda e: e["bytes"])
+        print(f"== {first['name']} (the env mps is probed in)", flush=True)
+        done[first["name"]] = run_one(args.urna, first, data, None)
+        try:
+            fault = mps_fault(venv_python(data))
+        except NoTorch as e:
+            report(False, done[first["name"]][1])
+            print(f"\nFAILED {e}")
+            return 1
+        if fault:
+            print(f"{fault}: the presets run on the cpu", flush=True)
+            dev, st_device = "cpu", "cpu"
+            done.clear()
+        else:
+            report(*done[first["name"]])
+    failed, skipped = [], []
+    for e in entries:
+        skip = too_big(e, catalog, tgt, dev, ram)
+        if skip:
+            skipped.append(skip)
+            print(f"skip {skip}", flush=True)
+            continue
+        if e["name"] in done:
+            ok = done[e["name"]][0]
+        else:
+            print(f"== {e['name']}", flush=True)
+            ok, text = run_one(args.urna, e, data, st_device)
+            if not ok and dev == "mps" and mps_broke(text):
+                report(ok, text)
+                print(
+                    "metal compiled no kernel for this model, which the probe did not "
+                    "catch: the presets run on the cpu from here",
+                    flush=True,
+                )
+                dev, st_device = "cpu", "cpu"
+                print(f"== {e['name']} (again, on the cpu)", flush=True)
+                ok, text = run_one(args.urna, e, data, st_device)
+            report(ok, text)
+        if not ok:
+            failed.append(e["name"])
+    rss = check_rss(catalog, data, tgt) if venv_python(data).is_file() else None
+    print(
+        f"\npresets: {len(entries) - len(failed) - len(skipped)} passed, "
+        f"{len(failed)} failed, {len(skipped)} skipped on {tgt}, device {dev}"
+    )
+    for s in skipped:
+        print(f"  skipped {s}")
+    for f in failed:
+        print(f"  FAILED {f}")
+    if rss:
+        print(f"  FAILED {rss}")
+    return 1 if failed or rss else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

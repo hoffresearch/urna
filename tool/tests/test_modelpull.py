@@ -123,6 +123,18 @@ def test_refusals_before_any_download(d: Path) -> None:
     )
 
 
+def test_a_device_dtype_hash_is_left_to_the_query(d: Path) -> None:
+    """A sentence-transformers backend model stamps its corpora with a hash
+    that names the dtype of the device it ran on: the plan cannot compare it
+    with the catalog's file fingerprint, the query setup runs next does."""
+    hf = d / "hf2"
+    cat = _catalog(d, _entry("multi", kind="st_multimodal"), tag="st")
+    plan = _run(hf, cat, "plan", "multi", "--expect-hash", "sha256:" + "2" * 64)
+    assert plan.returncode == 0, plan.stderr
+    assert "checked by the query that follows" in plan.stderr, plan.stderr
+    print("edge (an st_multimodal corpus hash does not refuse the plan, says so): OK")
+
+
 def test_two_bars_for_one_file_never_go_back() -> None:
     # xet drives two bars per file with the reporter class (the reconstructed
     # bytes, then the fewer transferred bytes, each from zero): the lines
@@ -214,6 +226,7 @@ def test_fetch_lays_down_the_pinned_files(d: Path) -> None:
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="urna-install-") as tmp:
         test_refusals_before_any_download(Path(tmp))
+        test_a_device_dtype_hash_is_left_to_the_query(Path(tmp))
     test_two_bars_for_one_file_never_go_back()
     if not _hub_up():
         print("download cases skipped: huggingface.co is unreachable")

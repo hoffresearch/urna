@@ -54,6 +54,8 @@ pub struct Ui {
     pub cursor: usize,
     /// the picker's cursor and the step it returns to.
     pub pick: usize,
+    /// the picker's scroll, kept between frames.
+    pub list: ratatui::widgets::ListState,
     pick_from: Step,
     pub rows: Vec<RunRow>,
     pub log: Vec<String>,
@@ -96,6 +98,7 @@ impl Ui {
             plan: Vec::new(),
             cursor: 0,
             pick: 0,
+            list: ratatui::widgets::ListState::default(),
             pick_from: Step::Plan,
             rows: Vec::new(),
             log: Vec::new(),
@@ -311,13 +314,21 @@ impl Ui {
             KeyCode::Down | KeyCode::Char('j') => {
                 self.pick = (self.pick + 1).min(offered.len().saturating_sub(1))
             }
-            KeyCode::Char(' ') | KeyCode::Char('x') => toggle(&mut self.opts.models, &here.name),
+            KeyCode::Char(' ') | KeyCode::Char('x') if super::screen::installable(self, &here) => {
+                toggle(&mut self.opts.models, &here.name)
+            }
+            KeyCode::PageDown => self.pick = (self.pick + 5).min(offered.len().saturating_sub(1)),
+            KeyCode::PageUp => self.pick = self.pick.saturating_sub(5),
             KeyCode::Char('a') => {
                 let every = offered.iter().all(|e| self.chosen(&e.name));
                 self.opts.models = if every {
                     Vec::new()
                 } else {
-                    offered.iter().map(|e| e.name.clone()).collect()
+                    offered
+                        .iter()
+                        .filter(|e| super::screen::installable(self, e))
+                        .map(|e| e.name.clone())
+                        .collect()
                 };
             }
             KeyCode::Char('r') if here.remote_code => {

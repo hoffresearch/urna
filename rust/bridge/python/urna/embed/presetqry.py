@@ -87,6 +87,7 @@ def main() -> int:
 
     from urna.model import presetmap as mr
 
+    mr.refuse_connections()
     if args.preset:
         try:
             preset = mr.get_preset(args.preset)

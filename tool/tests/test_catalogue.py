@@ -7,10 +7,11 @@ the registry and the payload ships it; the installer reads nothing else.
   generates; the MiniLM the pt-br corpora use is offered with its pinned
   revision, files and model_hash; generation needs no numpy (the release
   stages the payload under a bare python3);
-- error path: every preset not offered is listed with a reason (heavy,
-  unreviewed remote code, no pinned revision), a stale catalog fails the
-  check, and two offered models pinning one package to different versions
-  keep only the first;
+- error path: every preset not offered is listed with a reason (only potion,
+  which ships in the payload; a preset without a validated install says
+  so), a stale catalog fails the check, and a lock resolved for other
+  packages than the registry's, or bytes other than the ones upstreams.json
+  names, fails the build;
 - edge: the test-only fake preset is in neither list.
 
 Run: .venv/bin/python tool/tests/test_catalogue.py
@@ -73,18 +74,13 @@ def test_every_other_preset_says_why() -> None:
     real = {n for n, p in mr.PRESETS.items() if p.kind != "fake"}
     assert offered | set(excluded) == real and not offered & set(excluded)
     assert "fake-test" not in offered | set(excluded)
-    assert all(r.strip() for r in excluded.values())
-    assert "too heavy" in excluded["wemm-4b"]
-    assert (
-        "remote code" in excluded["jina-v5-omni-nano"]
-        or "model-repo code" in excluded["jina-v5-omni-nano"]
-    )
-    assert "no pinned hub revision" in excluded["clip-vit-b32"]
-    # siglip2 pins a snapshot but the installer cannot verify a tensor hash
-    assert "pinned hub snapshot" in excluded["siglip2"], excluded["siglip2"]
-    assert "no pinned hub revision" not in excluded["siglip2"]
-    assert "payload" in excluded["potion"]
-    print("error path (each preset not offered carries its reason; fake hidden): OK")
+    # every preset but potion carries a validated install (#534).
+    assert set(excluded) == {"potion"} and "payload" in excluded["potion"]
+    bare = dataclasses.replace(mr.PRESETS["qwen3-embedding-0.6b"], install=None)
+    assert "not validated" in mc.exclusion(bare)
+    coded = dataclasses.replace(mr.PRESETS["wemm-2b"], remote_code_hashes=())
+    assert "reviewed and pinned" in mc.exclusion(coded)
+    print("error path (only potion is not offered, with its reason; fake hidden): OK")
 
 
 def test_a_stale_catalog_fails_the_check() -> None:
@@ -101,32 +97,43 @@ def test_a_stale_catalog_fails_the_check() -> None:
     print("error path (a stale catalog fails --check, --write fixes it): OK")
 
 
-def test_conflicting_pins_keep_the_first() -> None:
+def test_a_lock_for_other_packages_is_stale() -> None:
+    up = mc.load_upstreams()
+    text = mc.LOCK.read_text()
     base = mr.PRESETS["minilm-multilingual"]
-    spec = base.install
-    a = dataclasses.replace(
-        base,
-        name="a",
-        embedding_model="a/a",
-        install=dataclasses.replace(spec, packages=("transformers==5.2.0",)),
+    other = dataclasses.replace(
+        base, install=dataclasses.replace(base.install, packages=("transformers==4.57.0",))
     )
-    b = dataclasses.replace(
-        base,
-        name="b",
-        embedding_model="b/b",
-        install=dataclasses.replace(spec, packages=("transformers==4.57.0",)),
+    for presets, lock_text, needle in (
+        ({**mr.PRESETS, "minilm-multilingual": other}, text, "other packages"),
+        (mr.PRESETS, text + "# edited\n", "not the file"),
+    ):
+        try:
+            mc.build(presets, up, lock_text)
+        except mc.Stale as e:
+            assert needle in str(e), e
+        else:
+            raise AssertionError(f"a stale lock was accepted ({needle})")
+    assert mc.lock_inputs()[:2] == ["numpy", "open_clip_torch"]
+    print("error path (a lock for other packages or other bytes is stale): OK")
+
+
+def test_params_are_counted_at_the_pinned_revision() -> None:
+    entry = {"name": "m", "revision": "a" * 40, "kind": "st_multimodal"}
+    got = mc.with_params(entry, {"m": {"revision": "a" * 40, "params": 595_776_512}})
+    assert got["params"] == 595_776_512 and got["dtype_bytes"] == {"cpu": 4, "mps": 2}
+    clip = mc.with_params(
+        {**entry, "kind": "open_clip"}, {"m": {"revision": "a" * 40, "params": 1}}
     )
-    c = dataclasses.replace(
-        base,
-        name="c",
-        embedding_model="c/c",
-        install=dataclasses.replace(spec, packages=("Transformers==5.2.0",)),
-    )
-    cat = mc.build({"a": a, "b": b, "c": c})
-    assert [m["name"] for m in cat["models"]] == ["a", "c"]
-    (why,) = [e["reason"] for e in cat["excluded"] if e["name"] == "b"]
-    assert "transformers==4.57.0" in why and "a's" in why, why
-    print("edge (two models pinning one package differently: the second is excluded): OK")
+    assert clip["dtype_bytes"] == {"cpu": 4, "mps": 4}
+    for params in ({}, {"m": {"revision": "b" * 40, "params": 1}}):
+        try:
+            mc.with_params(entry, params)
+        except mc.Stale as e:
+            assert "pinned revision" in str(e)
+        else:
+            raise AssertionError("a count at another revision was taken")
+    print("error path (a parameter count at another revision is stale): OK")
 
 
 def main() -> None:
@@ -134,7 +141,8 @@ def main() -> None:
     test_minilm_is_offered_pinned()
     test_every_other_preset_says_why()
     test_a_stale_catalog_fails_the_check()
-    test_conflicting_pins_keep_the_first()
+    test_a_lock_for_other_packages_is_stale()
+    test_params_are_counted_at_the_pinned_revision()
     print("all model catalog tests passed")
 
 

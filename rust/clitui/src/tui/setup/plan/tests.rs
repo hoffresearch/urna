@@ -27,6 +27,8 @@ fn bare() -> Scan {
         simd: "neon",
         kit: None,
         sample: None,
+        torch: false,
+        ram: None,
     }
 }
 

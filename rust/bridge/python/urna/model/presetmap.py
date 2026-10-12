@@ -39,8 +39,41 @@ if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
         os.environ.setdefault(_k, "1")
 os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
+from urna.model.installed import CODE_PINS, INSTALLS, InstallSpec  # noqa: E402, F401
+
 if TYPE_CHECKING:
     import numpy as np
+
+
+def refuse_connections() -> None:
+    """Make every network connection from this process fail, unless the
+    caller opted in with URNA_ALLOW_DOWNLOAD=1. the hub's offline flags only
+    hold the hub client; reviewed model code can still open a socket of its
+    own (jina v5 omni fetches any http(s) string it is given as media), and
+    a query must never leave the machine. local sockets stay usable."""
+    if os.environ.get("URNA_ALLOW_DOWNLOAD") == "1":
+        return
+    import socket
+
+    net = {socket.AF_INET, socket.AF_INET6}
+
+    def refuse(*_args, **_kwargs):
+        raise OSError("urna: the embedder runs offline; URNA_ALLOW_DOWNLOAD=1 allows downloads")
+
+    def connect(self, address, _orig=socket.socket.connect):
+        if self.family in net:
+            refuse()
+        return _orig(self, address)
+
+    def connect_ex(self, address, _orig=socket.socket.connect_ex):
+        if self.family in net:
+            refuse()
+        return _orig(self, address)
+
+    socket.socket.connect = connect
+    socket.socket.connect_ex = connect_ex
+    socket.create_connection = refuse
+    socket.getaddrinfo = refuse
 
 
 class RegistryError(ValueError):
@@ -64,23 +97,6 @@ class MrlSpec:
     supported: bool = False
     dims: tuple[int, ...] = ()
     method: str = "prefix_slice_l2"
-
-
-@dataclass(frozen=True)
-class InstallSpec:
-    """A validated install: the hub revision, the exact files fetched at it
-    (path, bytes), the `model_hash` those files fingerprint to, and the pip
-    specs its backend needs. a preset carries one only after an install of
-    exactly this was run end to end and its hash checked; `catalogue`
-    exposes only those. the file list is part of the identity: the
-    fingerprint hashes every relevant file present, so fetching one more
-    weights file (a pytorch_model.bin beside model.safetensors) would change
-    the model_hash."""
-
-    revision: str
-    files: tuple[tuple[str, int], ...]
-    model_hash: str
-    packages: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -112,7 +128,14 @@ class ModelPreset:
     # different images vs 0.45 bare). recipe-hashed.
     image_doc_format: str = "dict"
     encode_kwargs: tuple[tuple[str, object], ...] = ()  # ST encode() extras (recipe-hashed)
+    # the prompt a query is encoded with when the model names it otherwise
+    # than `query` (encode_query only finds that name); "" = the model's own.
+    query_prompt_name: str = ""
+    # the dtype the model loads in on mps when float16 fails it; "" = float16.
+    # part of the model_hash (the dtype policy), like every dtype.
+    mps_dtype: str = ""
     install: InstallSpec | None = None  # validated install; None = not offered by setup
+    license: str = ""  # the license the hub card declares, as setup shows it
     # the hub snapshot an open_clip preset loads from: repo, pinned commit, the
     # checkpoint file and every file the load and the tokenizer read.
     hf_repo: str = ""
@@ -123,10 +146,13 @@ class ModelPreset:
 
 _ST_REQUIRES = (
     ("torch", "pip install torch"),
-    ("sentence_transformers", 'pip install "sentence-transformers>=5.7"'),
+    ("sentence_transformers", 'pip install "sentence-transformers>=5.7,<6"'),
     ("transformers", 'pip install "transformers==5.2.0"'),
 )
 _WEMM_REQUIRES = _ST_REQUIRES + (("qwen_vl_utils", 'pip install "qwen-vl-utils==0.0.14"'),)
+# jina v5 loads its four task adapters (LoRA) through peft.
+_JINA_REQUIRES = _ST_REQUIRES + (("peft", "pip install peft"),)
+
 _OPEN_CLIP_REQUIRES = (
     ("torch", "pip install torch"),
     ("open_clip", "pip install open_clip_torch"),
@@ -134,41 +160,21 @@ _OPEN_CLIP_REQUIRES = (
 )
 
 
-# pinned sha256 of the wemm-2b remote-code files as reviewed 2026-08-31
-# (N11): a changed file is REFUSED, not warned about. 4b/9b have no local
-# snapshot yet, so their pin list stays empty until one is reviewed.
-_WEMM_2B_CODE_PINS = (
-    ("modeling_st_wemm.py", "521d02c1c60ae727cc9dc6500cdb0b28c53b259e0ce3d37197920a33ba4dd333"),
-    (
-        "modeling_wemm_embedding.py",
-        "ac255e1fad459cc3e68891d6c3327f4486922aed02fb3c5c13fb53277ba8e94f",
-    ),
-    ("chat_template.jinja", "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"),
-    (
-        "embedding_chat_template.jinja",
-        "7c3df2aab83ab9096428ec27b6b99ad87c4790418b830d119957634f28c677ba",
-    ),
-    ("processor_config.json", "d601e2fe0de1bc11852de3aa843f01a1677ca84f4dc743916c9ce4b8d30fb384"),
-)
-
-
-def _wemm(name: str, size: str, dim: int, executable: bool, local_dir: str | None) -> ModelPreset:
+def _st_text(name: str, repo: str, dim: int, license: str, **kw) -> ModelPreset:
+    """A text model with its own query and document prompts, run by the
+    sentence-transformers backend (`stbackend`), which encodes a query and a
+    document through their own routes."""
+    kw.setdefault("requires", _ST_REQUIRES)
     return ModelPreset(
         name=name,
         kind="st_multimodal",
-        embedding_model=f"tencent/WeMM-Embedding-{size}",
-        model_id=f"tencent/WeMM-Embedding-{size}",
+        embedding_model=repo,
+        model_id=repo,
         default_dim=dim,
-        mrl=MrlSpec(True, (128, 256, 512, 1024, dim)),
-        modalities=frozenset({"text", "image", "video"}),
-        requires=_WEMM_REQUIRES,
-        trust_remote_code=True,
-        remote_code_hashes=_WEMM_2B_CODE_PINS if name == "wemm-2b" else (),
-        local_dir=local_dir,
-        executable=executable,
         text_corpus_mode="document",
         text_query_mode="query",
-        image_max_side=768,
+        license=license,
+        **kw,
     )
 
 
@@ -182,6 +188,56 @@ PRESETS: dict[str, ModelPreset] = {
             model_id="minishlab/potion-base-8M",
             default_dim=256,
             requires=(("numpy", "pip install numpy"), ("tokenizers", "pip install tokenizers")),
+            license="MIT",
+        ),
+        ModelPreset(
+            name="minilm-multilingual",
+            kind="st_text",
+            embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            model_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            default_dim=384,
+            requires=(("sentence_transformers", 'pip install "sentence-transformers"'),),
+            license="Apache-2.0",
+            # the revision and files the pt-br corpora were built from (the
+            # files sentence-transformers itself fetches; the repo also holds
+            # onnx, openvino and a pytorch_model.bin that are never fetched).
+            install=INSTALLS["minilm-multilingual"],
+        ),
+        _st_text(
+            "harrier-270m",
+            "microsoft/harrier-oss-v1-270m",
+            640,
+            "MIT",
+            query_prompt_name="web_search_query",
+            # gemma3's activations overflow float16: every vector is NaN.
+            mps_dtype="bfloat16",
+            install=INSTALLS["harrier-270m"],
+        ),
+        _st_text(
+            "jina-v5-text-nano",
+            "jinaai/jina-embeddings-v5-text-nano",
+            768,
+            "CC-BY-NC-4.0",
+            mrl=MrlSpec(True, (32, 64, 128, 256, 512, 768)),
+            requires=_JINA_REQUIRES,
+            trust_remote_code=True,
+            remote_code_hashes=CODE_PINS["jina-v5-text-nano"],
+            encode_kwargs=(("task", "retrieval"),),
+            install=INSTALLS["jina-v5-text-nano"],
+        ),
+        _st_text(
+            "qwen3-embedding-0.6b",
+            "Qwen/Qwen3-Embedding-0.6B",
+            1024,
+            "Apache-2.0",
+            install=INSTALLS["qwen3-embedding-0.6b"],
+        ),
+        _st_text(
+            "octen-embedding-0.6b",
+            "Octen/Octen-Embedding-0.6B",
+            1024,
+            "Apache-2.0",
+            install=INSTALLS["octen-embedding-0.6b"],
         ),
         ModelPreset(
             name="clip-vit-b32",
@@ -192,6 +248,16 @@ PRESETS: dict[str, ModelPreset] = {
             default_dim=512,
             modalities=frozenset({"text", "image"}),
             requires=_OPEN_CLIP_REQUIRES,
+            license="Apache-2.0",
+            # the hub copy of the openai weights open_clip resolves the tag to
+            hf_repo="timm/vit_base_patch32_clip_224.openai",
+            revision="a6f597a30f7b82c51704746581f9a4e41421e878",
+            weights_file="open_clip_model.safetensors",
+            snapshot_files=(
+                "open_clip_model.safetensors",
+                "open_clip_config.json",
+            ),
+            install=INSTALLS["clip-vit-b32"],
         ),
         ModelPreset(
             name="siglip2",
@@ -215,6 +281,8 @@ PRESETS: dict[str, ModelPreset] = {
                 "tokenizer_config.json",
                 "special_tokens_map.json",
             ),
+            license="Apache-2.0",
+            install=INSTALLS["siglip2"],
         ),
         ModelPreset(
             name="jina-v5-omni-nano",
@@ -223,12 +291,15 @@ PRESETS: dict[str, ModelPreset] = {
             model_id="jinaai/jina-embeddings-v5-omni-nano",
             mrl=MrlSpec(True, (32, 64, 128, 256, 512, 768)),
             modalities=frozenset({"text", "image", "video"}),
-            requires=_ST_REQUIRES,
+            requires=_JINA_REQUIRES,
             trust_remote_code=True,
+            remote_code_hashes=CODE_PINS["jina-v5-omni-nano"],
             text_corpus_mode="document",
             text_query_mode="query",
             image_doc_format="bare",
             encode_kwargs=(("task", "retrieval"),),
+            license="CC-BY-NC-4.0",
+            install=INSTALLS["jina-v5-omni-nano"],
         ),
         ModelPreset(
             name="jina-v5-omni-small",
@@ -237,54 +308,37 @@ PRESETS: dict[str, ModelPreset] = {
             model_id="jinaai/jina-embeddings-v5-omni-small",
             mrl=MrlSpec(True, (32, 64, 128, 256, 512, 768, 1024)),
             modalities=frozenset({"text", "image", "video"}),
-            requires=_ST_REQUIRES,
+            requires=_JINA_REQUIRES,
             trust_remote_code=True,
+            remote_code_hashes=CODE_PINS["jina-v5-omni-small"],
             text_corpus_mode="document",
             text_query_mode="query",
             image_doc_format="bare",
             encode_kwargs=(("task", "retrieval"),),
+            license="CC-BY-NC-4.0",
+            install=INSTALLS["jina-v5-omni-small"],
         ),
         # the multilingual MiniLM the pt-br corpora were built with, before
         # the registry existed. kind st_text loads it through rust/bridge/python/urna/
         # searchtxt.py's own functions, so a corpus built then keeps its
         # model_hash. no transformers pin: the st pin above is wemm's.
         ModelPreset(
-            name="minilm-multilingual",
-            kind="st_text",
-            embedding_model="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-            model_id="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-            default_dim=384,
-            requires=(("sentence_transformers", 'pip install "sentence-transformers"'),),
-            # the revision and files the pt-br corpora were built from (the
-            # files sentence-transformers itself fetches; the repo also holds
-            # onnx, openvino and a pytorch_model.bin that are never fetched).
-            install=InstallSpec(
-                revision="e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
-                files=(
-                    ("1_Pooling/config.json", 190),
-                    ("README.md", 3888),
-                    ("config.json", 645),
-                    ("config_sentence_transformers.json", 122),
-                    ("model.safetensors", 470641600),
-                    ("modules.json", 229),
-                    ("sentence_bert_config.json", 53),
-                    ("special_tokens_map.json", 239),
-                    ("tokenizer.json", 9081518),
-                    ("tokenizer_config.json", 526),
-                ),
-                model_hash="sha256:97a500de1ad2dc9ffb41fbe3dec27d4fd26ddaa13143aa50f905d3d1f6eff0af",
-                packages=("sentence-transformers>=3",),
-            ),
+            name="wemm-2b",
+            kind="st_multimodal",
+            embedding_model="tencent/WeMM-Embedding-2B",
+            model_id="tencent/WeMM-Embedding-2B",
+            default_dim=2048,
+            mrl=MrlSpec(True, (128, 256, 512, 1024, 2048)),
+            modalities=frozenset({"text", "image", "video"}),
+            requires=_WEMM_REQUIRES,
+            trust_remote_code=True,
+            remote_code_hashes=CODE_PINS["wemm-2b"],
+            text_corpus_mode="document",
+            text_query_mode="query",
+            image_max_side=768,
+            license="Apache-2.0",
+            install=INSTALLS["wemm-2b"],
         ),
-        _wemm(
-            "wemm-2b",
-            "2B",
-            2048,
-            executable=True,
-            local_dir="~/models/modelsdownload/WeMM-Embedding-2B",
-        ),
-        _wemm("wemm-4b", "4B", 2560, executable=False, local_dir=None),
-        _wemm("wemm-9b", "9B", 4096, executable=False, local_dir=None),
         ModelPreset(
             name="fake-test",
             kind="fake",

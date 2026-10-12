@@ -219,11 +219,21 @@ impl Offer {
             )
         };
         v.push((fetch, pal::dim()));
+        // a sentence-transformers backend model stamps its corpora with a
+        // hash that names the dtype it ran in on that device: the query
+        // after the fetch is what compares it with this corpus's.
         v.push((
-            format!(
-                "verify: model_hash {} = this corpus's",
-                short_hash(&e.model_hash)
-            ),
+            if e.kind == "st_multimodal" {
+                format!(
+                    "verify: files fingerprint to {}; then a query here must match this corpus",
+                    short_hash(&e.model_hash)
+                )
+            } else {
+                format!(
+                    "verify: model_hash {} = this corpus's",
+                    short_hash(&e.model_hash)
+                )
+            },
             pal::dim(),
         ));
         if r.plan.remote_code {
@@ -234,7 +244,7 @@ impl Offer {
                 )
             } else {
                 (
-                    "repo code: this model runs code from its repo; r allows it, separately".into(),
+                    "repo code: this model runs code from its repo, reviewed and pinned; r allows it, separately".into(),
                     pal::warn(),
                 )
             });

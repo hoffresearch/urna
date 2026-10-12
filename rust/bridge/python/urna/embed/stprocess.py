@@ -44,6 +44,7 @@ def main() -> int:
     from urna.embed import stbackend
     from urna.model import presetmap
 
+    presetmap.refuse_connections()
     preset = presetmap.get_preset(args.preset)
     model_dir = presetmap.resolve_model_dir(preset, args.model_path)
     if model_dir is not None and preset.remote_code_hashes:

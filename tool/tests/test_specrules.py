@@ -170,9 +170,23 @@ def test_validation_errors(base: Path) -> None:
     _expect_spec_error(MINIMAL.format(models=two, extra=""), "exactly one", base)
     bad_dims = '[[models]]\npreset="fake-test"\ntext="default"\ndims=[3]\n'
     _expect_spec_error(MINIMAL.format(models=bad_dims, extra=""), "validated ladder", base)
-    heavy = '[[models]]\npreset="wemm-4b"\ntext="default"\n'
-    _expect_spec_error(MINIMAL.format(models=heavy, extra="[output.x]"), "unknown key", base)
-    _expect_spec_error(MINIMAL.format(models=heavy, extra=""), "allow-heavy", base)
+    # no preset is flagged heavy now; the rule still holds for one that is.
+    import dataclasses
+
+    from urna.model import presetmap
+
+    presetmap.PRESETS["heavy-test"] = dataclasses.replace(
+        presetmap.PRESETS["wemm-2b"],
+        name="heavy-test",
+        embedding_model="test/heavy",
+        executable=False,
+    )
+    try:
+        heavy = '[[models]]\npreset="heavy-test"\ntext="default"\n'
+        _expect_spec_error(MINIMAL.format(models=heavy, extra="[output.x]"), "unknown key", base)
+        _expect_spec_error(MINIMAL.format(models=heavy, extra=""), "allow-heavy", base)
+    finally:
+        del presetmap.PRESETS["heavy-test"]
     remote = '[[models]]\npreset="wemm-2b"\ntext="default"\n'
     _expect_spec_error(MINIMAL.format(models=remote, extra=""), "allow_remote_code", base)
     # pdf_dir used to pass validation and fail at row loading, every time;

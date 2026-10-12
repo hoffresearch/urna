@@ -5,6 +5,7 @@
 
 mod done;
 mod models;
+pub use models::installable;
 mod plan;
 mod run;
 mod scan;

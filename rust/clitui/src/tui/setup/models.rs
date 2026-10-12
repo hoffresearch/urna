@@ -3,9 +3,11 @@
 //! and the install of one entry. packages go into the managed venv (uv when
 //! it is on PATH, else that env's pip); then the payload's
 //! `urna/model/installer.py`, run by the same interpreter, fetches the pinned
-//! revision into the hugging face cache and proves its model_hash. the
-//! download needs `Consent::download`, a model that runs repo code also
-//! `Consent::remote_code`; without them nothing is installed or fetched.
+//! revision into the hugging face cache and proves its model_hash; last,
+//! the payload's query embedder loads the model and asks it once, offline,
+//! the proof a query will work. the download needs `Consent::download`, a
+//! model that runs repo code also `Consent::remote_code`; without them
+//! nothing is installed or fetched.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -14,121 +16,7 @@ use serde::Deserialize;
 
 use super::venv;
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-pub struct Entry {
-    pub name: String,
-    pub embedding_model: String,
-    pub repo: String,
-    pub revision: String,
-    pub bytes: u64,
-    pub model_hash: String,
-    pub packages: Vec<String>,
-    pub remote_code: bool,
-}
-
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-pub struct Excluded {
-    pub name: String,
-    pub reason: String,
-}
-
-/// One uv archive: where it is and the sha256 its release publishes.
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
-pub struct Archive {
-    pub url: String,
-    pub sha256: String,
-}
-
-/// The uv release setup downloads when the machine has none, one archive
-/// per platform urna ships, keyed `<arch>-<os>` (`Scan::target`).
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
-pub struct UvRelease {
-    pub version: String,
-    pub archives: std::collections::BTreeMap<String, Archive>,
-}
-
-/// The python range the env is built on: the cpython minors torch has
-/// wheels for (`>=3.10,<3.15`), read off torch's wheels.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
-pub struct PythonRange {
-    pub requires: String,
-    pub torch: String,
-}
-
-/// The sample corpus setup offers: one release of a dataset on hugging
-/// face, pinned to a commit, with the size and sha256 read at that commit.
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
-pub struct Sample {
-    pub repo: String,
-    pub release: String,
-    pub commit: String,
-    pub path: String,
-    pub url: String,
-    pub size: u64,
-    pub sha256: String,
-}
-
-/// A payload from 0.5.4 or older carries no `uv`, no `python` and no
-/// `sample`: setup then uses the uv on PATH, lets it pick the python, as it
-/// did, and offers no sample.
-#[derive(Clone, Debug, Default, Deserialize)]
-pub struct Catalog {
-    #[serde(default)]
-    pub uv: Option<UvRelease>,
-    #[serde(default)]
-    pub python: Option<PythonRange>,
-    #[serde(default)]
-    pub sample: Option<Sample>,
-    pub models: Vec<Entry>,
-    pub excluded: Vec<Excluded>,
-}
-
-impl Catalog {
-    pub fn parse(text: &str) -> anyhow::Result<Catalog> {
-        Ok(serde_json::from_str(text)?)
-    }
-
-    /// The offered entry for a catalog name or a manifest model name; an
-    /// excluded or unknown name is an error that says why.
-    pub fn find(&self, name: &str) -> Result<&Entry, String> {
-        if let Some(e) = self
-            .models
-            .iter()
-            .find(|e| e.name == name || e.embedding_model == name)
-        {
-            return Ok(e);
-        }
-        if let Some(x) = self.excluded.iter().find(|x| x.name == name) {
-            return Err(format!("{} is not offered: {}", x.name, x.reason));
-        }
-        let offered: Vec<&str> = self.models.iter().map(|e| e.name.as_str()).collect();
-        Err(format!(
-            "{name} is not in the model catalog (offered: {})",
-            if offered.is_empty() {
-                "none".to_string()
-            } else {
-                offered.join(", ")
-            }
-        ))
-    }
-
-    /// `--model` values to entries, in catalog order without repeats; `all`
-    /// selects every offered model.
-    pub fn select(&self, names: &[String]) -> Result<Vec<Entry>, String> {
-        if names.iter().any(|n| n == "all") {
-            return Ok(self.models.clone());
-        }
-        let mut picked = Vec::new();
-        for n in names {
-            let e = self.find(n)?;
-            if !picked.contains(e) {
-                picked.push(e.clone());
-            }
-        }
-        picked.sort_by_key(|e| self.models.iter().position(|m| m == e));
-        Ok(picked)
-    }
-}
+pub use super::catalog::*;
 
 /// The installer a payload carries: `urna/model/installer.py` and the
 /// catalog beside it.
@@ -157,6 +45,20 @@ impl Kit {
     /// The kit of the payload laid down in `home` (`<root>/urna`).
     pub fn in_home(home: &Path) -> Option<Kit> {
         Kit::at(&home.join(crate::cmd::payload::PACKAGE).join("model"))
+    }
+
+    /// What a package install is resolved against: the lock beside the
+    /// catalogue and torch's cpu index, when the payload carries them.
+    pub fn pins(&self) -> venv::Pins {
+        let lock = self
+            .catalog
+            .lock
+            .as_ref()
+            .map(|l| self.script.with_file_name(&l.file));
+        venv::Pins {
+            lock: lock.filter(|p| p.is_file()),
+            torch_index: self.catalog.torch.as_ref().map(|t| t.index.clone()),
+        }
     }
 
     /// The python range the catalogue names, when it does.
@@ -222,7 +124,7 @@ impl std::fmt::Display for Refusal {
             ),
             Refusal::NeedsRemoteCode { name } => write!(
                 f,
-                "{name} runs code from its model repo; that needs its own consent (--allow-remote-code {name})"
+                "{name} runs code from its model repo, reviewed and pinned; that needs its own consent (--allow-remote-code {name})"
             ),
             Refusal::Failed { step, detail } => write!(f, "{step} failed: {detail}"),
         }
@@ -390,7 +292,7 @@ pub fn install(
             "packages: {}",
             p.packages_missing.join(" ")
         )));
-        let cmd = venv::add_command(uv, py, &p.packages_missing);
+        let cmd = venv::add_command(uv, py, &p.packages_missing, &kit.pins());
         let mut lines = Vec::new();
         let status = venv::stream_status(cmd, &mut |l| {
             lines.push(l.clone());
@@ -429,21 +331,92 @@ pub fn install(
     })
     .map_err(|e| failed("fetch", format!("{e:#}")))?;
     match status.code() {
-        Some(0) => Ok(format!(
-            "{} at {} · {} · model_hash {}…",
-            entry.name,
-            short(&entry.revision),
-            mb(entry.bytes),
-            &entry.model_hash[..entry.model_hash.len().min(19)]
-        )),
-        Some(3) => Err(Refusal::NeedsDownload {
-            bytes: p.missing_bytes,
-        }),
-        Some(5) => Err(Refusal::NeedsRemoteCode {
-            name: entry.name.clone(),
-        }),
-        _ => Err(failed("fetch", last_error(&errors))),
+        Some(0) => {}
+        Some(3) => {
+            return Err(Refusal::NeedsDownload {
+                bytes: p.missing_bytes,
+            });
+        }
+        Some(5) => {
+            return Err(Refusal::NeedsRemoteCode {
+                name: entry.name.clone(),
+            });
+        }
+        _ => return Err(failed("fetch", last_error(&errors))),
     }
+    log(Progress::Step(format!(
+        "query: load {} and ask it once, offline",
+        entry.name
+    )));
+    let asked = query(kit, entry, py, consent)?;
+    if let Some(want) = expect
+        && asked.model_hash != want
+    {
+        return Err(failed(
+            "query",
+            format!(
+                "the corpus was built with {want}, but {} loads here as {}: on this machine it would not answer this corpus",
+                entry.name, asked.model_hash
+            ),
+        ));
+    }
+    Ok(format!(
+        "{} at {} · {} · model_hash {}… · answered a query in {:.1} s",
+        entry.name,
+        short(&entry.revision),
+        mb(entry.bytes),
+        &entry.model_hash[..entry.model_hash.len().min(19)],
+        asked.secs
+    ))
+}
+
+/// The text setup asks a model it just installed.
+const PROBE: &str = "urna setup: does this model answer offline?";
+
+/// What the query step read off the query embedder.
+#[derive(Debug, Deserialize)]
+pub struct Asked {
+    pub model_hash: String,
+    pub embedding_dim: u64,
+    #[serde(skip)]
+    pub secs: f64,
+}
+
+/// Loads `entry` through the payload's query embedder (`presetqry.py`, what
+/// `ask` runs) and embeds one query, with downloads off whatever the fetch
+/// was allowed: a model that answers here answers `ask` with no network.
+pub fn query(kit: &Kit, entry: &Entry, py: &Path, consent: Consent) -> Result<Asked, Refusal> {
+    let script = kit
+        .script
+        .parent()
+        .and_then(Path::parent)
+        .map(|pkg| pkg.join("embed").join("presetqry.py"))
+        .ok_or_else(|| failed("query", "the payload has no embed/presetqry.py".into()))?;
+    let mut c = Command::new(py);
+    c.arg(&script)
+        .args(["--preset", &entry.name, &entry.embedding_model, PROBE])
+        .env_remove("URNA_ALLOW_DOWNLOAD");
+    if consent.remote_code {
+        c.env("URNA_ALLOW_REMOTE_CODE", &entry.name);
+    }
+    let t0 = std::time::Instant::now();
+    let out = c
+        .output()
+        .map_err(|e| failed("query", format!("{}: {e}", py.display())))?;
+    if !out.status.success() {
+        return Err(failed(
+            "query",
+            last_error(&String::from_utf8_lossy(&out.stderr)),
+        ));
+    }
+    let text = String::from_utf8_lossy(&out.stdout);
+    let mut asked: Asked =
+        serde_json::from_str(text.trim()).map_err(|e| failed("query", e.to_string()))?;
+    if asked.embedding_dim == 0 {
+        return Err(failed("query", "the model returned an empty vector".into()));
+    }
+    asked.secs = t0.elapsed().as_secs_f64();
+    Ok(asked)
 }
 
 fn short(rev: &str) -> &str {
@@ -561,5 +534,82 @@ pub(crate) mod tests {
             Refusal::NeedsDownload { bytes: 479_729_010 }.to_string(),
             "the weights (480 MB) are not in the local cache and the download was not confirmed"
         );
+    }
+
+    /// A fake interpreter for `install`: answers `installer.py plan` (cached,
+    /// nothing to install), `installer.py fetch` (ok) and `presetqry.py`
+    /// with `hash`, so the query step runs with no python and no network.
+    #[cfg(unix)]
+    fn fake_python(dir: &Path, hash: &str) -> PathBuf {
+        use std::os::unix::fs::PermissionsExt;
+        let py = dir.join("python");
+        let script = format!(
+            r#"#!/bin/sh
+case "$1" in
+  *installer.py) [ "$2" = plan ] && echo '{{"missing_bytes": 0, "cached": true, "packages_missing": [], "remote_code": false}}'; exit 0 ;;
+  *presetqry.py) [ -z "$URNA_ALLOW_DOWNLOAD" ] || exit 9; echo '{{"model_hash": "{hash}", "embedding_dim": 4}}' ;;
+esac
+"#
+        );
+        std::fs::write(&py, script).unwrap();
+        std::fs::set_permissions(&py, std::fs::Permissions::from_mode(0o755)).unwrap();
+        py
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_install_ends_with_an_offline_query_that_must_match_the_corpus() {
+        let dir = std::env::temp_dir().join(format!("urna_query_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let kit = Kit {
+            script: dir.join("urna/model/installer.py"),
+            catalog: sample(),
+        };
+        let a = kit.catalog.models[0].clone();
+        let consent = Consent {
+            download: true,
+            remote_code: false,
+        };
+        let py = fake_python(&dir, "sha256:corpus");
+        let mut steps = Vec::new();
+        let ok = install(
+            &kit,
+            &a,
+            &py,
+            None,
+            consent,
+            Some("sha256:corpus"),
+            &mut |p| {
+                if let Progress::Step(s) = p {
+                    steps.push(s)
+                }
+            },
+        )
+        .unwrap();
+        assert!(ok.contains("answered a query"), "{ok}");
+        assert!(
+            steps.iter().any(|s| s.contains("ask it once, offline")),
+            "{steps:?}"
+        );
+        // the query loads the model as another hash: this corpus would not answer.
+        let py = fake_python(&dir, "sha256:other");
+        let err = install(
+            &kit,
+            &a,
+            &py,
+            None,
+            consent,
+            Some("sha256:corpus"),
+            &mut |_| {},
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            err.starts_with("query failed") && err.contains("would not answer this corpus"),
+            "{err}"
+        );
+        // no corpus to match: any hash the model loads as is an install.
+        assert!(install(&kit, &a, &py, None, consent, None, &mut |_| {}).is_ok());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

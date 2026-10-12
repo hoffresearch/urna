@@ -118,28 +118,41 @@ def test_the_catalogue_carries_upstreams_verbatim() -> None:
     cat = json.loads(mc.CATALOG.read_text())
     assert cat["uv"] == held["uv"] and cat["python"] == held["python"]
     assert set(held["uv"]["archives"]) == set(up.UV_ARCHIVES)
-    other = {"uv": {"version": "9.9.9", "archives": {}}, "python": {"requires": ">=3.11,<3.12"}}
+    other = {
+        **held,
+        "uv": {"version": "9.9.9", "archives": {}},
+        "python": {"requires": ">=3.11,<3.12"},
+    }
     built = mc.build(upstreams=other)
+    assert built["torch"] == held["torch"] and built["lock"]["sha256"] == held["lock"]["sha256"]
     assert built["uv"]["version"] == "9.9.9" and built["python"]["requires"] == ">=3.11,<3.12"
     print("happy path (catalogue.json carries upstreams.json, nothing written by hand): OK")
 
 
 def test_a_moved_upstream_fails_check() -> None:
-    saved = up.resolve, up.UPSTREAMS
+    saved = up.resolve, up.UPSTREAMS, up.LOCK
     with tempfile.TemporaryDirectory(prefix="urna-upstreams-") as tmp:
         held = Path(tmp) / "upstreams.json"
+        lock = Path(tmp) / "modellock.txt"
         now = {"uv": {"version": "0.13.0"}, "python": {"requires": ">=3.10,<3.15"}}
         held.write_text(up.render(now))
+        lock.write_text("torch==2.14.1\n")
         try:
-            up.UPSTREAMS = held
-            up.resolve = lambda _sample=None: now
+            up.UPSTREAMS, up.LOCK = held, lock
+            up.resolve = lambda _sample=None: (now, "torch==2.14.1\n")
             assert up.main(["--check"]) == 0
-            up.resolve = lambda _sample=None: {**now, "uv": {"version": "0.14.0"}}
+            up.resolve = lambda _sample=None: (
+                {**now, "uv": {"version": "0.14.0"}},
+                "torch==2.14.1\n",
+            )
+            assert up.main(["--check"]) == 1
+            # a package that moved: the lock differs, upstreams.json alone does not.
+            up.resolve = lambda _sample=None: (now, "torch==2.15.0\n")
             assert up.main(["--check"]) == 1
             assert up.main(["--nope"]) == 2
         finally:
-            up.resolve, up.UPSTREAMS = saved
-    print("error path (a newer uv fails --check until upstreams.json is rewritten): OK")
+            up.resolve, up.UPSTREAMS, up.LOCK = saved
+    print("error path (a newer uv or a moved package fails --check until rewritten): OK")
 
 
 POTION = "sha256:" + "11" * 32
@@ -215,6 +228,61 @@ def test_a_sample_the_payload_cannot_ask_is_refused() -> None:
     print("error path (another model, a missing release or no release name is refused): OK")
 
 
+def test_the_lock_torch_and_params_are_read_not_written() -> None:
+    lock = (
+        "# header\ntorch==2.14.1 ; sys_platform == 'darwin'\n"
+        "torch==2.14.1+cpu ; sys_platform != 'darwin'\n    # via x\n"
+    )
+    assert up.lock_torch(lock) == "2.14.1"
+    try:
+        up.lock_torch(lock + "torch==2.15.0 ; python_version >= '3.14'\n")
+    except SystemExit as e:
+        assert "not one version" in str(e)
+    else:
+        raise AssertionError("two torch versions were taken")
+    names = [
+        ("torch-2.14.1+cpu-cp312-cp312-manylinux_2_28_x86_64.whl", 190),
+        ("torch-2.14.1+cpu-cp313-cp313-manylinux_2_28_x86_64.whl", 196),
+        ("torch-2.14.1+cpu-cp315-cp315-manylinux_2_28_x86_64.whl", 999),
+        ("torch-2.14.1+cpu-cp313-cp313-manylinux_2_28_aarch64.whl", 159),
+    ]
+    # the largest wheel of the range's minors for the platform; none for a mac.
+    assert up.pick_size(names, "2.14.1", "x86_64-linux", range(10, 15)) == 196
+    assert up.pick_size(names, "2.14.1", "aarch64-linux", range(10, 15)) == 159
+    assert up.pick_size(names, "2.14.1", "x86_64-macos", range(10, 15)) is None
+    header = {"__metadata__": {"format": "pt"}, "w": {"shape": [1024, 596]}, "b": {"shape": [7]}}
+    assert up.header_params(header) == 1024 * 596 + 7
+    print("happy path (torch from the lock, a size per platform, params from headers): OK")
+
+
+def test_a_lock_that_pulls_in_cuda_fails() -> None:
+    saved = up.shutil.which, up.subprocess.run
+
+    class Out:
+        returncode, stderr = 0, ""
+        stdout = "torch==2.14.1\nnvidia-cublas-cu12==12.8\n"
+
+    try:
+        up.shutil.which = lambda _name: "/usr/bin/uv"
+        up.subprocess.run = lambda *_a, **_k: Out()
+        try:
+            up.compile_lock(["torch"], "3.10")
+        except SystemExit as e:
+            assert "cuda packages: nvidia-cublas-cu12==12.8" in str(e), str(e)
+        else:
+            raise AssertionError("a lock with nvidia-* was accepted")
+        Out.returncode, Out.stderr = 1, "No solution found"
+        try:
+            up.compile_lock(["a==1", "a==2"], "3.10")
+        except SystemExit as e:
+            assert "do not resolve together" in str(e) and "No solution" in str(e)
+        else:
+            raise AssertionError("a conflict was accepted")
+    finally:
+        up.shutil.which, up.subprocess.run = saved
+    print("error path (cuda in the lock, or two models that conflict, fail the lock): OK")
+
+
 def main() -> None:
     test_the_range_is_what_every_platform_has()
     test_gaps_and_nothing_fail()
@@ -223,6 +291,8 @@ def main() -> None:
     test_a_moved_upstream_fails_check()
     test_the_sample_is_read_at_one_commit()
     test_a_sample_the_payload_cannot_ask_is_refused()
+    test_the_lock_torch_and_params_are_read_not_written()
+    test_a_lock_that_pulls_in_cuda_fails()
     print("all upstream tests passed")
 
 

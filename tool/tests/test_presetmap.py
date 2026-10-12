@@ -21,10 +21,10 @@ from urna.model import presetmap as mr
 
 
 def test_preset_table() -> None:
-    for name in ("potion", "clip-vit-b32", "siglip2", "wemm-2b", "wemm-4b", "wemm-9b"):
+    for name in ("potion", "clip-vit-b32", "siglip2", "wemm-2b", "qwen3-embedding-0.6b"):
         assert name in mr.PRESETS, name
-    assert mr.PRESETS["wemm-4b"].executable is False
-    assert mr.PRESETS["wemm-9b"].executable is False
+    # more than a default machine and a standard ci runner hold (#534).
+    assert "wemm-4b" not in mr.PRESETS and "wemm-9b" not in mr.PRESETS
     names = [p.embedding_model for p in mr.PRESETS.values()]
     assert len(names) == len(set(names)), "embedding_model must be unique (reverse lookup)"
     assert mr.PRESETS["clip-vit-b32"].mrl.supported is False
@@ -70,12 +70,21 @@ def test_remote_code_and_heavy_gates() -> None:
         assert "allow_remote_code" in str(e)
     else:
         raise AssertionError("remote-code preset must require opt-in")
+    # no preset is flagged heavy now; the gate still holds for one that is.
+    import dataclasses
+
+    heavy = dataclasses.replace(
+        mr.PRESETS["wemm-2b"], name="heavy-test", embedding_model="test/heavy", executable=False
+    )
+    mr.PRESETS["heavy-test"] = heavy
     try:
-        mr.create_embedder("wemm-4b", allow_remote_code={"wemm-4b"})
+        mr.create_embedder("heavy-test", allow_remote_code={"heavy-test"})
     except mr.RegistryError as e:
         assert "heavy" in str(e)
     else:
         raise AssertionError("executable=False must require allow_heavy")
+    finally:
+        del mr.PRESETS["heavy-test"]
 
 
 def test_pinned_hash_refuses_altered_code() -> None:

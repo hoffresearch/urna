@@ -28,6 +28,79 @@
     "requires": ">=3.10,<3.15",
     "torch": "2.14.1"
   },
+  "torch": {
+    "version": "2.14.1",
+    "index": "https://download.pytorch.org/whl/cpu",
+    "sizes": {
+      "aarch64-macos": 127657364,
+      "aarch64-linux": 159263447,
+      "x86_64-linux": 196260555,
+      "x86_64-windows": 126374771
+    },
+    "rss": {
+      "aarch64-macos": 448593920,
+      "aarch64-linux": 489562112,
+      "x86_64-linux": 476839936,
+      "x86_64-windows": 431493120
+    }
+  },
+  "lock": {
+    "inputs": [
+      "numpy",
+      "open_clip_torch",
+      "peft",
+      "pillow",
+      "qwen-vl-utils==0.0.14",
+      "sentence-transformers>=3",
+      "sentence-transformers>=5.7,<6",
+      "tokenizers",
+      "torch",
+      "transformers==5.2.0"
+    ],
+    "sha256": "8faaecc5a432f9ecdc7a06f71707c4c722301d4e7ae0e9e154f7a0f647dd046e"
+  },
+  "params": {
+    "minilm-multilingual": {
+      "revision": "e8f8c211226b894fcb81acc59f3b34ba3efd5f42",
+      "params": 117654272
+    },
+    "harrier-270m": {
+      "revision": "31de22b673913c7d658c0f03f792d77c2dcf8ebd",
+      "params": 268098176
+    },
+    "jina-v5-text-nano": {
+      "revision": "8a7f00aac812071b69403df470f1038ec85f8925",
+      "params": 238897920
+    },
+    "qwen3-embedding-0.6b": {
+      "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "params": 595776512
+    },
+    "octen-embedding-0.6b": {
+      "revision": "b54faa2ba2ae9eb618f88526cec6dae3287eb5f8",
+      "params": 595776512
+    },
+    "clip-vit-b32": {
+      "revision": "a6f597a30f7b82c51704746581f9a4e41421e878",
+      "params": 151277313
+    },
+    "siglip2": {
+      "revision": "eee10eff6dd8cabae2d7f379d4e8cfcd352030aa",
+      "params": 375187970
+    },
+    "jina-v5-omni-nano": {
+      "revision": "009e0d09a98a82227526e8c5aa7b0aa282e36163",
+      "params": 1013116416
+    },
+    "jina-v5-omni-small": {
+      "revision": "5c54692f22e186fc12ea38a9193e3ff9e1cda2a3",
+      "params": 1707009024
+    },
+    "wemm-2b": {
+      "revision": "bbd6cd4bf52cfc6716f752a2df80b2706720bd95",
+      "params": 2720809792
+    }
+  },
   "sample": {
     "repo": "brennercruvinel/fakenews-ptbr-urna-benchmark",
     "release": "v0.1",

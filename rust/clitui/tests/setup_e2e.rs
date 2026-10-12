@@ -46,7 +46,7 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// The files a complete payload holds besides the stamp (mirrors
 /// `unpack::REQUIRED`, which this binary-crate test cannot import; a drift
 /// fails the install below).
-const REQUIRED: [&str; 23] = [
+const REQUIRED: [&str; 25] = [
     "python/urna/__init__.py",
     "python/urna/embed/__init__.py",
     "python/urna/embed/lexifloor.py",
@@ -60,8 +60,10 @@ const REQUIRED: [&str; 23] = [
     "python/urna/model/__init__.py",
     "python/urna/model/catalogue.json",
     "python/urna/model/embedders.py",
+    "python/urna/model/installed.py",
     "python/urna/model/installer.py",
     "python/urna/model/modelhash.py",
+    "python/urna/model/modellock.txt",
     "python/urna/model/presetmap.py",
     "python/urna/model/potionb8m/README.md",
     "python/urna/model/potionb8m/config.json",
@@ -468,24 +470,24 @@ fn setup_refuses_models_the_catalog_or_the_consent_does_not_cover() {
     let out = urna(
         &d,
         &rel,
-        &["setup", "--yes", "--no-python", "--model", "wemm-4b"],
+        &["setup", "--yes", "--no-python", "--model", "potion"],
     );
     let s = text(&out);
     assert_eq!(out.status.code(), Some(14), "{s}");
     assert!(s.contains("ok embedder payload"), "{s}");
     assert!(
-        s.contains("wemm-4b is not offered: flagged too heavy"),
+        s.contains("potion is not offered: ships inside the payload"),
         "{s}"
     );
     // installed: the plan itself names it and skips the step.
     let out = urna(
         &d,
         &rel,
-        &["setup", "--yes", "--no-python", "--model", "wemm-4b"],
+        &["setup", "--yes", "--no-python", "--model", "potion"],
     );
     let s = text(&out);
     assert_eq!(out.status.code(), Some(14), "{s}");
-    assert!(s.contains("skip models: wemm-4b is not offered"), "{s}");
+    assert!(s.contains("skip models: potion is not offered"), "{s}");
 
     // a catalog with a model that runs repo code.
     let coded = r#"{"schema": 1, "excluded": [], "models": [{"name": "coded",

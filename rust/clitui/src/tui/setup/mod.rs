@@ -10,6 +10,7 @@
 //! `--yes` or without a terminal it prints plain lines (`text`). both read
 //! the same worker (`job`).
 
+pub mod catalog;
 pub mod job;
 pub mod models;
 pub mod net;

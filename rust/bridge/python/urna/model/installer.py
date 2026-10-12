@@ -16,7 +16,11 @@ it never touches the network.
 fetch downloads exactly the catalog's files at its pinned revision into the
 shared cache (`$HF_HOME/hub`, the cache the query embedders read), then
 fingerprints them and refuses unless the result is the catalog's
-model_hash (and the corpus's, with --expect-hash). the network is used only
+model_hash (and the corpus's, with --expect-hash). an open_clip model's
+fingerprint is over the tensors it loads, so its check loads it. a
+sentence-transformers backend model (`st_multimodal`) stamps its corpora
+with a hash that also names the dtype it ran in, which depends on the
+device; its --expect-hash is checked by the query setup runs next. the network is used only
 with URNA_ALLOW_DOWNLOAD=1, which the caller sets after the user confirmed
 the download; a model that runs repo code also needs --allow-remote-code, a
 separate consent, checked before anything is fetched. progress goes to
@@ -98,6 +102,14 @@ def missing_packages(entry: dict) -> list[str]:
 
 
 def check_expected(entry: dict, expect: str | None) -> None:
+    if entry["kind"] == "st_multimodal":
+        if expect:
+            print(
+                f"note: {entry['name']}'s model_hash names the dtype of the device it runs "
+                f"on; whether it is the corpus's {expect} is checked by the query that follows",
+                file=sys.stderr,
+            )
+        return
     if expect and expect != entry["model_hash"]:
         raise Refused(
             6,
@@ -219,10 +231,13 @@ def verify(entry: dict) -> str:
         got = hashlib.sha256((snap / pin["path"]).read_bytes()).hexdigest()
         if got != pin["sha256"]:
             raise Refused(6, f"{pin['path']} sha256 {got} is not the reviewed {pin['sha256']}")
-    from urna.model.modelhash import compute_model_fingerprint, fingerprint_to_model_hash
+    if entry["kind"] == "open_clip":
+        got = open_clip_hash(entry, snap)
+    else:
+        from urna.model.modelhash import compute_model_fingerprint, fingerprint_to_model_hash
 
-    fp = compute_model_fingerprint(snap, model_id=entry["embedding_model"])
-    got = fingerprint_to_model_hash(fp)
+        fp = compute_model_fingerprint(snap, model_id=entry["embedding_model"])
+        got = fingerprint_to_model_hash(fp)
     if got != entry["model_hash"]:
         raise Refused(
             6,
@@ -230,6 +245,23 @@ def verify(entry: dict) -> str:
             f"not the catalog's {entry['model_hash']}",
         )
     return got
+
+
+def open_clip_hash(entry: dict, snap: Path) -> str:
+    """The model_hash an open_clip preset loads to from `snap`: the hash of
+    its tensors and preprocess, the one its corpora carry."""
+    from urna.embed.visionemb import ImageEmbedder
+    from urna.model.presetmap import get_preset
+
+    preset = get_preset(entry["name"])
+    emb = ImageEmbedder(
+        model_id=preset.model_id,
+        pretrained=preset.pretrained,
+        device="cpu",
+        snapshot=snap,
+        weights=preset.weights_file or None,
+    )
+    return emb.model_hash
 
 
 def fetch(entry: dict, expect: str | None, allow_remote_code: bool) -> dict:

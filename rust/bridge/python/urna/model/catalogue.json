@@ -29,6 +29,26 @@
     "requires": ">=3.10,<3.15",
     "torch": "2.14.1"
   },
+  "torch": {
+    "version": "2.14.1",
+    "index": "https://download.pytorch.org/whl/cpu",
+    "sizes": {
+      "aarch64-macos": 127657364,
+      "aarch64-linux": 159263447,
+      "x86_64-linux": 196260555,
+      "x86_64-windows": 126374771
+    },
+    "rss": {
+      "aarch64-macos": 448593920,
+      "aarch64-linux": 489562112,
+      "x86_64-linux": 476839936,
+      "x86_64-windows": 431493120
+    }
+  },
+  "lock": {
+    "file": "modellock.txt",
+    "sha256": "8faaecc5a432f9ecdc7a06f71707c4c722301d4e7ae0e9e154f7a0f647dd046e"
+  },
   "sample": {
     "repo": "brennercruvinel/fakenews-ptbr-urna-benchmark",
     "release": "v0.1",
@@ -100,7 +120,835 @@
       "dim": 384,
       "modalities": [
         "text"
-      ]
+      ],
+      "license": "Apache-2.0",
+      "params": 117654272,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 4
+      }
+    },
+    {
+      "name": "harrier-270m",
+      "embedding_model": "microsoft/harrier-oss-v1-270m",
+      "kind": "st_multimodal",
+      "repo": "microsoft/harrier-oss-v1-270m",
+      "revision": "31de22b673913c7d658c0f03f792d77c2dcf8ebd",
+      "files": [
+        {
+          "path": "1_Pooling/config.json",
+          "size": 296
+        },
+        {
+          "path": "README.md",
+          "size": 7606
+        },
+        {
+          "path": "config.json",
+          "size": 1326
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 351
+        },
+        {
+          "path": "model.safetensors",
+          "size": 536221640
+        },
+        {
+          "path": "modules.json",
+          "size": 349
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 662
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 33385008
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1155377
+        }
+      ],
+      "bytes": 570772615,
+      "model_hash": "sha256:2b4de2399c6962589b6b700fc294c2ac9f8c45d535487652803d6a34ecaf7187",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers"
+      ],
+      "remote_code": false,
+      "remote_code_hashes": [],
+      "dim": 640,
+      "modalities": [
+        "text"
+      ],
+      "license": "MIT",
+      "params": 268098176,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "jina-v5-text-nano",
+      "embedding_model": "jinaai/jina-embeddings-v5-text-nano",
+      "kind": "st_multimodal",
+      "repo": "jinaai/jina-embeddings-v5-text-nano",
+      "revision": "8a7f00aac812071b69403df470f1038ec85f8925",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 13968
+        },
+        {
+          "path": "adapters/classification/adapter_config.json",
+          "size": 883
+        },
+        {
+          "path": "adapters/classification/adapter_model.safetensors",
+          "size": 13587024
+        },
+        {
+          "path": "adapters/clustering/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/clustering/adapter_model.safetensors",
+          "size": 13587024
+        },
+        {
+          "path": "adapters/retrieval/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/retrieval/adapter_model.safetensors",
+          "size": 13586992
+        },
+        {
+          "path": "adapters/text-matching/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/text-matching/adapter_model.safetensors",
+          "size": 13587024
+        },
+        {
+          "path": "config.json",
+          "size": 1127
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 283
+        },
+        {
+          "path": "configuration_eurobert.py",
+          "size": 12138
+        },
+        {
+          "path": "configuration_jina_embeddings_v5.py",
+          "size": 137
+        },
+        {
+          "path": "custom_st.py",
+          "size": 4261
+        },
+        {
+          "path": "model.safetensors",
+          "size": 423543680
+        },
+        {
+          "path": "modeling_eurobert.py",
+          "size": 48939
+        },
+        {
+          "path": "modeling_jina_embeddings_v5.py",
+          "size": 4118
+        },
+        {
+          "path": "modules.json",
+          "size": 169
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 582
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17210235
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 50554
+        }
+      ],
+      "bytes": 495241784,
+      "model_hash": "sha256:b585d661980652d243344a2743cb5c07404a434831d1db9e88f7dcdd0232870c",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0",
+        "peft"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers",
+        "peft"
+      ],
+      "remote_code": true,
+      "remote_code_hashes": [
+        {
+          "path": "configuration_eurobert.py",
+          "sha256": "8737378a5cea9e6c7be0e077138d6c725fb5909ad122c979adcdcc1a005a51b3"
+        },
+        {
+          "path": "configuration_jina_embeddings_v5.py",
+          "sha256": "8472183a99ba9767b1352309c7553b529738e9dcdc9fe703f3a130bb17d347cd"
+        },
+        {
+          "path": "custom_st.py",
+          "sha256": "620865d4f54a9c45cf64d9ad15dc47825cd0c35686f7118a7d25f908e9fe563a"
+        },
+        {
+          "path": "modeling_eurobert.py",
+          "sha256": "f2430184a068bdfb5171650e8bbbff817aa5e7b2dd2066a52dc84d1f1d967f01"
+        },
+        {
+          "path": "modeling_jina_embeddings_v5.py",
+          "sha256": "6d250e1abe0216b304b9ca99e49d9aac04e143671d310c112ad3e37b6186cf18"
+        }
+      ],
+      "dim": 768,
+      "modalities": [
+        "text"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "params": 238897920,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "qwen3-embedding-0.6b",
+      "embedding_model": "Qwen/Qwen3-Embedding-0.6B",
+      "kind": "st_multimodal",
+      "repo": "Qwen/Qwen3-Embedding-0.6B",
+      "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+      "files": [
+        {
+          "path": "1_Pooling/config.json",
+          "size": 313
+        },
+        {
+          "path": "README.md",
+          "size": 17237
+        },
+        {
+          "path": "config.json",
+          "size": 727
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 215
+        },
+        {
+          "path": "model.safetensors",
+          "size": 1191586416
+        },
+        {
+          "path": "modules.json",
+          "size": 349
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 11423705
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 9706
+        }
+      ],
+      "bytes": 1203038668,
+      "model_hash": "sha256:8201291e89d48850d4debe0238267161e42a8ef4738f388954694040d6b8f6fd",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers"
+      ],
+      "remote_code": false,
+      "remote_code_hashes": [],
+      "dim": 1024,
+      "modalities": [
+        "text"
+      ],
+      "license": "Apache-2.0",
+      "params": 595776512,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "octen-embedding-0.6b",
+      "embedding_model": "Octen/Octen-Embedding-0.6B",
+      "kind": "st_multimodal",
+      "repo": "Octen/Octen-Embedding-0.6B",
+      "revision": "b54faa2ba2ae9eb618f88526cec6dae3287eb5f8",
+      "files": [
+        {
+          "path": "1_Pooling/config.json",
+          "size": 298
+        },
+        {
+          "path": "README.md",
+          "size": 7531
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 4116
+        },
+        {
+          "path": "config.json",
+          "size": 1354
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 217
+        },
+        {
+          "path": "model.safetensors",
+          "size": 1191586416
+        },
+        {
+          "path": "modules.json",
+          "size": 350
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 613
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 11423705
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 5404
+        }
+      ],
+      "bytes": 1203030004,
+      "model_hash": "sha256:507aedde8cec86c8e05c74eb734285837531f18fd10799d92f153e1fc5a89d1e",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers"
+      ],
+      "remote_code": false,
+      "remote_code_hashes": [],
+      "dim": 1024,
+      "modalities": [
+        "text"
+      ],
+      "license": "Apache-2.0",
+      "params": 595776512,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "clip-vit-b32",
+      "embedding_model": "open_clip/ViT-B-32/openai",
+      "kind": "open_clip",
+      "repo": "timm/vit_base_patch32_clip_224.openai",
+      "revision": "a6f597a30f7b82c51704746581f9a4e41421e878",
+      "files": [
+        {
+          "path": "open_clip_config.json",
+          "size": 556
+        },
+        {
+          "path": "open_clip_model.safetensors",
+          "size": 605143284
+        }
+      ],
+      "bytes": 605143840,
+      "model_hash": "sha256:76269ff6bb18be70a910506ccd31d52216b05a4bede0772ac17c0100ee75ca8f",
+      "packages": [
+        "torch",
+        "open_clip_torch",
+        "pillow"
+      ],
+      "imports": [
+        "torch",
+        "open_clip",
+        "PIL"
+      ],
+      "remote_code": false,
+      "remote_code_hashes": [],
+      "dim": 512,
+      "modalities": [
+        "image",
+        "text"
+      ],
+      "license": "Apache-2.0",
+      "params": 151277313,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 4
+      }
+    },
+    {
+      "name": "siglip2",
+      "embedding_model": "open_clip/ViT-B-16-SigLIP2/webli",
+      "kind": "open_clip",
+      "repo": "timm/ViT-B-16-SigLIP2",
+      "revision": "eee10eff6dd8cabae2d7f379d4e8cfcd352030aa",
+      "files": [
+        {
+          "path": "open_clip_config.json",
+          "size": 944
+        },
+        {
+          "path": "open_clip_model.safetensors",
+          "size": 1500786832
+        },
+        {
+          "path": "special_tokens_map.json",
+          "size": 327
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 34362885
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 46382
+        }
+      ],
+      "bytes": 1535197370,
+      "model_hash": "sha256:a9946db1d33627e773569c415ab202cd759befcdc047ac0d8768937298775f3c",
+      "packages": [
+        "torch",
+        "open_clip_torch",
+        "pillow",
+        "transformers==5.2.0"
+      ],
+      "imports": [
+        "torch",
+        "open_clip",
+        "PIL",
+        "transformers"
+      ],
+      "remote_code": false,
+      "remote_code_hashes": [],
+      "dim": 768,
+      "modalities": [
+        "image",
+        "text"
+      ],
+      "license": "Apache-2.0",
+      "params": 375187970,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 4
+      }
+    },
+    {
+      "name": "jina-v5-omni-nano",
+      "embedding_model": "jinaai/jina-embeddings-v5-omni-nano",
+      "kind": "st_multimodal",
+      "repo": "jinaai/jina-embeddings-v5-omni-nano",
+      "revision": "009e0d09a98a82227526e8c5aa7b0aa282e36163",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 17760
+        },
+        {
+          "path": "adapters/classification/adapter_config.json",
+          "size": 883
+        },
+        {
+          "path": "adapters/classification/adapter_model.safetensors",
+          "size": 13589512
+        },
+        {
+          "path": "adapters/clustering/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/clustering/adapter_model.safetensors",
+          "size": 13589512
+        },
+        {
+          "path": "adapters/retrieval/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/retrieval/adapter_model.safetensors",
+          "size": 13589512
+        },
+        {
+          "path": "adapters/text-matching/adapter_config.json",
+          "size": 882
+        },
+        {
+          "path": "adapters/text-matching/adapter_model.safetensors",
+          "size": 13589512
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 7755
+        },
+        {
+          "path": "config.json",
+          "size": 2415
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 141
+        },
+        {
+          "path": "custom_st.py",
+          "size": 40952
+        },
+        {
+          "path": "model.safetensors",
+          "size": 1972058984
+        },
+        {
+          "path": "modeling_jina_embeddings_v5_omni.py",
+          "size": 27460
+        },
+        {
+          "path": "modeling_llava_eurobert_audio.py",
+          "size": 17033
+        },
+        {
+          "path": "modules.json",
+          "size": 104
+        },
+        {
+          "path": "processing_llava_eurobert.py",
+          "size": 7684
+        },
+        {
+          "path": "processor_config.json",
+          "size": 1447
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 17211089
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 624
+        }
+      ],
+      "bytes": 2043755025,
+      "model_hash": "sha256:274d07bdbd4b8ff2d345667cd119e5dab26f015baed89891b137ea480d8b2280",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0",
+        "peft",
+        "pillow"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers",
+        "peft"
+      ],
+      "remote_code": true,
+      "remote_code_hashes": [
+        {
+          "path": "custom_st.py",
+          "sha256": "6b622359577d1bcef0658dd2a826ddb2aff3cffd1820a60454f4268be061d184"
+        },
+        {
+          "path": "modeling_jina_embeddings_v5_omni.py",
+          "sha256": "189d151cb05bc670a2170bf21c3bcb2cba7c201daca767940a516c1aa96f1679"
+        },
+        {
+          "path": "modeling_llava_eurobert_audio.py",
+          "sha256": "9853d0126f175b0aca1463a57bad694b6b73c1c6eeea05d6cb8e73f2634f1c17"
+        },
+        {
+          "path": "processing_llava_eurobert.py",
+          "sha256": "ce0cb53e8f9831a4aadf750580287adf4a4d2e73251c7fa789f03241d38311ad"
+        }
+      ],
+      "dim": 0,
+      "modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "params": 1013116416,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "jina-v5-omni-small",
+      "embedding_model": "jinaai/jina-embeddings-v5-omni-small",
+      "kind": "st_multimodal",
+      "repo": "jinaai/jina-embeddings-v5-omni-small",
+      "revision": "5c54692f22e186fc12ea38a9193e3ff9e1cda2a3",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 17723
+        },
+        {
+          "path": "adapters/classification/adapter_config.json",
+          "size": 884
+        },
+        {
+          "path": "adapters/classification/adapter_model.safetensors",
+          "size": 40426056
+        },
+        {
+          "path": "adapters/clustering/adapter_config.json",
+          "size": 883
+        },
+        {
+          "path": "adapters/clustering/adapter_model.safetensors",
+          "size": 40426056
+        },
+        {
+          "path": "adapters/retrieval/adapter_config.json",
+          "size": 883
+        },
+        {
+          "path": "adapters/retrieval/adapter_model.safetensors",
+          "size": 40426056
+        },
+        {
+          "path": "adapters/text-matching/adapter_config.json",
+          "size": 883
+        },
+        {
+          "path": "adapters/text-matching/adapter_model.safetensors",
+          "size": 40426056
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 7755
+        },
+        {
+          "path": "config.json",
+          "size": 2418
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 141
+        },
+        {
+          "path": "custom_st.py",
+          "size": 40918
+        },
+        {
+          "path": "model.safetensors",
+          "size": 3252667112
+        },
+        {
+          "path": "modeling_jina_embeddings_v5_omni.py",
+          "size": 29076
+        },
+        {
+          "path": "modules.json",
+          "size": 105
+        },
+        {
+          "path": "processor_config.json",
+          "size": 1193
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 11423488
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 389
+        }
+      ],
+      "bytes": 3425898075,
+      "model_hash": "sha256:4c7661eb37b0947b4e99847de04b1ce37caa51f176d377b5bc4508751b3a76e8",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0",
+        "peft",
+        "pillow"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers",
+        "peft"
+      ],
+      "remote_code": true,
+      "remote_code_hashes": [
+        {
+          "path": "custom_st.py",
+          "sha256": "2be810bdca5dafe3553e656f88dba8b75b51e24e8173f0813950d5d530a7445e"
+        },
+        {
+          "path": "modeling_jina_embeddings_v5_omni.py",
+          "sha256": "bd6d6e35d6720beec881578b5db44f863ef72891732bb2fbd1da686c4e3ca07c"
+        }
+      ],
+      "dim": 0,
+      "modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "license": "CC-BY-NC-4.0",
+      "params": 1707009024,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
+    },
+    {
+      "name": "wemm-2b",
+      "embedding_model": "tencent/WeMM-Embedding-2B",
+      "kind": "st_multimodal",
+      "repo": "tencent/WeMM-Embedding-2B",
+      "revision": "bbd6cd4bf52cfc6716f752a2df80b2706720bd95",
+      "files": [
+        {
+          "path": "README.md",
+          "size": 7993
+        },
+        {
+          "path": "additional_chat_templates/sentence_transformers.jinja",
+          "size": 1452
+        },
+        {
+          "path": "chat_template.jinja",
+          "size": 7755
+        },
+        {
+          "path": "config.json",
+          "size": 2853
+        },
+        {
+          "path": "config_sentence_transformers.json",
+          "size": 245
+        },
+        {
+          "path": "embedding_chat_template.jinja",
+          "size": 1086
+        },
+        {
+          "path": "model.safetensors",
+          "size": 5441695216
+        },
+        {
+          "path": "modeling_st_wemm.py",
+          "size": 3180
+        },
+        {
+          "path": "modeling_wemm_embedding.py",
+          "size": 1205
+        },
+        {
+          "path": "modules.json",
+          "size": 106
+        },
+        {
+          "path": "processor_config.json",
+          "size": 1192
+        },
+        {
+          "path": "sentence_bert_config.json",
+          "size": 950
+        },
+        {
+          "path": "tokenizer.json",
+          "size": 19990378
+        },
+        {
+          "path": "tokenizer_config.json",
+          "size": 1148
+        }
+      ],
+      "bytes": 5461714759,
+      "model_hash": "sha256:acd71609394cdb51e55ee91953432bcde8b1e6c610dabe901a14e51465049c35",
+      "packages": [
+        "torch",
+        "sentence-transformers>=5.7,<6",
+        "transformers==5.2.0",
+        "qwen-vl-utils==0.0.14",
+        "pillow"
+      ],
+      "imports": [
+        "torch",
+        "sentence_transformers",
+        "transformers",
+        "qwen_vl_utils"
+      ],
+      "remote_code": true,
+      "remote_code_hashes": [
+        {
+          "path": "modeling_st_wemm.py",
+          "sha256": "521d02c1c60ae727cc9dc6500cdb0b28c53b259e0ce3d37197920a33ba4dd333"
+        },
+        {
+          "path": "modeling_wemm_embedding.py",
+          "sha256": "ac255e1fad459cc3e68891d6c3327f4486922aed02fb3c5c13fb53277ba8e94f"
+        },
+        {
+          "path": "chat_template.jinja",
+          "sha256": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"
+        },
+        {
+          "path": "embedding_chat_template.jinja",
+          "sha256": "7c3df2aab83ab9096428ec27b6b99ad87c4790418b830d119957634f28c677ba"
+        },
+        {
+          "path": "processor_config.json",
+          "sha256": "d601e2fe0de1bc11852de3aa843f01a1677ca84f4dc743916c9ce4b8d30fb384"
+        }
+      ],
+      "dim": 2048,
+      "modalities": [
+        "image",
+        "text",
+        "video"
+      ],
+      "license": "Apache-2.0",
+      "params": 2720809792,
+      "dtype_bytes": {
+        "cpu": 4,
+        "mps": 2
+      }
     }
   ],
   "excluded": [
@@ -108,41 +956,6 @@
       "name": "potion",
       "embedding_model": "minishlab/potion-base-8M/v1",
       "reason": "ships inside the payload; nothing to install"
-    },
-    {
-      "name": "clip-vit-b32",
-      "embedding_model": "open_clip/ViT-B-32/openai",
-      "reason": "open_clip fetches its own weights; no pinned hub revision yet"
-    },
-    {
-      "name": "siglip2",
-      "embedding_model": "open_clip/ViT-B-16-SigLIP2/webli",
-      "reason": "pinned hub snapshot, fetched on first use with URNA_ALLOW_DOWNLOAD=1; the installer cannot verify an open_clip model_hash yet (it hashes the loaded tensors)"
-    },
-    {
-      "name": "jina-v5-omni-nano",
-      "embedding_model": "jinaai/jina-embeddings-v5-omni-nano",
-      "reason": "runs model-repo code that has not been reviewed and pinned"
-    },
-    {
-      "name": "jina-v5-omni-small",
-      "embedding_model": "jinaai/jina-embeddings-v5-omni-small",
-      "reason": "runs model-repo code that has not been reviewed and pinned"
-    },
-    {
-      "name": "wemm-2b",
-      "embedding_model": "tencent/WeMM-Embedding-2B",
-      "reason": "validated against a local snapshot only; no pinned hub revision yet"
-    },
-    {
-      "name": "wemm-4b",
-      "embedding_model": "tencent/WeMM-Embedding-4B",
-      "reason": "flagged too heavy for a default machine"
-    },
-    {
-      "name": "wemm-9b",
-      "embedding_model": "tencent/WeMM-Embedding-9B",
-      "reason": "flagged too heavy for a default machine"
     }
   ]
 }

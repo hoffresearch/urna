@@ -59,11 +59,15 @@ MODULES = [
     "embed/searchtxt.py",
     "model/__init__.py",
     "model/presetmap.py",
+    # the validated installs and reviewed code pins the registry attaches.
+    "model/installed.py",
     "model/embedders.py",
     "model/modelhash.py",
     # the models setup and the explorer offer to install (generated from the
     # registry by catalogue.py; a stale copy fails the stage).
     "model/catalogue.json",
+    # the lock every model's packages install from (`-c`), beside it.
+    "model/modellock.txt",
     # the fetch half of the model install setup and the explorer share.
     "model/installer.py",
 ]
@@ -96,7 +100,10 @@ def catalog_drift() -> str | None:
     from urna.model import catalogue
 
     path = PKG / "model" / "catalogue.json"
-    want = catalogue.render(catalogue.build())
+    try:
+        want = catalogue.render(catalogue.build())
+    except catalogue.Stale as e:
+        return f"{e}: run python tool/tasks/upstreams.py --write"
     have = path.read_text() if path.is_file() else ""
     if have != want:
         rel = path.relative_to(ROOT)

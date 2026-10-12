@@ -46,15 +46,18 @@ def _default_device() -> str:
     return "cpu"
 
 
-def _default_dtype(device: str) -> str:
+def _default_dtype(device: str, preset=None) -> str:
     if os.environ.get("URNA_ST_DTYPE"):
         return os.environ["URNA_ST_DTYPE"]
     # bf16 where it is first-class; fp16 on mps (measured this session:
-    # wemm-2b image embeds 0.5s vs 23s in fp32, cosines agree to ~1e-2);
+    # wemm-2b image embeds 0.5s vs 23s in fp32, cosines agree to ~1e-2),
+    # unless the preset names another (gemma3 overflows to NaN in fp16);
     # fp32 on cpu.
     if device == "cuda":
         return "bfloat16"
-    return "float16" if device == "mps" else "float32"
+    if device == "mps":
+        return getattr(preset, "mps_dtype", "") or "float16"
+    return "float32"
 
 
 class STMultimodalEmbedder:
@@ -73,7 +76,7 @@ class STMultimodalEmbedder:
         self.model_dir = Path(model_dir) if model_dir else None
         self.device = device or _default_device()
         self.batch_size = batch_size
-        self.dtype = dtype or _default_dtype(self.device)
+        self.dtype = dtype or _default_dtype(self.device, preset)
         u = usage or {}
         self.text_corpus_mode = u.get("text_corpus_mode") or preset.text_corpus_mode
         self.text_query_mode = u.get("text_query_mode") or preset.text_query_mode
@@ -109,7 +112,7 @@ class STMultimodalEmbedder:
         except ImportError as e:
             raise ImportError(
                 f"preset '{self.preset.name}' needs the sentence-transformers stack: "
-                'pip install torch "sentence-transformers>=5.7" "transformers==5.2.0" '
+                'pip install torch "sentence-transformers>=5.7,<6" "transformers==5.2.0" '
                 '"qwen-vl-utils==0.0.14" "accelerate>=1.1.0"'
             ) from e
         target = str(self.model_dir) if self.model_dir else self.preset.model_id
@@ -131,7 +134,15 @@ class STMultimodalEmbedder:
             "show_progress_bar": False,
             **self.encode_kwargs,
         }
-        if role == "query" and hasattr(self._model, "encode_query"):
+        if role == "query" and self.preset.query_prompt_name:
+            kwargs["prompt_name"] = self.preset.query_prompt_name
+        if "task" in kwargs and role in ("query", "document"):
+            # a model that picks its adapter by `task` (jina v5) takes the
+            # role as its prompt: encode_query would pass task="query" over
+            # it. this is what jina's omni code makes encode_query do.
+            kwargs.setdefault("prompt_name", role)
+            out = self._model.encode(items, **kwargs)
+        elif role == "query" and hasattr(self._model, "encode_query"):
             out = self._model.encode_query(items, **kwargs)
         elif role == "document" and hasattr(self._model, "encode_document"):
             out = self._model.encode_document(items, **kwargs)
