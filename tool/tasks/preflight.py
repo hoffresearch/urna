@@ -10,7 +10,12 @@ Tree mode (every pull request, ``gatecheck.yml``): the workspace version in
 - ``Cargo.lock`` carries it for urna, urna-format, urna-engine, urna-bridge;
 - ``CITATION.cff``: ``version``, the versioned ``repository-artifact`` and
   release URLs, and a ``date-released`` equal to the changelog's date;
-- ``docs/CHANGELOG`` has a ``## [X.Y.Z] - YYYY-MM-DD`` section.
+- ``docs/CHANGELOG`` has a ``## [X.Y.Z] - YYYY-MM-DD`` section, and nothing
+  under ``## [Unreleased]``: an unreleased change is a file in ``news/``,
+  named ``<issue>.<type>.md`` (``+<name>`` for no issue) with a type of
+  ``[tool.towncrier]`` in ``pyproject.toml``, which
+  ``tool/tasks/releasepr.sh`` turns into the release's section, so no two
+  pull requests edit the same line of the changelog.
 
 Tag mode (``--tag vX.Y.Z``, the release's ``tagverify.yml`` after the
 signature check): the same checks on the files of the tag's own commit,
@@ -76,6 +81,12 @@ class Tree:
         if shown.returncode != 0:
             raise FileNotFoundError(f"{rel} is not in {self.commit[:12]}")
         return shown.stdout
+
+    def news(self) -> list[str]:
+        if self.commit is None:
+            return sorted(p.name for p in (self.root / "news").glob("*") if p.is_file())
+        listed = _git(self.root, "ls-tree", "--name-only", self.commit, "--", "news/")
+        return sorted(rel.removeprefix("news/") for rel in listed.stdout.splitlines())
 
     def crate_manifests(self) -> list[str]:
         if self.commit is None:
@@ -161,13 +172,28 @@ def _check_citation(tree: Tree, v: str, released: dt.date | None) -> list[str]:
     return errors
 
 
+def _check_news(tree: Tree) -> list[str]:
+    log = tree.read("docs/CHANGELOG")
+    unreleased = re.search(r"^## \[Unreleased\]$(.*?)(?=^## \[)", log, re.M | re.S)
+    errors = []
+    if unreleased is None or re.search(r"^(- |### )", unreleased.group(1), re.M):
+        errors.append("docs/CHANGELOG: [Unreleased] holds entries; a change goes in news/")
+    config = _toml(tree.read("pyproject.toml"))["tool"]["towncrier"]
+    kinds = "|".join(re.escape(k["directory"]) for k in config["type"])
+    shape = rf"(\d+|\+[a-z0-9-]+)\.({kinds})(\.\d+)?\.md"
+    for name in tree.news():
+        if not re.fullmatch(shape, name):
+            errors.append(f"news/{name}: not <issue>.<type>.md with a type of pyproject.toml")
+    return errors
+
+
 def _check(tree: Tree) -> list[str]:
     v = _version(tree)
     released = _release_date(tree, v)
     errors = _check_manifests(tree, v)
     if released is None:
         errors.append(f"docs/CHANGELOG: no '## [{v}] - YYYY-MM-DD' section")
-    return errors + _check_citation(tree, v, released)
+    return errors + _check_news(tree) + _check_citation(tree, v, released)
 
 
 def check_tree(root: Path = ROOT) -> list[str]:

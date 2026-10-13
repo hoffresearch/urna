@@ -114,3 +114,44 @@ forbidden_modules = [
     "baselines", "benchgate", "benchtime", "graphgate", "imageeval", "imagerate", "imagestat",
     "modelrank", "modelview", "presetrun", "recallcmp", "vectorcmp", "vectordbs",
 ]
+
+[tool.towncrier]
+# the changelog's unreleased entries: one file per change in news/, named
+# <issue>.<type>.md (+<name>.<type>.md for a change with no issue), so no two
+# pull requests edit the same line of docs/CHANGELOG. tool/tasks/releasepr.sh
+# runs `towncrier build`, which writes them as the dated section of the
+# release below the marker in docs/CHANGELOG and removes them.
+directory = "news"
+filename = "docs/CHANGELOG"
+start_string = "<!-- towncrier: each release lands below this line -->\n"
+title_format = "## [{version}] - {project_date}"
+issue_format = ""
+template = "towncrier:default.md"
+wrap = false
+all_bullets = true
+orphan_prefix = "+"
+
+[[tool.towncrier.type]]
+directory = "added"
+name = "Added"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "changed"
+name = "Changed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "removed"
+name = "Removed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "fixed"
+name = "Fixed"
+showcontent = true
+
+[[tool.towncrier.type]]
+directory = "security"
+name = "Security"
+showcontent = true

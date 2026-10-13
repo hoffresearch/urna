@@ -6,17 +6,19 @@ no release step reads them) and signs with a throwaway ssh key. the script
 runs with --no-push, so nothing leaves the machine:
 
 - happy path: the next patch version lands in the workspace version, both
-  pins, the four crates of Cargo.lock, a dated changelog section that holds
-  what [Unreleased] held, and the five versioned CITATION.cff fields; every
-  other CITATION.cff line is unchanged; the preflight passes; one signed
-  commit on release-X.Y.Z in its own worktree touches exactly those four
-  files; the base branch, the checkout and the tags do not move;
-- error path: the current version, a malformed version and a cargo-release
-  other than the pinned one are refused before any branch or worktree exists;
-- edge case: an [Unreleased] section with no entries is refused.
+  pins, the four crates of Cargo.lock, a dated changelog section below the
+  towncrier marker that holds every news/ fragment, and the five versioned
+  CITATION.cff fields; every other CITATION.cff line is unchanged; the
+  preflight passes; one signed commit on release-X.Y.Z in its own worktree
+  touches exactly those four files and removes every fragment; the base
+  branch, the checkout and the tags do not move;
+- error path: the current version, a malformed version, and a cargo-release
+  or a towncrier other than the pinned one are refused before any branch or
+  worktree exists;
+- edge case: a news/ with no fragment is refused.
 
-skips when the pinned cargo-release is not installed (the script names the
-install command).
+skips when the pinned cargo-release or towncrier is not installed (the
+script names the install command).
 
 Run: python tool/tests/test_releasepr.py
 """
@@ -33,6 +35,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = "tool/tasks/releasepr.sh"
 PINNED = re.search(r"^CARGO_RELEASE_VERSION=(\S+)$", (REPO / SCRIPT).read_text(), re.M).group(1)
+TOWNCRIER = re.search(r"^TOWNCRIER_VERSION=(\S+)$", (REPO / SCRIPT).read_text(), re.M).group(1)
+MARKER = "<!-- towncrier: each release lands below this line -->"
 FILES = ["CITATION.cff", "Cargo.lock", "Cargo.toml", "docs/CHANGELOG"]
 CITED = ("version:", "date-released:", "repository-artifact:", "    value:", "    description:")
 
@@ -100,8 +104,9 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
     major, minor, patch = map(int, old.split("."))
     new = f"{major}.{minor}.{patch + 1}"
     base = git(repo, "rev-parse", "main").stdout.strip()
-    unreleased = (repo / "docs/CHANGELOG").read_text().split("## [Unreleased]\n", 1)[1]
-    unreleased = unreleased.split("\n## [", 1)[0]
+    fragments = sorted(p.name for p in (repo / "news").iterdir())
+    entries = [(repo / "news" / name).read_text().strip() for name in fragments]
+    assert entries, "the checkout has no news/ fragment to release"
     cff_before = (repo / "CITATION.cff").read_text().splitlines()
     wt = tmp / "wt-happy"
     proc = prepare(repo, new, wt)
@@ -117,7 +122,12 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
         assert f'name = "{name}"\nversion = "{new}"' in lock, f"Cargo.lock {name}"
     log = (wt / "docs/CHANGELOG").read_text()
     assert f"last-updated: {today}\n" in log
-    assert f"## [Unreleased]\n\n## [{new}] - {today}\n{unreleased}\n## [{old}]" in log, "changelog"
+    head = f"{MARKER}\n\n## [{new}] - {today}\n"
+    assert head in log.split("## [Unreleased]\n", 1)[1], "changelog"
+    section = log.split(head, 1)[1].split(f"\n## [{old}]", 1)[0]
+    for entry in entries:
+        assert f"\n- {entry}\n" in section, entry
+    assert not (wt / "news").exists() or not any((wt / "news").iterdir()), "fragments left"
     cff = (wt / "CITATION.cff").read_text()
     for line in (
         f'version: "{new}"',
@@ -135,13 +145,14 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
     shown = git(wt, "log", "-1", "--format=%G?%n%s").stdout.split("\n")
     assert shown[:2] == ["G", f"Release {new}"], shown
     names = git(wt, "diff", "--name-only", f"{base}..HEAD").stdout.split()
-    assert sorted(names) == FILES, names
+    assert sorted(n for n in names if not n.startswith("news/")) == FILES, names
+    assert sorted(n for n in names if n.startswith("news/")) == [f"news/{f}" for f in fragments]
     assert git(wt, "status", "--porcelain").stdout == "", "left uncommitted changes"
     run([sys.executable, "tool/tasks/preflight.py"], wt)
     assert git(repo, "rev-parse", "main").stdout.strip() == base, "main moved"
     assert git(repo, "tag", "--list").stdout == "", "a tag was created"
     assert git(repo, "status", "--porcelain").stdout == "", "the checkout changed"
-    print(f"case 1 (prepare {old} -> {new}, signed, four files, preflight ok): OK")
+    print(f"case 1 (prepare {old} -> {new}, signed, four files, fragments in, preflight ok): OK")
     return new
 
 
@@ -169,19 +180,23 @@ def case_wrong_tool(repo: Path, tmp: Path):
     proc = prepare(repo, "99.0.0", wt, env=env)
     assert proc.returncode != 0 and f"needs cargo-release {PINNED}, found 0.0.1" in proc.stderr
     untouched(repo, "release-99.0.0", wt)
-    print("case 3 (another cargo-release refused, the install command named): OK")
+    (shim / "cargo").unlink()
+    (shim / "towncrier").write_text('#!/bin/sh\necho "towncrier, version 0.0.1"\n')
+    (shim / "towncrier").chmod(0o755)
+    proc = prepare(repo, "99.0.0", wt, env=env)
+    assert proc.returncode != 0 and f"needs towncrier {TOWNCRIER}, found 0.0.1" in proc.stderr
+    untouched(repo, "release-99.0.0", wt)
+    print("case 3 (another cargo-release or towncrier refused, the install named): OK")
 
 
-def case_empty_unreleased(repo: Path, tmp: Path):
-    log = repo / "docs/CHANGELOG"
-    head, rest = log.read_text().split("## [Unreleased]\n", 1)
-    log.write_text(head + "## [Unreleased]\n\n## [" + rest.split("\n## [", 1)[1])
-    git(repo, "commit", "-q", "-am", "an empty unreleased section")
+def case_no_news(repo: Path, tmp: Path):
+    git(repo, "rm", "-q", "-r", "news")
+    git(repo, "commit", "-q", "-m", "nothing to release")
     wt = tmp / "wt-empty"
     proc = prepare(repo, "99.0.0", wt)
-    assert proc.returncode != 0 and "nothing under [Unreleased]" in proc.stderr, proc.stderr
+    assert proc.returncode != 0 and "news/ has nothing to release" in proc.stderr, proc.stderr
     untouched(repo, "release-99.0.0", wt)
-    print("case 4 (an empty [Unreleased] refused): OK")
+    print("case 4 (a news/ with no fragment refused): OK")
 
 
 def main():
@@ -189,13 +204,19 @@ def main():
     if found[1:2] != [PINNED]:
         print(f"releasepr: skipped, cargo-release {PINNED} is not installed")
         return
+    found = []
+    if shutil.which("towncrier"):
+        found = run(["towncrier", "--version"], REPO, check=False).stdout.split()
+    if found[2:3] != [TOWNCRIER]:
+        print(f"releasepr: skipped, towncrier {TOWNCRIER} is not installed")
+        return
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
         repo, signers = scratch(tmp)
         case_happy(repo, signers, tmp)
         case_refused(repo, tmp)
         case_wrong_tool(repo, tmp)
-        case_empty_unreleased(repo, tmp)
+        case_no_news(repo, tmp)
     print("releasepr: 4 cases passed")
 
 

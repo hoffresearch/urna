@@ -380,6 +380,12 @@ purpose = "Every image the README and the repo pages use: the header (urna-hoff-
 links = ["README.md"]
 
 [[inventory.root]]
+path = "news"
+kind = "directory"
+purpose = "The unreleased changelog entries, one file per change named <issue>.<type>.md (+<name>.<type>.md with no issue; types in pyproject.toml's [tool.towncrier]), so no two pull requests edit the same line of docs/CHANGELOG; tool/tasks/releasepr.sh turns them into the release's section and removes them, and preflight.py refuses an entry under [Unreleased]"
+links = ["pyproject.toml", "docs/CHANGELOG", "tool/tasks/releasepr.sh", "tool/tasks/preflight.py"]
+
+[[inventory.root]]
 path = ".editorconfig"
 kind = "config"
 purpose = "Editor defaults plus binary-safe .urna handling"
@@ -632,7 +638,7 @@ links = ["tool/bench/vectorcmp.py"]
 [[inventory.root]]
 path = "pyproject.toml"
 kind = "python-config"
-purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, import-linter contracts (urna never imports tool/bench) and the dev dependency groups"
+purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, import-linter contracts (urna never imports tool/bench), towncrier (news/ into docs/CHANGELOG at release) and the dev dependency groups"
 links = [
     "python",
     "tests",
@@ -2397,7 +2403,7 @@ links = ["tool/tasks/embedpack.py", "rust/bridge/python/urna/embed/presetqry.py"
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_preflight.py"
 kind = "python-test"
-purpose = "The release preflight against the checkout and against temp copies with one field drifted per case (a workspace pin, a crate not inheriting, a lockfile entry, each versioned CITATION field, the citation date, the changelog section), and the tag checks in throwaway repos (another version, off main, dated before the release, lightweight, a stale CITATION on the tag's commit while the checkout carries the fix, a release file missing from the commit); in fullcheck.sh and gatecheck.yml; a tag made at 22:30 at -03:00 fits a release dated the next UTC day, one dated two days later is refused"
+purpose = "The release preflight against the checkout and against temp copies with one field drifted per case (a workspace pin, a crate not inheriting, a lockfile entry, each versioned CITATION field, the citation date, the changelog section, an entry under [Unreleased], a news/ fragment of no towncrier type), and the tag checks in throwaway repos (another version, off main, dated before the release, lightweight, a stale CITATION on the tag's commit while the checkout carries the fix, a release file missing from the commit); in fullcheck.sh and gatecheck.yml; a tag made at 22:30 at -03:00 fits a release dated the next UTC day, one dated two days later is refused"
 links = ["tool/tasks/preflight.py"]
 
 [[inventory.data_docs_python_script_tests]]
@@ -2421,7 +2427,7 @@ links = ["tool/tasks/pypiindex.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_releasepr.py"
 kind = "python-test"
-purpose = "releasepr.sh with the pinned cargo-release in a scratch repo of the tracked files, signing with a throwaway ssh key and --no-push: the next patch in the version, pins, lockfile, a dated changelog section holding the old [Unreleased] and the five CITATION.cff fields with every other line unchanged, preflight ok, one signed commit on release-X.Y.Z touching exactly four files, main, the checkout and the tags unmoved; the current or a malformed version, another cargo-release and an empty [Unreleased] refused before anything is created; skips without the pinned tool"
+purpose = "releasepr.sh with the pinned cargo-release in a scratch repo of the tracked files, signing with a throwaway ssh key and --no-push: the next patch in the version, pins, lockfile, a dated changelog section below the towncrier marker holding every news/ fragment and the five CITATION.cff fields with every other line unchanged, preflight ok, one signed commit on release-X.Y.Z touching exactly four files and removing every fragment, main, the checkout and the tags unmoved; the current or a malformed version, another cargo-release or towncrier and an empty news/ refused before anything is created; skips without the pinned tools"
 links = ["tool/tasks/releasepr.sh"]
 
 [[inventory.data_docs_python_script_tests]]
@@ -2499,7 +2505,7 @@ links = []
 [[inventory.data_docs_python_script_tests]]
 path = "docs/CHANGELOG"
 kind = "changelog"
-purpose = "Keep-a-changelog record: released versions and the unreleased deltas, with measured numbers where a change was measured"
+purpose = "Keep-a-changelog record of the released versions, with measured numbers where a change was measured; the unreleased changes are news/ fragments that towncrier writes below the marker under [Unreleased] at release"
 links = ["README.md"]
 
 [[inventory.data_docs_python_script_tests]]
@@ -3051,7 +3057,7 @@ links = [".github/workflows/release.yml", ".github/workflows/wheelmake.yml", "to
 [[inventory.distribution]]
 path = "tool/tasks/releasepr.sh"
 kind = "shell-script"
-purpose = "Opens the release pull request (usage step 8): in a new worktree of origin/main on release-X.Y.Z, cargo-release (version pinned here) runs `version` (workspace version, urna-format and urna-engine pins, lockfile) and `replace` (the dated changelog section, CITATION.cff's versioned fields); then the preflight, a refusal of any change outside those four files, a signed commit, an explicit push of that branch and gh pr create. Refuses a version not after the current one, an empty [Unreleased], another cargo-release; never tags or publishes"
+purpose = "Opens the release pull request (usage step 8): in a new worktree of origin/main on release-X.Y.Z, cargo-release (version pinned here) runs `version` (workspace version, urna-format and urna-engine pins, lockfile), towncrier (version pinned here) turns the news/ fragments into the dated changelog section and removes them, and cargo-release runs `replace` (the changelog date, CITATION.cff's versioned fields); then the preflight, a refusal of any change outside those four files and the removed fragments, a signed commit, an explicit push of that branch and gh pr create. Refuses a version not after the current one, an empty news/, another cargo-release or towncrier; never tags or publishes"
 links = ["release.toml", "rust/clitui/Cargo.toml", "tool/tasks/preflight.py", "tool/tests/test_releasepr.py"]
 
 [[inventory.distribution]]
@@ -3110,7 +3116,7 @@ links = [
 [[inventory.distribution]]
 path = "tool/tasks/preflight.py"
 kind = "python-source"
-purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's) and the changelog section; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
+purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's), the changelog section, and nothing under [Unreleased] with every news/ fragment named <issue>.<type>.md for a towncrier type; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
 links = [".github/workflows/tagverify.yml", ".github/workflows/gatecheck.yml", "tool/tests/test_preflight.py"]
 
 [[inventory.distribution]]

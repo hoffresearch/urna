@@ -35,14 +35,16 @@ spec = importlib.util.spec_from_file_location("preflight", SCRIPT)
 preflight = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preflight)
 
-FILES = ["Cargo.toml", "Cargo.lock", "CITATION.cff", "docs/CHANGELOG"]
+FILES = ["Cargo.toml", "Cargo.lock", "CITATION.cff", "docs/CHANGELOG", "pyproject.toml"]
 VERSION = preflight.workspace_version(REPO)
+MARKER = "<!-- towncrier: each release lands below this line -->"
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
 GIT += ["-c", "tag.gpgsign=false"]
 
 
 def copy_tree(dst: Path) -> Path:
-    for rel in FILES + [str(p.relative_to(REPO)) for p in REPO.glob("rust/*/Cargo.toml")]:
+    news = [str(p.relative_to(REPO)) for p in REPO.glob("news/*")]
+    for rel in FILES + news + [str(p.relative_to(REPO)) for p in REPO.glob("rust/*/Cargo.toml")]:
         (dst / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / rel, dst / rel)
     return dst
@@ -93,6 +95,7 @@ def test_each_drift_is_named() -> None:
         ("CITATION.cff", f"tag/v{VERSION}", f"tag/v{other}", "CITATION.cff: value"),
         ("CITATION.cff", f"version {VERSION}.", f"version {other}.", "CITATION.cff: description"),
         ("docs/CHANGELOG", f"## [{VERSION}] - ", f"## [{VERSION}] ", "no '## ["),
+        ("docs/CHANGELOG", MARKER, MARKER + "\n### Added\n\n- an entry\n", "[Unreleased] holds"),
     ]
     for rel, old, new, expected in cases:
         with tempfile.TemporaryDirectory() as tmp:
@@ -109,6 +112,14 @@ def test_each_drift_is_named() -> None:
         (root / "CITATION.cff").write_text(cff, encoding="utf-8")
         errors = preflight.check_tree(root)
         assert any("differs from the changelog" in e for e in errors), errors
+    # a fragment towncrier would not read is named, not lost.
+    for name in ("544.feature.md", "notes.md", "544.added.txt"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = copy_tree(Path(tmp))
+            (root / "news").mkdir(exist_ok=True)
+            (root / "news" / name).write_text("an entry\n", encoding="utf-8")
+            errors = preflight.check_tree(root)
+            assert any(f"news/{name}" in e for e in errors), (name, errors)
 
 
 def test_a_drift_only_in_the_lockfile() -> None:
