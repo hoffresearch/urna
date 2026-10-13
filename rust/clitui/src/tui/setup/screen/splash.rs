@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The splash: the symbol over the hash rain, the wordmark resolving out
 //! of block glyphs, what setup is about to do, and the key to begin.
 

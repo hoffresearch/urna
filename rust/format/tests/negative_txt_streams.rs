@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! negative paths for the `txt_streams` wire codec (encoding id 10):
 //! every malformed or hostile payload must return a typed `UrnaError`,
 //! NEVER panic (mirrors the negative_int8 / negative_zstd discipline).

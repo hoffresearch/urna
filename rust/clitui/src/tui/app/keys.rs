@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Input routing for the explorer. the picker overlay takes everything
 //! while open; the ask tab owns the letters (they are the query), so there
 //! quitting is ctrl+q and the picker is ctrl+o. everywhere else the keys

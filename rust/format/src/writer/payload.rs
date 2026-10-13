@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Section payload preparation: encode embeddings per dtype, optionally
 //! zstd-wrap a text section. Pure functions; no state from the builder.
 

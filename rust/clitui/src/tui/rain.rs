@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Hash rain: falling hex glyphs behind the logo, a nod to the
 //! `sha256:` every urna file carries. Adapted from tui-rain 1.0.1
 //! (levilutz, MIT): same stateless model, where every frame recomputes the

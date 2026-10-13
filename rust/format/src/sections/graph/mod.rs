@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! graph section codecs (chunk-to-chunk csr adjacency and, later, the
 //! entity/property-graph sections). all are OPTIONAL and EXCLUDED from
 //! content_hash, additive within frozen format v1, and never touch the

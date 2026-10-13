@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """presetqry.py - registry-backed query embedder for the rust CLI.
 
 argv (matching potionqry.py, additively):

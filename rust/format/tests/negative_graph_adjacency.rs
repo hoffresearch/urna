@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! negative paths for the graph_adjacency (0x0C) csr codec (G1):
 //! every malformed or hostile payload must return a typed `UrnaError`,
 //! NEVER panic (mirrors negative_txt_streams discipline). plus an

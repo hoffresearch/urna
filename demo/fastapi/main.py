@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """fastapi + urna: offline cited answers (issue #75).
 
 loads the corpus once at startup and serves `POST /ask` with a text query;

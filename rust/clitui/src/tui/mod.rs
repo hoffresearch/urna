@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The terminal ui (feature `tui`, on by default): the interactive
 //! installer (`urna setup`) and the corpus explorer (`urna tui`, also what a
 //! bare `urna` opens on a terminal). built on ratatui with tachyonfx for

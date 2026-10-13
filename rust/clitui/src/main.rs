@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Dispatch only: the clap surface lives in `cli.rs`, implementations in
 //! `cmd/*` (one module per subcommand).
 

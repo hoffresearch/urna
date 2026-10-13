@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the siglip2 query path offline against its pinned hub snapshot.
 
 Each case runs rust/bridge/python/urna/embed/presetqry.py in a child process with the

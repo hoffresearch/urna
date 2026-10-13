@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """bridge coverage for the media blob pair (0x14 blob_refs + 0x16 overlay).
 
 real artifacts only: builds two tiny .urna files through urna.build (one

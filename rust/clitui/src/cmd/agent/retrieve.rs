@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna retrieve <file> "<query>"` - the agent-shaped flagship surface.
 //! emits cited spans as a json/jsonl answer-pack where each hit's `score`
 //! IS the exact-cosine rerank value (guarded by rerank_contract.rs), not a

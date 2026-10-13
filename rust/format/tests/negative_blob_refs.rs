@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! negative paths for the blob_refs (0x14) and blob_span_overlay (0x16)
 //! codecs: every malformed or hostile payload must return a typed
 //! `UrnaError`, NEVER panic (mirrors negative_graph_adjacency discipline).

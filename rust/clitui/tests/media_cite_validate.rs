@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna cite` and `urna validate` on a media corpus, against real files
 //! built with the blob pair (0x14 blob_refs, 0x17 blob_data) and the 0x16
 //! span overlay.

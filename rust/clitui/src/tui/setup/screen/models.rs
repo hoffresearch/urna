@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The model picker: one line per model the payload's catalog offers, its
 //! download (torch counted once), its estimated minimum ram against this
 //! machine's and its license, in a list that scrolls; under it, the details

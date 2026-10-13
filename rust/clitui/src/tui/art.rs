@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The urna symbol and wordmark as terminal art. Rasterized from the site's
 //! vectors (apps/web/public/images/logo-symbol.svg and
 //! apps/web/assets/type-urna.svg) with rsvg-convert, 2x4 braille dots per

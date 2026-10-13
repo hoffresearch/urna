@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The scan: the facts about this machine landing one by one next to
 //! the symbol, with a gauge of how many are in.
 

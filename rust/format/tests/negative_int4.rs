@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Negative paths for the int4 block-64 embeddings encoding (`encoding=7`):
 //!
 //! - Payload version other than 1 -> `UnsupportedSectionVersion`.

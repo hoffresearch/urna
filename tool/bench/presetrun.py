@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Acceptance harness: measure file size, recall@k, score drift, and
 latency for the four presets against a baseline `.urna` (default: the
 pinned benchmark corpus, `tool/tasks/benchdata.py`).

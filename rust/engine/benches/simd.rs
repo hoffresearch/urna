@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! kernel benchmarks: one f32 query against one
 //! stored row per dtype, at the three dims the presets use, on the backend
 //! `detect_backend()` picks (the group name carries it, so a report says

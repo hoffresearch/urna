@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """The media stage of the declarative build: encode the unique frames once
 (crf=auto gate, similarity/cluster ordering, sharding) and record completion
 under `<out>/.forge-state/media.json` keyed by canonical_hash(input_hash +

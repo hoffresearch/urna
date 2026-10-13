@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Backward-compat regression: a v0.1-shape `.urna` (raw encoding,
 //! float32 embeddings, six required sections, no optional sections)
 //! must continue to load in the post-Phase-3 reader without warnings

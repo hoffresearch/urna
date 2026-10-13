@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `EmbeddingRequest`: the multimodal carrier. One chunk can request
 //! several named-space embeddings, each with its own model fingerprint,
 //! which is how one .urna comes to hold multiple embedding spaces.

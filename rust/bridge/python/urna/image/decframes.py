@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Decode side of image corpus media: sequential, seek, batch, avif.
 
 Random access uses input seeking (`-ss` before `-i`), never the legacy

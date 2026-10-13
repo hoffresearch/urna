@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! blob_refs (0x14): the content-hash reference table for out-of-line or
 //! inlined media blobs (AV1 streams, AVIF images, PDFs, slide scans).
 //!

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Builder for .urna files.
 //!
 //! The builder owns structured chunk inputs and emits all six required

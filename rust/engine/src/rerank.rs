@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Rerank-source handle: the single place the mandatory exact-cosine
 //! rerank reads its vectors from.
 //!

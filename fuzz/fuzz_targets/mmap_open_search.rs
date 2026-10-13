@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 #![no_main]
 //! The whole runtime path a hostile file reaches: bytes on disk, `mmap`,
 //! `MmapUrnaFile::open` (every index / blob / space codec), then every

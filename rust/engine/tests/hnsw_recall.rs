@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Recall regression tests for the HNSW Algorithm 4 heuristic.
 //!
 //! Two scales:

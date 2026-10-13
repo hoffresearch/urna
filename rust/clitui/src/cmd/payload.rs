@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The embedder payload's contract, shared by `urna setup` (which lays it
 //! down) and the query gate (which reads it to name a broken install): the
 //! files a complete payload holds and where an installed one lives.

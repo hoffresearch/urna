@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Input parsing and build-time vector conditioning for `build()`.
 //!
 //! Kept out of `build_fn.rs` so the entry point stays the entry point.

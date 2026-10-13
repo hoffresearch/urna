@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Zero-copy view over a `.urna` byte slice.
 //!
 //! The reader does no I/O - callers pass an `&[u8]` (e.g. backed by an

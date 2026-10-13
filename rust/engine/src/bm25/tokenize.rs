@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! unicode-aware token splitter used by both the index builder and
 //! search path. Lowercase, split on non-alphanumeric, drop tokens of
 //! length < 2.

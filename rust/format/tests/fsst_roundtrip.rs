@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! fsst (encoding id 9) positive coverage: deterministic table build,
 //! encode -> decode byte-identical to the raw chunks_canonical payload over
 //! empty/single/many/multibyte-utf8 pt-br corpora and the escape path, two

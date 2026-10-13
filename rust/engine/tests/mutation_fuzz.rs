@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Deterministic mutation fuzz over the runtime open + search path. The
 //! format crate's twin (`rust/format/tests/mutation_fuzz.rs`) covers
 //! the reader and the section decoders; this one covers what only the

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the staged embedder payload answers queries with no repo around it.
 
 `tool/tasks/embedpack.py` is what the release archives and

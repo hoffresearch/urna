@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Canonical chunk types and chunk_id derivation.
 //!
 //! `chunk_id` is a deterministic SHA-256 over the canonical text plus the

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the PyPI upload takes the right wheels from the right run, once.
 
 `tool/tasks/pypiindex.py` is what pypiindex.yml runs before its upload. this

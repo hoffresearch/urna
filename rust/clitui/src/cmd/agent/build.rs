@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna build --spec <file>` - launcher for the declarative build (RFC-0
 //! N13: the build IS a python frontend; this verb resolves the interpreter
 //! and the `specbuild.py` tool, streams its output, and propagates the

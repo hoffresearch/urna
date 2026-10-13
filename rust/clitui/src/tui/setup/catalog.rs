@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The model catalog the payload ships (`urna/model/catalogue.json`,
 //! generated from the registry with the values setup takes from upstreams:
 //! the uv release, the python range, torch and the lock, the sample corpus),

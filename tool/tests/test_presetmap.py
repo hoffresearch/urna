@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the model registry contract without heavy ML deps: preset table
 integrity, the RFC-0 gates (fake env, remote-code opt-in, pinned hashes,
 heavy flag), the pinned hub snapshot of an open_clip preset (the revision,

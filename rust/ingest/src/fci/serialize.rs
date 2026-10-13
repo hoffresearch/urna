@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Deterministic serialization for the .fci bundle.
 //!
 //! struct fields serialize in declaration order and the formatter is

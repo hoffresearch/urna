@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `search_routed` picks the path by what the file carries, not by the
 //! manifest's `index_type`. the case that motivated it: a file built with
 //! the python `hybrid` preset declares `index_type = "hnsw"` and carries its

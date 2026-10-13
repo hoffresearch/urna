@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! chunk-to-chunk graph runtime (G1). mirrors `ann`: a flat csr is parsed
 //! off the graph_adjacency (0x0C) section at open time and walked with zero
 //! allocation. `bounded_bfs` GENERATES candidate chunk ordinals seeded from

@@ -455,6 +455,18 @@ purpose = "MIT license text, at the root where GitHub detects it; the crates lin
 links = []
 
 [[inventory.root]]
+path = "REUSE.toml"
+kind = "legal"
+purpose = "REUSE 3.3 annotations for the files that carry no SPDX header, listed by kind (data, config, docs, images, fixtures): the project's copyright and MIT, CC0-1.0 for the demo/corpora/intro documents, Minish Lab's MIT for the vendored potion-base-8M files. .rs and .py are not listed, since each carries its own header, so reuse lint fails on one without it, as on a file of a kind not listed; it checks the whole tree in fullcheck.sh and gatecheck.yml"
+links = ["LICENSES/MIT.txt", "LICENSES/CC0-1.0.txt", "LICENSES/Apache-2.0.txt"]
+
+[[inventory.root]]
+path = "LICENSES/"
+kind = "legal"
+purpose = "The license texts the SPDX identifiers in the tree name, where the REUSE specification puts them: MIT (the project), CC0-1.0 (the intro demo corpus), Apache-2.0 (cargo-dist's dual-licensed release.yml template)"
+links = ["REUSE.toml"]
+
+[[inventory.root]]
 path = ".dockerignore"
 kind = "build-context-filter"
 purpose = "Keeps the Docker build context to Cargo.toml, Cargo.lock and rust/"

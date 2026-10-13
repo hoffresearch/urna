@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! OS-level mmap hints, carved out of `mmap_file.rs`, which opens and
 //! validates the file.
 

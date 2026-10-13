@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """End-to-end test for the search-text model_hash gate.
 
 Builds three corpora with different model_hashes and shells out to a

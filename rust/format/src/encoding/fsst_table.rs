@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! fsst symbol table: deterministic greedy build + byte trie for O(1)
 //! longest-match encoding. separated from `fsst.rs`, which keeps the
 //! encoder and decoder.

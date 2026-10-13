@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The urna.dev palette on the terminal. Same source as the site
 //! (apps/web/constants/themes.ts, ADR 0029): the page was drawn in grey,
 //! ground 32 and ink 248, and every grey is carried onto the ramp between

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! trained-dictionary zstd over per-chunk canonical-text streams (the
 //! `zstd_dict` wire codec, encoding id 5). re-frames each `chunks_canonical`
 //! (0x02) stream against ONE shared dictionary so a tiny, structurally

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! dedup (section 0x0B) positive coverage at the codec level: the first-seen
 //! dedup pass over all-unique / all-duplicate / mixed corpora, the back-ref
 //! map round-trips through its serialized form, and expand rebuilds the exact

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Color for the plain (non-ui) output: the urna.dev palette as ansi
 //! escapes, and the one color-depth probe the terminal ui shares.
 //!

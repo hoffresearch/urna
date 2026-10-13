@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """stage the offline embedder payload for release archives and installers.
 
 the `urna` binary embeds queries OFFLINE by shelling out to a query

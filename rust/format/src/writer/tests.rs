@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Integration-style tests for the builder. Exercise the full
 //! build_bytes flow + reader roundtrip, plus the encoding / dtype
 //! invariants the runtime relies on.
