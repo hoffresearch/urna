@@ -106,7 +106,7 @@ Web [www.urna.dev](https://urna.dev)
 
 [![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
 
-Cite the version you used: [CITATION.cff](https://github.com/hoffresearch/urna/blob/main/CITATION.cff) carries its metadata, and GitHub's "Cite this repository" renders it. Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
+Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
 
 ----
 
