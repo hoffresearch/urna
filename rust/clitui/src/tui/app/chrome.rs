@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The explorer's frame: the header (the mark, the tabs as pills, the open
 //! corpus) and the footer (the keys for the current tab, ratatui-cheese's
 //! help). the pill shape is two half blocks around a raised label, the

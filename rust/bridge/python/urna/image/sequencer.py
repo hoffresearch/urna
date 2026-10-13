@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Greedy nearest-neighbour ordering of frames before the encode.
 
 Measured in fase 0: ordering a corpus by visual similarity buys about +6.6

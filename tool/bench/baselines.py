@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Pull (chunks, manifest_meta) out of a baseline `.urna` so we can
 rebuild it under a different preset without re-embedding.
 

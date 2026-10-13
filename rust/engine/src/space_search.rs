@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Per-space exact search over the multimodal vector bands (0x20-0x2F).
 //!
 //! This is the ONLY path that reads a non-text band, and the text paths

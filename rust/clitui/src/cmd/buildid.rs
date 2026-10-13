@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! What this binary is, as `build.rs` decided at compile time: a release,
 //! which fetches the payload of its own tag, or a development build, which
 //! installs the payload of the checkout it was built from.

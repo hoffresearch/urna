@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! PyO3 bindings for `urna_engine`. Exposes `UrnaFile.open(path)`,
 //! search variants, plus `build()` for emitting `.urna` files from
 //! pre-embedded chunks. See `rust/bridge/python/urna/__init__.py` for the Python wrapper.

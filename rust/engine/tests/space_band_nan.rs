@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Regression for the second mutation-fuzz finding: a multimodal band with
 //! a NaN lane reached the exact-cosine sort as a NaN score, and a NaN in
 //! `partial_cmp(..).unwrap_or(Equal)` is not a total order (panic since

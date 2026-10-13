@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Emit side of the declarative build: blob tables, space payloads,
 the per-output `urna.build` calls (atomic commit), manifest v1 and
 build.lock.json. Split from buildflow (stages) along the

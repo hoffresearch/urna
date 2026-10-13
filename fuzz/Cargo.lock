@@ -428,6 +428,7 @@ dependencies = [
  "bytemuck",
  "half",
  "hex",
+ "rayon",
  "serde",
  "serde_json",
  "sha2",

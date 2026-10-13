@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the release rehearsal is the release's build, publishes nothing, and judges right.
 
 `tool/tasks/rehearsal.py` generates `.github/workflows/rehearsal.yml`

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Adapter classes behind `presetmap.create_embedder`.
 
 One duck-typed surface over four backends: embed_texts/embed_paths/

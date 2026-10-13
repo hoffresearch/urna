@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Rate-distortion sweep for image corpora: one model load, the whole matrix.
 
 Builds the letterbox-lossless control once, embeds the queries once, then

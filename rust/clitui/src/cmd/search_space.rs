@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna search-space <file> <qvec> --space NAME -k K` - exact search over
 //! one named multimodal space (0x15 + its band). The query vector must be
 //! embedded with the model the space's model_hash fingerprints and have the

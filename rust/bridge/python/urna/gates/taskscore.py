@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """The task-utility leg of the crf="auto" gate (RFC-2b): text-to-image hit@1.
 
 Drift (cosine between source and decoded embeddings) is a stability

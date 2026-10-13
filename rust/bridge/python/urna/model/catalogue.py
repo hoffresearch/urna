@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """The model catalog `urna setup` and the explorer offer, generated from the
 registry: every preset whose install was validated end to end (a pinned hub
 revision, the exact files fetched at it and the `model_hash` they

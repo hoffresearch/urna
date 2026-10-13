@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Drawing the ask tab: the query line (ratatui-cheese input), the status,
 //! the hits with the exact-rerank score as a thermometer bar, and the
 //! selected hit's stored text with its citation and source.

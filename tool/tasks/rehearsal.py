@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """The release rehearsal: the release's own build, before a tag, publishing nothing.
 
 ``.github/workflows/rehearsal.yml`` is generated from the

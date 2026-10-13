@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the model catalog setup and the explorer offer is the registry's.
 
 `urna/model/catalogue.py` generates `urna/model/catalogue.json` from

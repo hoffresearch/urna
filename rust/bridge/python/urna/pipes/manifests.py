@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Manifest v1 (RFC-0 N9), build.lock.json (N1) and provenance redaction (N10).
 
 The manifest is a versioned contract, not an ad-hoc log: required fields are

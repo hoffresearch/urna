@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! shared integer bitpacking primitive (the `intpack` wire codec family,
 //! encoding id 4). values are stored frame-of-reference per 128-block:
 //! each block records its `min` and a bit-width, then packs `value - min`

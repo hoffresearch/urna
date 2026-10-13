@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """modelrank.py: three-tier model comparison over a multi-space .urna
 (RFC-5). Tiers are measured and reported SEPARATELY, never aggregated:
 

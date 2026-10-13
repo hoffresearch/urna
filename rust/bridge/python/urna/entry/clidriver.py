@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """console entry point shipped by the `urna` wheel (issue #75).
 
 `uvx --from urna urna ...` / `pipx run` get a working `urna` command from

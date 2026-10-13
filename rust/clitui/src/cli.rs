@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The clap surface: `Cli` + `Commands`; `main.rs` keeps the dispatch.
 
 use clap::{Parser, Subcommand};

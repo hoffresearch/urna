@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Drawing the installer: the frame (header with the stepper, footer with
 //! the keys) around one screen per step. every frame ends the same way:
 //! effects over the finished buffer, then the palette folded to the

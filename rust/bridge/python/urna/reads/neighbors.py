@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """read-side neighbor-context reconstruction for the chunk-to-chunk graph.
 
 the counterpart to dropping chunk_overlap at build time: once the overlap

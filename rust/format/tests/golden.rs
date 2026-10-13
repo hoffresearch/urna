@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Golden file test: a frozen `.urna` file that any future change must
 //! either preserve byte-for-byte or explicitly regenerate.
 //!

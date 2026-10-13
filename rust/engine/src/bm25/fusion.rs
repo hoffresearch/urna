@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Reciprocal-rank fusion of two ranked candidate lists. Used by the
 //! hybrid search path to merge BM25 and vector candidates before exact
 //! cosine rerank.

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Little-endian field readers that return a typed error instead of
 //! panicking. Every on-disk decoder used to spell `u32::from_le_bytes(
 //! b[..4].try_into().unwrap())`; the slice was always pre-checked, but a

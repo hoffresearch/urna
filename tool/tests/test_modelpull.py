@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the model fetch setup and the explorer share
 (`rust/bridge/python/urna/model/installer.py`) downloads only what was confirmed, only
 the pinned files, and only keeps a model whose fingerprint is the one the

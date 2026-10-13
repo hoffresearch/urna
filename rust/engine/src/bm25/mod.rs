@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! tiny BM25 inverted index for the hybrid search path.
 //!
 //! Tokenization is intentionally simple - lowercase, split on

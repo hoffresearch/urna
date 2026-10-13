@@ -1,0 +1,21 @@
+version = 1
+
+[[annotations]]
+path = "**"
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "demo/corpora/intro/0*.md"
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "rust/bridge/python/urna/model/potionb8m/**"
+SPDX-FileCopyrightText = "Minish Lab"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "rust/bridge/python/urna/model/potionb8m/README.md"
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "MIT"

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Vision embedder for image corpora.
 
 This lives in the forge tooling layer because it pulls heavy optional

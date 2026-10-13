@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! hnsw build throughput: `HnswIndex::build` over
 //! 20k x 384 synthetic l2-normalized rows at m=16 / ef_construction=200,
 //! the same knobs `docs/BENCH.md` uses against hnswlib and usearch

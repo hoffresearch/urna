@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Validation rules over a parsed CorpusSpec (RFC-1): every violation is a
 SpecError naming the offending key, and the emitted-space enumeration both
 sides (pipeline and validator) share. Split from specparse (the dataclass

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """end-to-end test of the Python (PyO3) path.
 
 the CLI binary is exhaustively tested in `rust/clitui/tests/cli_e2e.rs`.

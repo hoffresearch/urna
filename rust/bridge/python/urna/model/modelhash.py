@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Reproducible model fingerprint for sentence-transformers / HF models.
 
 The corpus' `model_hash` must uniquely identify the model that produced

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 #![no_main]
 //! The runtime-owned index codecs: HNSW, BM25 and the graph CSR, each fed
 //! raw bytes with a small claimed corpus shape.

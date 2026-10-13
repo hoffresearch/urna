@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! graph_adjacency (0x0C) positive coverage (G1):
 //!
 //! - decode(encode(edges)) == canonical edges over empty / single-node /

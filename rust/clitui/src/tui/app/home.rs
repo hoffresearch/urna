@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The home tab: the symbol over the hash rain, the wordmark, and the
 //! ways in: open a file, the `.urna` files found near the working
 //! directory (1-9), setup and health. with no corpus to reopen it is the

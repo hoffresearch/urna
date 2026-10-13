@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The ask tab: `urna ask` with a screen. The query embeds offline through
 //! the same routed embedder and model gate (`embed_gate::embed_and_search`)
 //! on a worker thread; hits come back with their stored canonical text

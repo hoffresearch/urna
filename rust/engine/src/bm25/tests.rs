@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 use super::*;
 use index::{Bm25Index, DEFAULT_B, DEFAULT_K1};
 

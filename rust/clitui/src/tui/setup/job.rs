@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The worker: runs the planned steps in order on its own thread and
 //! reports every move as an `Ev`. The interactive screen and the plain
 //! `--yes` printer read the same stream, so both modes do exactly the same

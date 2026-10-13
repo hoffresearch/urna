@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """The av1 stream backend of the image corpus: one (or sharded) mp4 per corpus.
 
 Carved out of `urna/image/orchestra.py`, which keeps the dispatcher

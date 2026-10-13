@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! What the explorer remembers between runs: the corpora it opened, most
 //! recent first, in `<data>/urna/tui.json`. the file is the explorer's
 //! own; a missing or unreadable one is a first run, never an error, and a

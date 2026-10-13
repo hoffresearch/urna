@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Multimodal space open logic (0x15 space_table + the 0x20-0x2F vector
 //! bands), carved out of `mmap_file.rs`, which keeps the required sections.
 //! Opens only behind the additive

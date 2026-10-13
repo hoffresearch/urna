@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the release preflight agrees with the tree and refuses every drift.
 
 `tool/tasks/preflight.py` runs on every pull request (tree mode) and

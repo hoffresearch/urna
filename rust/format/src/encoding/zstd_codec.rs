@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! zstd compression for non-embedding sections. Embeddings are never
 //! zstd-compressed - they live in mmap and the runtime reads them via
 //! SIMD straight from disk.

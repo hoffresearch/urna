@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! On-disk encoding/decoding for the BM25 section (`0x08`). Term order:
 //! alphabetical (deterministic across builds).
 //!

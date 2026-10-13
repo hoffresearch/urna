@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna media <file> [--export DIR]` - list the media blobs a corpus
 //! references, and export the inlined ones (0x17) back to standalone
 //! files. Export proves each blob against its blob_refs content_hash

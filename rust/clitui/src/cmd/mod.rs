@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! CLI subcommand implementations. One module per engine subcommand,
 //! orchestrated by `main::Commands`; the agent verbs (`ask`, `retrieve`,
 //! `build`) live under `agent/`. Shared helpers: `util` (output),

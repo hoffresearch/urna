@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `ask`, `retrieve` and `search-text` find their python embedders outside a
 //! checkout: the payload lays the `urna` package down at
 //! `<data root>/urna/python/urna/`, `searchtxt.py` and the registry embedder

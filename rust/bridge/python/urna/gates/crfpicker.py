@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """crf="auto": pick the largest crf that clears a DUAL quality gate (RFC-2).
 
 Two floors, never traded against each other:

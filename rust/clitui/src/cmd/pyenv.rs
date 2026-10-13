@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Resolving the python interpreter the offline embedder runs under.
 //!
 //! `search-text`, `ask`, and `retrieve` shell out to a python embedder that

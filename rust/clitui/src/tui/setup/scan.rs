@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! What this machine already has, probed once before the plan is shown:
 //! how urna got here (the channel), where its data lives, whether the
 //! embedder payload and a python with numpy + tokenizers are in place, and

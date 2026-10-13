@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The install: a row per step (spinner or badge, the live note, bytes
 //! for the download) over a gauge, and the log of what the tools print.
 

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the st_multimodal backend: the pinned model_hash of a synthetic
 snapshot, which needs numpy only and always runs, then the model cases for
 each st_multimodal preset chosen (dim/norm contracts, model_hash stability

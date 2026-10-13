@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! space_table (0x15): the per-space embedding directory for multimodal
 //! corpora. space[0] is always the canonical text embeddings (0x04) and is
 //! NEVER listed here; every entry describes one non-text space whose

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Top-k recall regression: float16 embeddings must approximate the
 //! float32 ranking closely enough to be production-safe.
 //!
