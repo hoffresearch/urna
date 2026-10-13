@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! HNSW search: greedy descent on upper layers, ef-bounded beam search
 //! on layer 0. Returns candidates sorted ascending by distance; the
 //! runtime reranks with the exact dot product to produce the final

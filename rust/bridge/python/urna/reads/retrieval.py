@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """offline retrieve convenience + the one-gif flagship demo over demo/corpora/intro.
 
 this is the agent-native flagship end to end, OFFLINE and deterministic:

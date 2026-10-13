@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The interactive installer: state, input and the event loop. A splash,
 //! then four steps in an inline viewport: scan, plan, install, verify. The
 //! scan starts on launch, so it is usually done by the time the splash is

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Path expansion over the raw spec document: `${VAR}` then `~/`.
 
 Specs stay machine-portable: a data root is written once as `${MTG_DATA}`

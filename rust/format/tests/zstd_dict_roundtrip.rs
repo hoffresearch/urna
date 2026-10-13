@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! zstd_dict (encoding id 5) positive coverage: train a deterministic dict
 //! over sorted samples, encode -> decode byte-identical to the raw
 //! chunks_canonical payload (the content_hash invariant), two trains over

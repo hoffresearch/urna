@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the dual quality gate (RFC-2): stratified SSIMULACRA2 floors and
 the embedding-drift floor are BOTH enforced (either alone can reject a crf);
 an unattainable floor falls back to the smallest ladder crf with a warning;

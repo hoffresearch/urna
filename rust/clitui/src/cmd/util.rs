@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Shared CLI pretty-printers. Embedder discovery and the model gate live
 //! in `embed_gate` (the one copy of the spawn protocol + three-layer gate).
 

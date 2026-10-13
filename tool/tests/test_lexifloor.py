@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Self-test for the forge default static embedder (#04).
 
 run: python tool/tests/test_lexifloor.py

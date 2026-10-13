@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `urna search-text <file> "query" -k K` - embed the query via
 //! `rust/bridge/python/urna/embed/searchtxt.py`, validate model_hash against the manifest
 //! (the shared three-layer gate in `embed_gate`), route by capability

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `CsrIndex`: the runtime reader over the graph_adjacency (0x0C) csr
 //! payload. parses the offsets + neighbor columns off the section bytes
 //! once at open time, then exposes `neighbors(node)` as a single contiguous

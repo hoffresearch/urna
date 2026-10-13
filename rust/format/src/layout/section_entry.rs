@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! section table entry (32 bytes per entry, fixed layout).
 //!
 //! `offset` is 64-byte aligned (see `SECTION_ALIGNMENT`). `size` is the

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """the corpus fullcheck measures: one pinned file of the benchmark dataset.
 
 `fakenews.urna` (MiniLM 384d, exact preset) of the fakenews-ptbr-urna-benchmark

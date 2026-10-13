@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Dual integrity guarantees: section checksum (physical bytes) and
 //! `content_hash` (decoded bytes) catch different failure classes.
 //!

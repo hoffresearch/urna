@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Measure retrieval quality of an image corpus, on two rulers.
 
 Compression claims are only worth what the ruler behind them is worth, so

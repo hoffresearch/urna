@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Backend orchestration for image corpus builds.
 
 One contract over three backends: the builder gets `media` (the manifest

@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The managed python env: `<data root>/urna/venv` with numpy and
 //! tokenizers, the two packages the potion embedder imports. uv builds it
 //! (the one on PATH, else the one setup downloads), on the python range the

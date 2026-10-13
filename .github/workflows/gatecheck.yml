@@ -319,6 +319,12 @@ jobs:
         run: |
           python tool/tasks/namecheck.py
           python tool/tests/test_namecheck.py
+      - name: every file names its copyright and license (REUSE)
+        # spdx headers in the sources, REUSE.toml for the files that cannot
+        # carry one, the license texts in LICENSES/.
+        run: |
+          python -m pip install "reuse[charset-normalizer]==6.2.0"
+          reuse lint
       - name: the atlas summary is the current state, not history
         run: python tool/tests/test_atlasdocs.py
       - name: rust/ingest keeps the root's lints and rust-version

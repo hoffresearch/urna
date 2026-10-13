@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The one model install `urna setup` and the explorer share: the catalog
 //! the payload ships (`urna/model/catalogue.json`, generated from the registry),
 //! and the install of one entry. packages go into the managed venv (uv when

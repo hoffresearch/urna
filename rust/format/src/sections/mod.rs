@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Section payload formats (v1).
 //!
 //! Each non-binary section starts with a 12-byte header:

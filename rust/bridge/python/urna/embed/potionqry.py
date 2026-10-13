@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """embed a single text query OFFLINE with the default potion static table.
 
 the offline twin of rust/bridge/python/urna/embed/searchtxt.py: that one loads sentence-transformers

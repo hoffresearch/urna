@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `UrnaFile` PyO3 class. Wraps `MmapUrnaFile` and exposes
 //! search/inspect/validate to Python; hits are `SearchHitPy`
 //! (`search_hit.rs`).

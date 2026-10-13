@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Prove the name check holds the tree to the length table and the lexicon.
 
 `tool/tasks/namecheck.py` runs in fullcheck.sh and gatecheck.yml. this suite

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """specbuild.py - declarative corpus builds from a TOML/JSON spec (RFC-1).
 
   python rust/bridge/python/urna/entry/specbuild.py --spec corpus.toml [--sample N] [--models a,b]

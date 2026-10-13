@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """Sentence-transformers multimodal backend: WeMM-Embedding and
 jina-embeddings-v5-omni (RFC-3).
 

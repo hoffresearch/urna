@@ -2,7 +2,7 @@
 # fullcheck.sh - full release verification pipeline.
 #
 # Runs the local release gate end-to-end (what it skips: docs/USAGE.md section 10):
-#   0. the name check (length table, exceptions, lexicon)
+#   0. the name check (length table, exceptions, lexicon), then reuse lint
 #   1. cargo build (release), then the PyO3 extension (.so) the tests load
 #   2. cargo test/clippy/fmt (release profile), the 639-line guard
 #   3. the python suites (the `step "python tool/tests/..."` lines below), ruff
@@ -128,6 +128,20 @@ names() {
   ok "names follow the length table and the lexicon"
 }
 cached names "$ALL_IN" -- names
+
+# ---- reuse (best-effort) ----
+# missing here is a skip, a failure in ci (gatecheck.yml, python job). the
+# skip is not cached, so the first pass after installing reuse runs it.
+licenses() {
+  step "reuse lint"
+  reuse lint --quiet
+  ok "every file names its copyright and license"
+}
+if command -v reuse >/dev/null 2>&1; then
+  cached licenses "$ALL_IN" -- licenses
+else
+  printf '  skip: reuse not on PATH (docs/CONTRIBUTING.md, Local gate)\n' >&2
+fi
 
 # ---- cargo build (release) ----
 cargo_build() {

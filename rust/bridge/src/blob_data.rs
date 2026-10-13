@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! blob_data (0x17) bridge: turn the `blob_data_paths` kwarg - one
 //! optional file path per blob_refs record - into the encoded section
 //! payload. Reading happens here in Rust so the shard bytes never round-

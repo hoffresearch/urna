@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The honest-rerank contract test (phase 0, task #01).
 //!
 //! This is THE gate for the project's core honesty claim: every non-exact

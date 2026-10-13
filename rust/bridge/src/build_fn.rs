@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! `build()` PyO3 function: emit a `.urna` from pre-embedded chunks.
 //! Resolves preset shortcuts ("exact"/"compressed"/"tiny"/"hybrid")
 //! into the underlying `EmbeddingDType` + `SectionEncoding` choices,

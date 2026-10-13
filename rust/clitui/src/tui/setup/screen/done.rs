@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The verify screen: the doctor rows, the verdict, what to run next.
 
 use ratatui::buffer::Buffer;

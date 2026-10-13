@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! dedup order-invariant guardrail (the nix nix-casync/tvix lesson): dedup
 //! and content-hash equality MUST run on DECOMPRESSED bytes, with zstd
 //! applied to the unique pool AFTERWARD. this test proves the order is

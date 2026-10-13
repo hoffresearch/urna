@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! The sample corpus setup offers a first-time user: the release of the
 //! fakenews-ptbr benchmark the payload's catalogue names, Brazilian
 //! Portuguese news and fact-checked claims, true and fake side by side, so

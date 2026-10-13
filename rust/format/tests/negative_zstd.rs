@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Negative paths for the zstd encoding (`encoding=1`):
 //!
 //! - Reader rejects unsupported encoding values (e.g. `99`) at parse time.

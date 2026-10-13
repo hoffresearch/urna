@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! Scalar fallback dot products. Auto-vectorizes well in release mode
 //! and is the path used when SIMD detection fails or
 //! `URNA_FORCE_SCALAR=1`. Also the reference implementation the SIMD

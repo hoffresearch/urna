@@ -1,0 +1,59 @@
+version = 1
+
+# every file that carries no header of its own. .rs and .py files are not
+# listed: each carries its SPDX header, so `reuse lint` fails on one that
+# does not. a file of a kind not listed here fails it too, until it gets a
+# header or a line here.
+[[annotations]]
+path = [
+    "**.bin",
+    "**.cff",
+    "**.gitkeep",
+    "**.ipynb",
+    "**.json",
+    "**.jsonl",
+    "**.lock",
+    "**.md",
+    "**.nest",
+    "**.nix",
+    "**.nuspec",
+    "**.png",
+    "**.ps1",
+    "**.safetensors",
+    "**.sh",
+    "**.spec",
+    "**.svg",
+    "**.toml",
+    "**.txt",
+    "**.urna",
+    "**.yaml",
+    "**.yml",
+    "**.gitignore",
+    "**LICENSE",
+    ".dockerignore",
+    ".editorconfig",
+    ".gitattributes",
+    ".github/trustkeys",
+    "Dockerfile",
+    "docs/CHANGELOG",
+    "pkgs/linux/apt/debian/**",
+    "pkgs/linux/aur/PKGBUILD",
+    "tool/tasks/precommit",
+]
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "demo/corpora/intro/0*.md"
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "CC0-1.0"
+
+[[annotations]]
+path = "rust/bridge/python/urna/model/potionb8m/**"
+SPDX-FileCopyrightText = "Minish Lab"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "rust/bridge/python/urna/model/potionb8m/README.md"
+SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"
+SPDX-License-Identifier = "MIT"

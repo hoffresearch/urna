@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+#
+# SPDX-License-Identifier: MIT
+
 """flask + urna: offline cited answers (issue #75).
 
 same shape as the fastapi example, minimal flask flavor: the corpus loads

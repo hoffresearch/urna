@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! blob_data (0x17): inlined media bytes for the self-contained twin of
 //! the 0x14 catalog.
 //!

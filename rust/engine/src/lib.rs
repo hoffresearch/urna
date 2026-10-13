@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! mmap-backed runtime for `.urna` files.
 //!
 //! Owns the mmap so `MmapUrnaFile` is `'static`. Section metadata is parsed

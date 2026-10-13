@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
+//
+// SPDX-License-Identifier: MIT
+
 //! blob_refs (0x14) + blob_span_overlay (0x16) positive coverage:
 //!
 //! - decode(encode(records)) == records over empty / single / many-entry
