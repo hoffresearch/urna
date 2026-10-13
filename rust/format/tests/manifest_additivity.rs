@@ -40,6 +40,7 @@ fn unset_additive_fields_are_omitted() {
         "description",
         "authors",
         "license",
+        "producer",
         "mrl_dim",
         "full_dim",
         "capabilities_ext",
@@ -86,6 +87,22 @@ fn unknown_future_field_survives_via_extra() {
         Some(&serde_json::json!("catalog")),
         "the unknown field must be preserved in extra so old readers round-trip it"
     );
+}
+
+/// The producer lives in `extra`: set, it serializes as a top-level
+/// `producer` key and reads back through `producer()`, and the manifest
+/// round-trips byte-identically like any other extra key.
+#[test]
+fn producer_round_trips_through_extra() {
+    let mut m = valid_manifest();
+    assert_eq!(m.producer(), None);
+    m.set_producer("urna 0.5.4");
+    let bytes = m.to_canonical_json().unwrap();
+    let json = String::from_utf8(bytes.clone()).unwrap();
+    assert!(json.contains("\"producer\":\"urna 0.5.4\""), "{json}");
+    let back: Manifest = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(back.producer(), Some("urna 0.5.4"));
+    assert_eq!(back.to_canonical_json().unwrap(), bytes);
 }
 
 /// The matryoshka disclosure fields (mrl_dim/full_dim) are additive: unset
