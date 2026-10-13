@@ -3135,6 +3135,24 @@ links = [
 ]
 
 [[inventory.distribution]]
+path = ".github/workflows/stampwork.yml"
+kind = "ci-workflow"
+purpose = "The release's OpenTimestamps proof, a global-artifacts job between the global build and the host: it stamps the global build's sha256.sum under a read-only token and hands sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
+links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py"]
+
+[[inventory.distribution]]
+path = ".github/stamplock.txt"
+kind = "lockfile"
+purpose = "The OpenTimestamps client and its dependencies pinned by hash (uv pip compile --generate-hashes), installed with --require-hashes by stampwork.yml, whose output is published in the release"
+links = [".github/workflows/stampwork.yml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/archiving.yml"
+kind = "ci-workflow"
+purpose = "A Software Heritage save of the repository once the release is announced (post-announce, beside setuptest), so the tagged tree is archived outside GitHub under its SWHID; a manual dispatch asks again after a refused save"
+links = ["docs/SECURITY.md", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = "Dockerfile"
 kind = "container-image"
 purpose = "Minimal static-musl image on scratch: the engine-only CLI (--no-default-features, no setup or tui) built --locked from a toolchain image pinned by tag and digest; corpus via mounted volume, air-gapped friendly"
