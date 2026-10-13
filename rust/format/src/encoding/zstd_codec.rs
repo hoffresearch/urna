@@ -128,7 +128,7 @@ mod tests {
         // and past one 128 KiB zstd block, in an order that would expose any
         // state leaking from one frame into the next.
         let big = b"o arquivo e o banco de dados. ".repeat(10_000);
-        let inputs: Vec<&[u8]> = vec![b"", b"a", &big, b"coracao", &big[..131_073], b""];
+        let inputs: Vec<&[u8]> = vec![b"", b"a", &big, b"thricegreat", &big[..131_073], b""];
         let mut framer = ZstdFramer::new();
         for input in inputs {
             assert_eq!(framer.encode(input).unwrap(), zstd_encode(input).unwrap());

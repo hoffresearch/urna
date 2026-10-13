@@ -241,7 +241,7 @@ mod tests {
     fn deterministic_build_same_seed() {
         let n = 30;
         let dim = 8;
-        let vecs = random_vectors(n, dim, 0xABCD);
+        let vecs = random_vectors(n, dim, 0x123BE);
         let a = HnswIndex::build(vecs.clone(), n, dim, 4, 20, 123);
         let b = HnswIndex::build(vecs, n, dim, 4, 20, 123);
         assert_eq!(a.to_bytes(), b.to_bytes(), "same seed => same graph");
