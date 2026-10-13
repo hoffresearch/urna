@@ -87,7 +87,7 @@ urna retrieve demo/starter/out/quickstart.urna "how do citations work" -k 2 --fo
 ```
 
 ```sh
-urna cite demo/starter/out/quickstart.urna 'urna://sha256:1147b256.../sha256:b5dfeb09...'
+urna cite demo/starter/out/quickstart.urna 'urna://sha256:b7c81eb1.../sha256:b5dfeb09...'
 ```
 
 ```sh
@@ -99,6 +99,14 @@ urna validate demo/starter/out/quickstart.urna
 Doc  [docs.urna.dev](https://docs.urna.dev)
 
 Web [www.urna.dev](https://urna.dev)
+
+----
+
+## Cite
+
+[![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
+
+Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
 
 ----
 

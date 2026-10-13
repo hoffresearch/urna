@@ -83,7 +83,7 @@ fn encode_smallest_picks_the_winner_and_records_its_id() {
     let candidates = [SECTION_ENCODING_RAW, SECTION_ENCODING_ZSTD];
 
     // highly repetitive payload: zstd wins, and the chosen id is recorded.
-    let compressible = b"abcabcabcabc".repeat(64);
+    let compressible = b"hiauhirahitehiamo".repeat(64);
     let (id, bytes) = encode_smallest(&candidates, &compressible).unwrap();
     assert_eq!(id, SECTION_ENCODING_ZSTD);
     assert!(bytes.len() < compressible.len());
