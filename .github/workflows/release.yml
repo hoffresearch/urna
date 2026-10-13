@@ -263,6 +263,19 @@ jobs:
             ${{ steps.cargo-dist.outputs.paths }}
             ${{ steps.cargo-cyclonedx.output.paths }}
             ${{ env.BUILD_MANIFEST_NAME }}
+
+  custom-stampwork:
+    needs:
+      - plan
+      - build-local-artifacts
+      - custom-wheelmake
+      - build-global-artifacts
+    uses: ./.github/workflows/stampwork.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+    permissions:
+      "contents": "read"
   # Determines if we should publish/announce
   host:
     needs:
@@ -270,8 +283,9 @@ jobs:
       - build-local-artifacts
       - custom-wheelmake
       - build-global-artifacts
+      - custom-stampwork
     # Only run if we're "publishing", and only if plan, local and global didn't fail (skipped is fine)
-    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') && (needs.custom-wheelmake.result == 'skipped' || needs.custom-wheelmake.result == 'success') }}
+    if: ${{ always() && needs.plan.result == 'success' && needs.plan.outputs.publishing == 'true' && (needs.build-global-artifacts.result == 'skipped' || needs.build-global-artifacts.result == 'success') && (needs.custom-stampwork.result == 'skipped' || needs.custom-stampwork.result == 'success') && (needs.build-local-artifacts.result == 'skipped' || needs.build-local-artifacts.result == 'success') && (needs.custom-wheelmake.result == 'skipped' || needs.custom-wheelmake.result == 'success') }}
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     runs-on: "ubuntu-22.04"
@@ -460,6 +474,17 @@ jobs:
       - plan
       - announce
     uses: ./.github/workflows/setuptest.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+    permissions:
+      "contents": "read"
+
+  custom-archiving:
+    needs:
+      - plan
+      - announce
+    uses: ./.github/workflows/archiving.yml
     with:
       plan: ${{ needs.plan.outputs.val }}
     secrets: inherit

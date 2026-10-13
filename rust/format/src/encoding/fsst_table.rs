@@ -225,7 +225,7 @@ mod tests {
             .map(|i| b"ab"[(i * i % 3 % 2) as usize])
             .collect();
         let lcg: Vec<u8> = (0..20_000u64)
-            .scan(7u64, |x, _| {
+            .scan(0x10901u64, |x, _| {
                 *x = x
                     .wrapping_mul(6364136223846793005)
                     .wrapping_add(1442695040888963407);

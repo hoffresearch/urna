@@ -7,6 +7,11 @@
 
 use urna_format::manifest::Manifest;
 
+/// What every file built here names as its producer: the tool and the
+/// version it was compiled at, the same on every channel and platform, so
+/// a reproducible build stays byte-identical across them.
+const PRODUCER: &str = concat!("urna ", env!("CARGO_PKG_VERSION"));
+
 /// Assemble the build manifest. the matryoshka disclosure fields
 /// (`mrl_dim`/`full_dim`) are set only when truncation is active, so a
 /// non-truncated file stays byte-identical with a v1 manifest.
@@ -26,7 +31,7 @@ pub(crate) fn build_manifest(
     mrl_dim: Option<u32>,
     full_dim: Option<u32>,
 ) -> Manifest {
-    Manifest {
+    let mut manifest = Manifest {
         embedding_model: embedding_model.to_string(),
         embedding_dim,
         n_chunks,
@@ -41,5 +46,7 @@ pub(crate) fn build_manifest(
         mrl_dim,
         full_dim,
         ..Default::default()
-    }
+    };
+    manifest.set_producer(PRODUCER);
+    manifest
 }

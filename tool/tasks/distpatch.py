@@ -17,6 +17,9 @@ Edits:
 - the npm publish job's ``setup-node`` sets ``package-manager-cache: false``
   (zizmor ``cache-poisoning``): a job that publishes restores no cache, and
   setup-node v5+ turns caching on by default.
+- the global-artifacts job ``custom-stampwork`` also waits for
+  ``build-global-artifacts``: dist runs a global-artifacts job beside the
+  global build, but the stamp needs the ``sha256.sum`` that build writes.
 
 Subcommands:
 
@@ -54,6 +57,21 @@ EDITS = [
         "          node-version: '20.x'\n"
         "          registry-url: 'https://registry.npmjs.org'\n"
         "          package-manager-cache: false\n",
+    ),
+    (
+        "  custom-stampwork:\n"
+        "    needs:\n"
+        "      - plan\n"
+        "      - build-local-artifacts\n"
+        "      - custom-wheelmake\n"
+        "    uses: ./.github/workflows/stampwork.yml\n",
+        "  custom-stampwork:\n"
+        "    needs:\n"
+        "      - plan\n"
+        "      - build-local-artifacts\n"
+        "      - custom-wheelmake\n"
+        "      - build-global-artifacts\n"
+        "    uses: ./.github/workflows/stampwork.yml\n",
     ),
 ]
 

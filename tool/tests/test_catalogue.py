@@ -123,14 +123,14 @@ def test_a_lock_for_other_packages_is_stale() -> None:
 
 
 def test_params_are_counted_at_the_pinned_revision() -> None:
-    entry = {"name": "m", "revision": "a" * 40, "kind": "st_multimodal"}
-    got = mc.with_params(entry, {"m": {"revision": "a" * 40, "params": 595_776_512}})
+    entry = {"name": "micelio-3m", "revision": "a" * 40, "kind": "st_multimodal"}
+    got = mc.with_params(entry, {"micelio-3m": {"revision": "a" * 40, "params": 595_776_512}})
     assert got["params"] == 595_776_512 and got["dtype_bytes"] == {"cpu": 4, "mps": 2}
     clip = mc.with_params(
-        {**entry, "kind": "open_clip"}, {"m": {"revision": "a" * 40, "params": 1}}
+        {**entry, "kind": "open_clip"}, {"micelio-3m": {"revision": "a" * 40, "params": 1}}
     )
     assert clip["dtype_bytes"] == {"cpu": 4, "mps": 4}
-    for params in ({}, {"m": {"revision": "b" * 40, "params": 1}}):
+    for params in ({}, {"micelio-3m": {"revision": "b" * 40, "params": 1}}):
         try:
             mc.with_params(entry, params)
         except mc.Stale as e:

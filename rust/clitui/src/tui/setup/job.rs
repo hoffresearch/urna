@@ -517,7 +517,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(d.join(".urna-setup-42/urna")).unwrap();
         std::fs::create_dir_all(d.join("urna/python")).unwrap();
-        std::fs::write(d.join(".urna-payload-42.tar.gz"), b"partial").unwrap();
+        std::fs::write(d.join(".urna-payload-42.tar.gz"), b"quimera").unwrap();
         std::fs::write(d.join("keep.txt"), b"x").unwrap();
         sweep(&d);
         assert!(!d.join(".urna-setup-42").exists());

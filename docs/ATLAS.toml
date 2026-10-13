@@ -1107,7 +1107,7 @@ links = ["rust/engine/src/lib.rs"]
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/cmd/validate.rs"
 kind = "rust-source"
-purpose = "Full integrity validation command: check() runs every check and prints nothing (setup validates the sample corpus with it), run() prints the report"
+purpose = "Full integrity validation command: check() runs every check and prints nothing (setup validates the sample corpus with it), run() prints the report, the manifest's producer included (`-` on a file written before the field)"
 links = ["rust/format/src/reader/mod.rs"]
 
 [[inventory.urna_clitui]]
@@ -1337,7 +1337,7 @@ links = ["rust/format/src/manifest/mod.rs"]
 [[inventory.urna_format]]
 path = "rust/format/src/manifest/mod.rs"
 kind = "rust-source"
-purpose = "Manifest data model, Capabilities + additive CapabilitiesExt (graph_present is now set by the graph_adjacency builder method, the first live ext flag), the additive matryoshka disclosure pair (mrl_dim/full_dim, Option<u32>, omitted when unset), and the new-fields-are-Option-only additivity rule"
+purpose = "Manifest data model, Capabilities + additive CapabilitiesExt (graph_present is now set by the graph_adjacency builder method, the first live ext flag), the additive matryoshka disclosure pair (mrl_dim/full_dim, Option<u32>, omitted when unset), producer()/set_producer() (the tool and version that wrote the file, kept in extra so the struct and every existing file stayed as they were), and the new-fields-are-Option-only additivity rule"
 links = ["rust/format/src/manifest/validate.rs"]
 
 [[inventory.urna_format]]
@@ -1747,7 +1747,7 @@ links = [
 [[inventory.urna_bridge]]
 path = "rust/bridge/src/build_manifest.rs"
 kind = "rust-source"
-purpose = "Manifest assembly for build(): capabilities (incl blobs_present when blob sections are emitted and supports_multimodal when a space_table is present) and the additive manifest fields, split out of build_fn.rs"
+purpose = "Manifest assembly for build(): capabilities (incl blobs_present when blob sections are emitted and supports_multimodal when a space_table is present) the additive manifest fields, and the producer every build sets (`urna <crate version>`, fixed at compile time, the same on every channel), split out of build_fn.rs"
 links = [
     "rust/bridge/src/build_fn.rs",
     "rust/format/src/manifest/mod.rs",
@@ -3145,6 +3145,24 @@ links = [
     "tool/tasks/installer.sh",
     "tool/tasks/installer.ps1",
 ]
+
+[[inventory.distribution]]
+path = ".github/workflows/stampwork.yml"
+kind = "ci-workflow"
+purpose = "The release's OpenTimestamps proof, a global-artifacts job between the global build and the host: it stamps the global build's sha256.sum under a read-only token and hands sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
+links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py"]
+
+[[inventory.distribution]]
+path = ".github/stamplock.txt"
+kind = "lockfile"
+purpose = "The OpenTimestamps client and its dependencies pinned by hash (uv pip compile --generate-hashes), installed with --require-hashes by stampwork.yml, whose output is published in the release"
+links = [".github/workflows/stampwork.yml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/archiving.yml"
+kind = "ci-workflow"
+purpose = "A Software Heritage save of the repository once the release is announced (post-announce, beside setuptest), so the tagged tree is archived outside GitHub under its SWHID; a manual dispatch asks again after a refused save"
+links = ["docs/SECURITY.md", "Cargo.toml"]
 
 [[inventory.distribution]]
 path = "Dockerfile"

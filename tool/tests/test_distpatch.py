@@ -30,6 +30,8 @@ DIST = (
     "jobs:\n  publish-npm:\n    steps:\n"
     + dp.EDITS[0][0].format(sha=SHA)
     + "      - run: npm publish\n"
+    + dp.EDITS[1][0]
+    + "    with:\n"
 )
 
 
@@ -44,7 +46,8 @@ def refused(text: str) -> bool:
 def test_each_edit_lands_once():
     out = dp.patch(DIST, SHA)
     assert out.count("package-manager-cache: false") == 1, out
-    assert out.endswith("      - run: npm publish\n"), out
+    assert out.count("      - build-global-artifacts\n") == 1, out
+    assert out.endswith("stampwork.yml\n    with:\n"), out
 
 
 def test_moved_doubled_or_applied_text_is_refused():
