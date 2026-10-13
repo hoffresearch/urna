@@ -130,17 +130,18 @@ names() {
 cached names "$ALL_IN" -- names
 
 # ---- reuse (best-effort) ----
-# missing here is a skip, a failure in ci (gatecheck.yml, python job).
+# missing here is a skip, a failure in ci (gatecheck.yml, python job). the
+# skip is not cached, so the first pass after installing reuse runs it.
 licenses() {
-  if command -v reuse >/dev/null 2>&1; then
-    step "reuse lint"
-    reuse lint --quiet
-    ok "every file names its copyright and license"
-  else
-    printf '  skip: reuse not on PATH (docs/CONTRIBUTING.md, Local gate)\n' >&2
-  fi
+  step "reuse lint"
+  reuse lint --quiet
+  ok "every file names its copyright and license"
 }
-cached licenses "$ALL_IN" -- licenses
+if command -v reuse >/dev/null 2>&1; then
+  cached licenses "$ALL_IN" -- licenses
+else
+  printf '  skip: reuse not on PATH (docs/CONTRIBUTING.md, Local gate)\n' >&2
+fi
 
 # ---- cargo build (release) ----
 cargo_build() {
