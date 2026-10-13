@@ -115,7 +115,7 @@ Made it simple, but significant (∂μfμν = jν)
 |----------|-----|
 | Self-contained | The file is the whole database. Copy it like a SQLite file. |
 | Verifiable | SHA-256 over the whole file and over the decoded content, plus a checksum on the header and on every section. `urna cite` resolves any citation. |
-| Reproducible | Same chunks and same model give a byte-identical file on any machine. |
+| Reproducible | Same chunks, same model and same urna version give a byte-identical file on any machine. |
 | Offline | The runtime never opens a socket. The CLI refuses a query from another model at the `model_hash` check; in Python, `retrieve` does when you pass `expected_model_hash`, as below. |
 
 ## Python
