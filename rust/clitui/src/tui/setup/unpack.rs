@@ -566,7 +566,7 @@ mod tests {
         let d = tmp("venv");
         let root = d.join("root");
         swap_staged(&d, &root, &payload("0.5.1", &[]), None).unwrap();
-        let hostile = payload("0.5.2", &[("urna/venv/bin/python", b"hostile")]);
+        let hostile = payload("0.5.2", &[("urna/venv/bin/python", b"divergent")]);
         let err = swap_staged(&d, &root, &hostile, None).unwrap_err();
         assert!(err.to_string().contains("urna/venv"), "{err}");
         assert_eq!(

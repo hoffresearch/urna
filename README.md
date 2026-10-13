@@ -87,7 +87,7 @@ urna retrieve demo/starter/out/quickstart.urna "how do citations work" -k 2 --fo
 ```
 
 ```sh
-urna cite demo/starter/out/quickstart.urna 'urna://sha256:1147b256.../sha256:b5dfeb09...'
+urna cite demo/starter/out/quickstart.urna 'urna://sha256:b7c81eb1.../sha256:b5dfeb09...'
 ```
 
 ```sh
