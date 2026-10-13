@@ -1,0 +1,32 @@
+# a software heritage "save code now" of the repository once a release is
+# announced, so the archive holds the tagged tree outside github under its
+# intrinsic identifiers (swhid). verifiable by anyone: docs/SECURITY.md.
+#
+# trigger: cargo-dist calls it as a post-announce job (`post-announce-jobs`
+# in Cargo.toml); or manual dispatch, to ask again after a refused save.
+
+name: archiving
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: false
+        type: string
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  archive:
+    name: software heritage save
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: request a save of the repository
+        run: |
+          set -eu
+          curl -fsS -X POST \
+            "https://archive.softwareheritage.org/api/1/origin/save/git/url/https://github.com/${GITHUB_REPOSITORY}/"
