@@ -52,6 +52,7 @@ DROP = (
     "custom-pypiready",
     "announce",
     "custom-setuptest",
+    "custom-stampwork",
 )
 PLAN_RUN = (
     "dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', "

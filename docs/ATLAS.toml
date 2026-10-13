@@ -3135,6 +3135,12 @@ links = [
 ]
 
 [[inventory.distribution]]
+path = ".github/workflows/stampwork.yml"
+kind = "ci-workflow"
+purpose = "The release's third-party record, run inside the release once it is announced (post-announce, beside setuptest): `stamp` timestamps the release's sha256.sum with OpenTimestamps under a read-only token, `attach` uploads sha256.sum.ots to the release (the only job that writes, running nothing but gh), `archive` asks Software Heritage to save the repository; a manual dispatch with a tag redoes it"
+links = ["docs/SECURITY.md", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = "Dockerfile"
 kind = "container-image"
 purpose = "Minimal static-musl image on scratch: the engine-only CLI (--no-default-features, no setup or tui) built --locked from a toolchain image pinned by tag and digest; corpus via mounted volume, air-gapped friendly"
