@@ -102,14 +102,6 @@ Web [www.urna.dev](https://urna.dev)
 
 ----
 
-## Cite
-
-[![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
-
-Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
-
-----
-
 ## License
 
 MIT, see [LICENSE](https://github.com/hoffresearch/urna/blob/main/LICENSE). Author: Brenner Cruvinel.
@@ -300,6 +292,12 @@ Real-query quality is in [fakenews-ptbr-urna-benchmark](https://github.com/brenn
 The profile names are the forge's (`[media] profile = "..."`, usage section 14). mtg-urna-benchmark names its v0.3 files from before AVIF became the forge's `stills`: its `stills` file is this table's `stills-av1` row, and the AVIF q48 row is its candidate `v03-avif-q48`. Text-to-image hit@1 over every card: SigLIP2 0.750, wemm-2b 0.744, Jina 0.336, CLIP 0.098. The benchmark is [mtg-urna-benchmark](https://github.com/brennercruvinel/mtg-urna-benchmark), and the `.urna` files are on [Hugging Face](https://huggingface.co/datasets/brennercruvinel/mtg-urna-benchmark); the recipes the forge uses are recorded in `rust/bridge/python/urna/image/mediaplan.py` and `docs/CHANGELOG`.
 
 </details>
+
+## Cite
+
+[![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
+
+Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
 
 ## Reference
 
