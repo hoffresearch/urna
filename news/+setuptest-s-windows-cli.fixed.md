@@ -1,0 +1,1 @@
+setuptest's Windows CLI leg validated the golden fixture at `crates\urna-format\...`, a backslash path the folder rename to `crates/format` did not match, so that leg failed on the v0.5.4 release run while the release and every channel were fine. It points at `crates\format\` now; dispatched against v0.5.4 with the fix, setuptest passed all 20 legs (run 37256022536).

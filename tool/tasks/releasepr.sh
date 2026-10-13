@@ -7,11 +7,13 @@
 # branch release-X.Y.Z:
 #   1. cargo-release, at the version pinned below, sets the workspace version,
 #      the urna-format and urna-engine pins and the lockfile (`cargo release
-#      version`), then the changelog section and the versioned fields of
+#      version`); towncrier, at the version pinned below, turns the news/
+#      fragments into the release's dated changelog section and removes
+#      them (`towncrier build`); cargo-release sets the versioned fields of
 #      CITATION.cff (`cargo release replace`, the list in
 #      rust/clitui/Cargo.toml); the rest of CITATION.cff does not move;
 #   2. tool/tasks/preflight.py checks the result, and nothing outside
-#      those four files may have changed;
+#      those four files and the removed fragments may have changed;
 #   3. a signed commit, an explicit push of that one branch, the pull request.
 # the tag and the publication are separate steps after the merge (usage,
 # maintainer checklist step 8): nothing here tags, publishes or touches main.
@@ -22,6 +24,7 @@
 set -euo pipefail
 
 CARGO_RELEASE_VERSION=1.1.6
+TOWNCRIER_VERSION=26.9.0
 FILES=(CITATION.cff Cargo.lock Cargo.toml docs/CHANGELOG)
 
 die() { echo "releasepr: $*" >&2; exit 1; }
@@ -42,6 +45,9 @@ done
 have="$(cargo release --version 2>/dev/null | awk '{print $2}' || true)"
 [[ "$have" == "$CARGO_RELEASE_VERSION" ]] \
   || die "needs cargo-release $CARGO_RELEASE_VERSION, found ${have:-none}: cargo install cargo-release --version $CARGO_RELEASE_VERSION --locked"
+have="$(towncrier --version 2>/dev/null | awk '{print $3}' || true)"
+[[ "$have" == "$TOWNCRIER_VERSION" ]] \
+  || die "needs towncrier $TOWNCRIER_VERSION, found ${have:-none}: uv tool install towncrier==$TOWNCRIER_VERSION"
 
 repo="$(git rev-parse --show-toplevel)"
 branch="release-$version"
@@ -54,34 +60,33 @@ git -C "$repo" rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "no
 ! git -C "$repo" rev-parse --verify --quiet "refs/tags/v$version" >/dev/null || die "tag v$version already exists"
 [[ ! -e "$worktree" ]] || die "$worktree already exists"
 
-# the version moves forward and the changelog has something to release.
+# the version moves forward and news/ has something to release.
 current="$(git -C "$repo" show "$base:Cargo.toml" | sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p')"
 [[ -n "$current" ]] || die "no [workspace.package] version in $base:Cargo.toml"
 newest="$(printf '%s\n%s\n' "$current" "$version" | LC_ALL=C sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
 [[ "$version" != "$current" && "$newest" == "$version" ]] || die "$version is not after $current"
-# read whole first: awk stops early, and under pipefail git show's SIGPIPE
-# would read as an empty section.
-changelog="$(git -C "$repo" show "$base:docs/CHANGELOG")"
-awk '
-  /^## \[Unreleased\]$/ { inside = 1; next }
-  inside && /^## \[/ { exit }
-  inside && /^- / { found = 1 }
-  END { exit !found }' <<<"$changelog" || die "docs/CHANGELOG has nothing under [Unreleased]"
+[[ -n "$(git -C "$repo" ls-tree --name-only "$base" -- news/)" ]] \
+  || die "news/ has nothing to release"
 
 GIT_LFS_SKIP_SMUDGE=1 git -C "$repo" worktree add --quiet -b "$branch" "$worktree" "$base"
 cd "$worktree"
 cargo release version "$version" --execute --no-confirm
+# cargo-release's {{date}} is the UTC day too, and preflight compares them.
+towncrier build --version "$version" --date "$(date -u +%F)" --yes
 cargo release replace --execute --no-confirm
 python3 tool/tasks/preflight.py
 
-# untracked files count too: anything cargo-release created is a change.
-changed="$(git status --porcelain | awk '{print $2}' | LC_ALL=C sort | tr '\n' ' ')"
+# untracked files count too: anything a tool created is a change. towncrier
+# removed every fragment (git rm), which is the one other change allowed.
+changed="$(git status --porcelain | grep -v '^D  news/' | awk '{print $2}' | LC_ALL=C sort | tr '\n' ' ' || true)"
 [[ "$changed" == "${FILES[*]} " ]] || die "expected changes in exactly ${FILES[*]}, got: $changed"
+[[ -z "$(git ls-files -- news/)" ]] || die "towncrier left fragments in news/"
 git add -- "${FILES[@]}"
 date="$(sed -n 's/^date-released: "\(.*\)"$/\1/p' CITATION.cff)"
 git commit --quiet -S -m "Release $version" -m "The workspace version, the urna-format and urna-engine pins, the lockfile,
-the changelog section dated $date and the versioned fields of CITATION.cff,
-prepared by tool/tasks/releasepr.sh with cargo-release $CARGO_RELEASE_VERSION."
+the changelog section dated $date from the news/ fragments and the versioned
+fields of CITATION.cff, prepared by tool/tasks/releasepr.sh with cargo-release
+$CARGO_RELEASE_VERSION and towncrier $TOWNCRIER_VERSION."
 echo "releasepr: $branch at $(git rev-parse --short HEAD) in $worktree, release date $date (UTC)"
 
 if [[ "$push" == 0 ]]; then

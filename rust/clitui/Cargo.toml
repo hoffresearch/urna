@@ -40,13 +40,13 @@ pkg-fmt = "zip"
 npm-package = "cli"
 formula = "urna"
 
-# `cargo release replace` (tool/tasks/releasepr.sh): the changelog section
-# and the versioned fields of CITATION.cff, which cites this crate. each runs
-# exactly once; the rest of CITATION.cff, its description included, stays.
+# `cargo release replace` (tool/tasks/releasepr.sh): the changelog's date
+# and the versioned fields of CITATION.cff, which cites this crate; the
+# changelog section itself is towncrier's, from news/. each runs exactly
+# once; the rest of CITATION.cff, its description included, stays.
 # {{date}} is cargo-release's UTC date; the tag check reads the tag's UTC day.
 [package.metadata.release]
 pre-release-replacements = [
-  { file = "../../docs/CHANGELOG", search = "^## \\[Unreleased\\]$", replace = "## [Unreleased]\n\n## [{{version}}] - {{date}}", exactly = 1 },
   { file = "../../docs/CHANGELOG", search = "^last-updated: .*$", replace = "last-updated: {{date}}", exactly = 1 },
   { file = "../../CITATION.cff", search = "^version: .*$", replace = "version: \"{{version}}\"", exactly = 1 },
   { file = "../../CITATION.cff", search = "^date-released: .*$", replace = "date-released: \"{{date}}\"", exactly = 1 },
