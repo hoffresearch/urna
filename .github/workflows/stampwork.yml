@@ -1,20 +1,26 @@
-# a third-party record of every release, made once it is announced:
+# an opentimestamps proof that the release's sha256.sum (the checksum of
+# every archive and the npm package) existed at release time, published
+# with the release as sha256.sum.ots. the calendars commit it to bitcoin
+# within hours; until then the proof is pending, and `ots upgrade`
+# completes any copy of it from the calendars at any later time.
 #
-# - an opentimestamps proof that the release's sha256.sum (the checksum of
-#   every archive and the npm package) existed at release time, attached to
-#   the release as sha256.sum.ots. the calendars commit it to bitcoin within
-#   hours; until then the proof is pending, and `ots upgrade` completes it
-#   from the calendars at any later time, so the asset is never replaced.
-# - a software heritage "save code now" of the repository, so the archive
-#   holds the tagged tree under its intrinsic identifiers (swhid).
+# releases here are immutable: an asset can only be added when the host job
+# creates the release. so this runs between the global build, which writes
+# sha256.sum, and the host, which publishes every `artifacts-*` artifact of
+# the run: the proof travels as `artifacts-stamp`, and no job here can
+# write to the release. a past release cannot gain the proof.
 #
-# both are verifiable by anyone, without github: docs/SECURITY.md.
+# if fewer than two calendars answer, the stamp fails and the host does not
+# run, so nothing is published; re-running the failed jobs resumes the
+# release. verifiable by anyone, without github: docs/SECURITY.md.
 #
-# the stamp runs the opentimestamps client with a read-only token; only the
-# job that attaches the proof can write, and it runs nothing but `gh`.
+# the client and its dependencies install from .github/stamplock.txt,
+# pinned by hash (`opentimestamps-client==0.7.2` on stdin to the uv command
+# at the top of that file).
 #
-# trigger: cargo-dist calls it as a post-announce job (`post-announce-jobs`
-# in Cargo.toml); or manual dispatch with a tag, to stamp or archive again.
+# trigger: cargo-dist calls it as a global-artifacts job
+# (`global-artifacts-jobs` in Cargo.toml); distpatch.py makes it wait for
+# build-global-artifacts, and the host waits for it.
 
 name: stampwork
 
@@ -24,11 +30,6 @@ on:
       plan:
         required: false
         type: string
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: release tag to stamp (e.g. v0.5.5)
-        required: true
 
 permissions:
   contents: read
@@ -40,58 +41,31 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: read
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
     steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0: the lock only
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/stamplock.txt
+          sparse-checkout-cone-mode: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
       - name: install the opentimestamps client
-        run: python -m pip install "opentimestamps-client==0.7.2"
-      - name: stamp the release's sha256.sum
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+        run: python -m pip install --require-hashes --no-deps -r .github/stamplock.txt
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts-build-global
+          path: ${{ runner.temp }}/global
+      - name: stamp sha256.sum
         run: |
           set -eu
-          mkdir -p "$RUNNER_TEMP/stamp" && cd "$RUNNER_TEMP/stamp"
-          gh release download "$TAG" -p sha256.sum
-          ots stamp sha256.sum
+          mkdir -p "$RUNNER_TEMP/stamp"
+          cp "$RUNNER_TEMP/global/sha256.sum" "$RUNNER_TEMP/stamp/"
+          cd "$RUNNER_TEMP/stamp"
+          ots stamp --timeout 30 sha256.sum
           ots info sha256.sum.ots
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: stamp
+          name: artifacts-stamp
           path: ${{ runner.temp }}/stamp/sha256.sum.ots
           if-no-files-found: error
-
-  attach:
-    name: attach the proof to the release
-    needs: [stamp]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions:
-      contents: write
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: stamp
-          path: ${{ runner.temp }}/stamp
-      - name: upload sha256.sum.ots
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: gh release upload "$TAG" "$RUNNER_TEMP/stamp/sha256.sum.ots" --clobber
-
-  archive:
-    name: software heritage save
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    permissions: {}
-    steps:
-      - name: request a save of the repository
-        run: |
-          set -eu
-          curl -fsS -X POST \
-            "https://archive.softwareheritage.org/api/1/origin/save/git/url/https://github.com/${GITHUB_REPOSITORY}/"

@@ -93,6 +93,11 @@ pr-run-mode = "plan"
 # for them, so a wheel that does not build stops the release before any
 # channel publishes, and the host attaches the same wheels to the release.
 local-artifacts-jobs = ["./wheelmake"]
+# the release's opentimestamps proof (.github/workflows/stampwork.yml): it
+# stamps the global build's sha256.sum and hands the host sha256.sum.ots
+# as an artifact, since an immutable release takes assets only when it is
+# created. distpatch.py makes it wait for build-global-artifacts.
+global-artifacts-jobs = ["./stampwork"]
 # homebrew needs HOMEBREW_TAP_TOKEN, npm needs NPM_TOKEN, and the custom
 # crates.io job (.github/workflows/rustready.yml) needs
 # CARGO_REGISTRY_TOKEN, all repo secrets; see the maintainer checklist.
@@ -102,16 +107,16 @@ local-artifacts-jobs = ["./wheelmake"]
 publish-jobs = ["homebrew", "npm", "./rustready", "./pypiready"]
 # the installed-product test runs after the release is announced. it cannot
 # listen for `release: published`: the release is created with
-# GITHUB_TOKEN, and events from that token start no workflows. stampwork
-# timestamps sha256.sum (opentimestamps) and asks software heritage to save
-# the repository, the release's third-party record.
-post-announce-jobs = ["./setuptest", "./stampwork"]
+# GITHUB_TOKEN, and events from that token start no workflows. archiving
+# asks software heritage to save the repository, so the tagged tree is kept
+# outside github.
+post-announce-jobs = ["./setuptest", "./archiving"]
 # a custom job gets `id-token` + `packages` by default, which zeroes
 # `contents`; the crates job checks out the tag, so it asks for read (and
 # keeps id-token for a later move to crates.io trusted publishing).
 # wheelmake attests its wheels (id-token + attestations); pypiready
 # dispatches pypiindex.yml and reads its run (actions: write).
-github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "write" } }
+github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "read" }, "archiving" = { contents = "read" } }
 # sigstore keyless provenance for the five binary archives, verifiable with
 # `gh attestation verify` (issue #75); the global job's artifacts (payload,
 # sbom, formula, npm package) carry none, and wheelmake.yml attests the

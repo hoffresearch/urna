@@ -3137,7 +3137,19 @@ links = [
 [[inventory.distribution]]
 path = ".github/workflows/stampwork.yml"
 kind = "ci-workflow"
-purpose = "The release's third-party record, run inside the release once it is announced (post-announce, beside setuptest): `stamp` timestamps the release's sha256.sum with OpenTimestamps under a read-only token, `attach` uploads sha256.sum.ots to the release (the only job that writes, running nothing but gh), `archive` asks Software Heritage to save the repository; a manual dispatch with a tag redoes it"
+purpose = "The release's OpenTimestamps proof, a global-artifacts job between the global build and the host: it stamps the global build's sha256.sum under a read-only token and hands sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
+links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py"]
+
+[[inventory.distribution]]
+path = ".github/stamplock.txt"
+kind = "lockfile"
+purpose = "The OpenTimestamps client and its dependencies pinned by hash (uv pip compile --generate-hashes), installed with --require-hashes by stampwork.yml, whose output is published in the release"
+links = [".github/workflows/stampwork.yml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/archiving.yml"
+kind = "ci-workflow"
+purpose = "A Software Heritage save of the repository once the release is announced (post-announce, beside setuptest), so the tagged tree is archived outside GitHub under its SWHID; a manual dispatch asks again after a refused save"
 links = ["docs/SECURITY.md", "Cargo.toml"]
 
 [[inventory.distribution]]
