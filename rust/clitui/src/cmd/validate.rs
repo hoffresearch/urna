@@ -12,6 +12,8 @@ pub struct Report {
     pub inlined: Option<usize>,
     pub file_hash: String,
     pub content_hash: String,
+    /// the manifest's producer; files written before the field have none.
+    pub producer: Option<String>,
 }
 
 /// Every check `urna validate` runs, with nothing printed: the first one
@@ -59,6 +61,7 @@ pub fn check(file: &Path) -> Result<Report> {
         inlined,
         file_hash: view.file_hash_hex(),
         content_hash: view.content_hash_hex()?,
+        producer: view.manifest.producer().map(str::to_owned),
     })
 }
 
@@ -81,5 +84,9 @@ pub fn run(file: PathBuf) -> Result<()> {
     }
     println!("  File hash:          {}", report.file_hash);
     println!("  Content hash:       {}", report.content_hash);
+    println!(
+        "  Producer:           {}",
+        report.producer.as_deref().unwrap_or("-")
+    );
     Ok(())
 }

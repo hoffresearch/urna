@@ -132,6 +132,28 @@ pub struct Manifest {
     pub extra: BTreeMap<String, serde_json::Value>,
 }
 
+/// The `extra` key that names the tool and version that wrote the file.
+const PRODUCER_KEY: &str = "producer";
+
+impl Manifest {
+    /// The tool and version that wrote the file (`urna 0.5.4`), when the
+    /// writer recorded one. It lives in `extra`, so adding it changed
+    /// neither this struct nor the bytes of a file written without it.
+    pub fn producer(&self) -> Option<&str> {
+        self.extra
+            .get(PRODUCER_KEY)
+            .and_then(serde_json::Value::as_str)
+    }
+
+    /// Record the tool and version that wrote the file.
+    pub fn set_producer(&mut self, producer: &str) {
+        self.extra.insert(
+            PRODUCER_KEY.to_string(),
+            serde_json::Value::String(producer.to_string()),
+        );
+    }
+}
+
 impl Default for Manifest {
     fn default() -> Self {
         Self {
