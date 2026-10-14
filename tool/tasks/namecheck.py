@@ -75,8 +75,8 @@ EXCEPTIONS = [
     (re.compile(r"^\.github/pull_request_template\.md$"), "GitHub"),
     (re.compile(r"^\.github/workflows/release\.yml$"), "cargo-dist"),
     (re.compile(r"^\.github/zizmor\.yml$"), "zizmor's config discovery"),
+    (re.compile(r"^docs/news$"), "towncrier's fragment folder (pyproject.toml), named for it"),
     (re.compile(r"^\.zed$"), "the Zed editor's project settings"),
-    (re.compile(r"^LICENSES$"), "the REUSE specification's license folder"),
 ]
 
 

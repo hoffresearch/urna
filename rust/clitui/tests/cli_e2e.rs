@@ -214,7 +214,7 @@ fn embed_python() -> Option<(String, PathBuf)> {
     None
 }
 
-/// build the cc0 demo corpus into `path` via urna.reads.retrieval.build_demo with
+/// build the demo corpus into `path` via urna.reads.retrieval.build_demo with
 /// the offline potion embedder. the toolchain was probed already, so a
 /// failure here is a real one and fails the test.
 fn build_intro_corpus(py: &str, root: &std::path::Path, path: &std::path::Path) {

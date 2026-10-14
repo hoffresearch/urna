@@ -42,7 +42,7 @@ formula = "urna"
 
 # `cargo release replace` (tool/tasks/releasepr.sh): the changelog's date
 # and the versioned fields of CITATION.cff, which cites this crate; the
-# changelog section itself is towncrier's, from news/. each runs exactly
+# changelog section itself is towncrier's, from docs/news/. each runs exactly
 # once; the rest of CITATION.cff, its description included, stays.
 # {{date}} is cargo-release's UTC date; the tag check reads the tag's UTC day.
 [package.metadata.release]

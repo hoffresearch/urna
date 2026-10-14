@@ -60,7 +60,7 @@ def retrieve(urnafile, query: str, k: int = 5, embedder=None, verify_model: bool
 
 
 def build_demo(out_path: str) -> str:
-    """build a .urna from the cc0 demo corpus with the potion embedder.
+    """build a .urna from the demo corpus with the potion embedder.
     deterministic + offline: same docs + same table => byte-identical file."""
     emb = potion_embedder()
     cfg = BuildConfig(
