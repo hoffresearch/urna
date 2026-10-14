@@ -1,0 +1,108 @@
+# a .deb and an .rpm of the release's static musl binary, for x86_64 and
+# aarch64, published with the release. nfpm packs the archives the local
+# builds made, so the packages hold the same bytes as every other channel;
+# pkgs/linux/nfpm.yaml, rendered by tool/tasks/pkgrender.py from the plan and
+# sha256.sum, says what goes where. packages.sha256.sum lists the four
+# packages, and stampwork stamps it next to sha256.sum.
+#
+# releases here are immutable: an asset can only be added when the host job
+# creates the release, so this runs between the global build, which writes
+# sha256.sum, and stampwork, and travels as `artifacts-linuxpack`. before
+# uploading, the amd64 .deb is installed on the runner and must print the
+# release's version.
+#
+# nfpm installs from its release archive, pinned by version and SHA-256.
+#
+# trigger: cargo-dist calls it as a global-artifacts job
+# (`global-artifacts-jobs` in Cargo.toml); distpatch.py makes it wait for
+# build-global-artifacts and makes stampwork wait for it.
+
+name: linuxpack
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  NFPM_VERSION: 2.48.0
+  NFPM_SHA256: 6d7f9a28b2f397934403950fcbba83f598b08d02edbe79a0815b3b4897341750
+
+jobs:
+  pack:
+    name: deb and rpm packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Cargo.toml
+            pkgs/linux/nfpm.yaml
+            tool/tasks/pkgrender.py
+          sparse-checkout-cone-mode: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: artifacts-*
+          path: ${{ runner.temp }}/dist
+          merge-multiple: true
+      - name: install nfpm
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o nfpm.tar.gz \
+            "https://github.com/goreleaser/nfpm/releases/download/v${NFPM_VERSION}/nfpm_${NFPM_VERSION}_Linux_x86_64.tar.gz"
+          echo "${NFPM_SHA256}  nfpm.tar.gz" | sha256sum -c -
+          tar -xzf nfpm.tar.gz nfpm
+          ./nfpm --version
+      - name: render the nfpm configs
+        env:
+          PLAN: ${{ inputs.plan }}
+        run: |
+          set -eu
+          printf '%s' "$PLAN" > "$RUNNER_TEMP/dist-manifest.json"
+          python3 tool/tasks/pkgrender.py render --channel nfpm \
+            --manifest "$RUNNER_TEMP/dist-manifest.json" \
+            --sums "$RUNNER_TEMP/dist/sha256.sum" --out "$RUNNER_TEMP/render"
+      - name: pack
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/pack" "$RUNNER_TEMP/linuxpack"
+          cd "$RUNNER_TEMP/pack"
+          for arch in x86_64 aarch64; do
+            tar -xJf "$RUNNER_TEMP/dist/urna-$arch-unknown-linux-musl.tar.xz"
+          done
+          for cfg in "$RUNNER_TEMP"/render/linux/nfpm-*.yaml; do
+            for format in deb rpm; do
+              "$RUNNER_TEMP/nfpm" pkg -f "$cfg" -p "$format" -t "$RUNNER_TEMP/linuxpack/"
+            done
+          done
+          cd "$RUNNER_TEMP/linuxpack"
+          ls -l
+          test "$(find . -maxdepth 1 -type f | wc -l)" -eq 4
+          sha256sum -b -- *.deb *.rpm > packages.sha256.sum
+          cat packages.sha256.sum
+      - name: the amd64 package installs and runs
+        env:
+          PLAN: ${{ inputs.plan }}
+        run: |
+          set -eu
+          want="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          sudo dpkg -i "$RUNNER_TEMP"/linuxpack/urna_*_amd64.deb
+          got="$(/usr/bin/urna --version)"
+          echo "$got"
+          test "$got" = "urna ${want#v}"
+          rpm -qpl "$RUNNER_TEMP"/linuxpack/urna-*.x86_64.rpm
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: artifacts-linuxpack
+          path: ${{ runner.temp }}/linuxpack/
+          if-no-files-found: error
