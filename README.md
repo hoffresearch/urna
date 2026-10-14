@@ -152,8 +152,9 @@ Web [www.urna.dev](https://urna.dev)
 
 ## License
 
-MIT, see [LICENSE](https://github.com/hoffresearch/urna/blob/main/LICENSE). Author: Brenner Cruvinel.
-Made it simple, but significant (∂μfμν = jν)
+MIT, see [LICENSE](https://github.com/hoffresearch/urna/blob/main/LICENSE).
+Made it simple, but significant
+(∂μfμν = jν)
 
 ----
 <details>
