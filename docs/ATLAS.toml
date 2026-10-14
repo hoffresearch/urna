@@ -376,7 +376,7 @@ summary = "Same synthetic rows, same queries, same machine: urna exact / hybrid 
 [[inventory.root]]
 path = "docs/img"
 kind = "directory"
-purpose = "Every image the README and the repo pages use: the header (urna-hoff-research-db-iage-thumb-git.png), the `urna setup` / `urna tui` screenshots and the demos recorded with anina (urna-build, urna-ask, and the installs urna-brew, urna-npm, urna-cargo, urna-pypi); the README and USAGE link them by raw main URL so crates.io, PyPI and npm render them too (docs/ keeps text only; sovereign-ai.png sits here unreferenced)"
+purpose = "Every image the README and the repo pages use: the header (urna-hoff-research-db-iage-thumb-git.png), the `urna setup` / `urna tui` screenshots and the demos recorded with anina (urna-build, urna-ask, and the installs urna-brew, urna-npm, urna-cargo, urna-pypi, urna-apt, urna-copr, urna-conda, urna-nix); the README and USAGE link them by raw main URL so crates.io, PyPI and npm render them too (docs/ keeps text only; sovereign-ai.png sits here unreferenced)"
 links = ["README.md", "docs/USAGE.md"]
 
 [[inventory.root]]

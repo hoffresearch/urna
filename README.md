@@ -18,24 +18,45 @@ Docs  [docs.urna.dev](https://docs.urna.dev)
 
 ## Install
 
-Use a package manager:
-
 ```sh
-# Homebrew
 brew install hoffresearch/urna/urna
-
-# npm (bun, pnpm and yarn install the same package)
-npm install -g @urna/cli
-
-# Cargo
-cargo install urna
-
-# conda
-conda install -c hoffresearch urna
+urna setup
 ```
 
+Every channel installs the same release binary. `urna setup` then completes the install the same way on each: it downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask.
+
 <details>
-<summary><strong>Fedora/RHEL</strong></summary>
+<summary><strong>macOS and Linux</strong>: Homebrew, the one-line installer, nix</summary>
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-brew.svg" alt="brew install hoffresearch/urna/urna taps the formula and installs the release binary, then urna --version" width="100%">
+
+```sh
+brew install hoffresearch/urna/urna
+curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh
+nix run github:hoffresearch/urna
+```
+
+</details>
+
+<details>
+<summary><strong>Ubuntu and Debian</strong>: apt from urna.dev, or the PPA</summary>
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-apt.svg" alt="the urna.dev/apt keyring, the apt source with signed-by, apt install urna, then urna --version" width="100%">
+
+```sh
+curl -fsSL https://urna.dev/apt/urna.gpg | sudo tee /usr/share/keyrings/urna.gpg > /dev/null
+echo 'deb [signed-by=/usr/share/keyrings/urna.gpg] https://urna.dev/apt stable main' | sudo tee /etc/apt/sources.list.d/urna.list
+sudo apt update && sudo apt install urna
+```
+
+On Ubuntu 22.04, 24.04 and 26.04, the PPA builds the same version from source: `sudo add-apt-repository ppa:hoffresearch/urna && sudo apt install urna`.
+
+</details>
+
+<details>
+<summary><strong>Fedora and RHEL</strong>: dnf from COPR</summary>
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-copr.svg" alt="dnf copr enable hoffresearch/urna, dnf install urna, then urna --version, on Fedora 44" width="100%">
 
 ```sh
 sudo dnf copr enable hoffresearch/urna
@@ -46,25 +67,37 @@ Fedora 43 and later, rawhide, and EPEL 9 and 10, on x86_64 and aarch64. The pack
 
 </details>
 
-Or download it: binaries for Linux, macOS and Windows are on the [releases](https://github.com/hoffresearch/urna/releases), each with its `.sha256`, and the one-line installer fetches the right one:
+<details>
+<summary><strong>Windows</strong>: scoop, winget, Chocolatey</summary>
 
-```sh
-curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh
+```powershell
+scoop bucket add hoffresearch https://github.com/hoffresearch/scoop-urna
+scoop install urna
+winget install HoffResearch.Urna
+choco install urna
 ```
 
-Then run setup once. It downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask:
+winget and Chocolatey list a version once their moderators approve it.
+
+</details>
+
+<details>
+<summary><strong>Language package managers</strong>: npm, cargo, conda, pip</summary>
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-conda.svg" alt="micromamba create -c hoffresearch urna, then urna --version in that environment" width="100%">
 
 ```sh
-urna setup
-```
-
-Python only, no setup step needed:
-
-```sh
+npm install -g @urna/cli
+cargo install urna
+conda install -c hoffresearch urna
 pip install "urna[embed]"
 ```
 
-Windows, Docker, `cargo binstall` and how to verify a download are in the [install reference](https://github.com/hoffresearch/urna/blob/main/docs/USAGE.md#reference).
+npm, cargo and conda install the CLI. pip installs the Python library and a read-only `urna` command (`validate`, `inspect`, `stats`, `search`), with no setup step.
+
+</details>
+
+Binaries for Linux, macOS and Windows are also on the [releases](https://github.com/hoffresearch/urna/releases), each with its `.sha256`. What each channel lays down, how it updates, Docker, `cargo binstall` and how to verify a download are in the [install reference](https://github.com/hoffresearch/urna/blob/main/docs/USAGE.md#reference).
 
 `urna setup` shows the plan before it writes anything and ends on the doctor checks. A corpus built with a heavier model, like the pt-BR MiniLM, needs that model on the machine: `urna setup --model minilm-multilingual` installs it (or `m` on the plan screen), and the ask tab of `urna tui` offers the same install when a query needs it. Nothing is downloaded until you say so.
 

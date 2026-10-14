@@ -2,7 +2,7 @@
 project: urna
 audience: users and integrators
 status: active
-last-updated: 2026-10-13
+last-updated: 2026-10-14
 domain: usage
 ---
 
@@ -726,6 +726,116 @@ cargo install urna      # compile from crates.io
 </details>
 
 <details>
+<summary>apt (urna.dev/apt)</summary>
+
+```sh
+curl -fsSL https://urna.dev/apt/urna.gpg | sudo tee /usr/share/keyrings/urna.gpg > /dev/null
+echo 'deb [signed-by=/usr/share/keyrings/urna.gpg] https://urna.dev/apt stable main' | sudo tee /etc/apt/sources.list.d/urna.list
+sudo apt update && sudo apt install urna
+urna setup
+```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-apt.svg" alt="the urna.dev/apt keyring, the apt source with signed-by, apt install urna, then urna --version" width="100%">
+
+The `.deb` is the release's own (`urna_X.Y.Z-1_amd64.deb`, `urna_X.Y.Z-1_arm64.deb`), with the static musl binary, so it installs on any Debian or Ubuntu release. `aptsigner.yml` writes the index after each release: `Packages` per architecture and `Release`, signed as `InRelease` and `Release.gpg` by a key kept for this index alone (its fingerprint is in [SECURITY](SECURITY.md)). The index lives in an R2 bucket that the `urna-apt` Worker (`pkgs/linux/apt/worker.js`) serves on `urna.dev/apt/*`; a `.deb` is never copied there: `pool/<tag>/<file>` redirects to the release asset, and apt checks it against the SHA-256 the signed index lists. `sudo apt update && sudo apt install --only-upgrade urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>Launchpad PPA (Ubuntu)</summary>
+
+```sh
+sudo add-apt-repository ppa:hoffresearch/urna
+sudo apt install urna
+urna setup
+```
+
+For Ubuntu 22.04 (jammy), 24.04 (noble) and 26.04 (resolute), on amd64 and arm64. Unlike the apt item above, Launchpad compiles the package from source: `ppaupload.yml` builds the Debian source package of the tag with `tool/tasks/ppasource.py` (the crates vendored, `pkgs/linux/apt/debian` filled in), signs it with a key kept for this upload only and uploads one per series; Launchpad builds it offline with Ubuntu's `rustc-1.91` and signs the PPA with its own key. A series that already holds the version is not uploaded again.
+
+</details>
+
+<details>
+<summary>Fedora and RHEL (COPR)</summary>
+
+```sh
+sudo dnf copr enable hoffresearch/urna
+sudo dnf install urna
+urna setup
+```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-copr.svg" alt="dnf copr enable hoffresearch/urna, dnf install urna, then urna --version, on Fedora 44" width="100%">
+
+Fedora 43 and later, rawhide, and EPEL 9 and 10, on x86_64 and aarch64. `coprbuild.yml` renders `pkgs/linux/dnf/urna.spec` from the release's `dist-manifest.json` and `sha256.sum` and sends the source rpm to the `hoffresearch/urna` COPR project; the spec repackages the release's static binary, so nothing is compiled. `sudo dnf upgrade urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>conda</summary>
+
+```sh
+conda install -c hoffresearch urna
+urna setup
+```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-conda.svg" alt="micromamba create -c hoffresearch urna, then urna --version in that environment" width="100%">
+
+`condaship.yml` renders `pkgs/conda/recipe.yaml` and builds it with rattler-build for linux-64, linux-aarch64, osx-64, osx-arm64 and win-64, repackaging the release's binaries, then uploads the five packages to the `hoffresearch` channel on anaconda.org. mamba, micromamba and pixi read the same channel. `conda update -c hoffresearch urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>scoop (Windows)</summary>
+
+```powershell
+scoop bucket add hoffresearch https://github.com/hoffresearch/scoop-urna
+scoop install urna
+urna setup
+```
+
+`scoopship.yml` renders `pkgs/scoop/urna.json` with the release zip's URL and SHA-256 and pushes it to the bucket `hoffresearch/scoop-urna`, the way the Homebrew job pushes the formula. `scoop update urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>winget (Windows)</summary>
+
+```powershell
+winget install HoffResearch.Urna
+urna setup
+```
+
+`wingtship.yml` renders the three manifests in `pkgs/wingt` (the release zip, with `urna.exe` as a nested portable) and opens the pull request to `microsoft/winget-pkgs` with Komac. winget serves a version once its moderators merge that pull request. `winget upgrade HoffResearch.Urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>Chocolatey (Windows)</summary>
+
+```powershell
+choco install urna
+urna setup
+```
+
+`chocoship.yml` packs `pkgs/choco`, installs that package on a Windows runner, checks `urna --version` and pushes it to the community repository. No binary travels inside the package: its install script downloads the release zip and checks it against the SHA-256 from `sha256.sum`. Chocolatey serves a version once its moderators approve it. `choco upgrade urna` moves to the next release.
+
+</details>
+
+<details>
+<summary>nix</summary>
+
+```sh
+nix run github:hoffresearch/urna/v0.5.6 -- --version
+nix profile add github:hoffresearch/urna
+urna setup
+```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-nix.svg" alt="nix run github:hoffresearch/urna/v0.5.6 builds the flake from source, then urna --version" width="100%">
+
+The flake at the repository root builds the CLI from source with `pkgs/nixos/package.nix`, the way nixpkgs builds Rust: the crates pinned by `Cargo.lock`, the tests run, and `urna --version` checked. A release tag in the flake reference (`/v0.5.6`) pins that release; without one, nix builds `main`. `nixosship.yml` runs the tag's flake after each release. `nix profile upgrade urna` rebuilds a profile added from `main` at the newest `main`; one added with a tag stays at that tag.
+
+</details>
+
+<details>
 <summary>Docker</summary>
 
 ```sh
@@ -790,7 +900,25 @@ Commits on `main` are SSH-signed and the branch ruleset requires verified signat
 <details>
 <summary>Maintainer checklist (one-time, before the first tagged release)</summary>
 
-The release workflows assume external state that a fresh org does not have. As of 2026-10-04 (repo secrets of `hoffresearch/urna`: `CARGO_REGISTRY_TOKEN`, `NPM_TOKEN` and `HOMEBREW_TAP_TOKEN` set):
+The release workflows assume external state that a fresh org does not have. As of 2026-10-14, every secret in the table below is set on `hoffresearch/urna`.
+
+Every repository secret the release run reads, with what it reaches. A secret that expires stops its channel's job on the first release after that date; rotate it before.
+
+| Secret | Channel | Account | Scope | Expires |
+|---|---|---|---|---|
+| `NPM_TOKEN` | npm | npm org `urna` | granular, package and org write | 2026-12-11 |
+| `CARGO_REGISTRY_TOKEN` | crates.io | `brennercruvinel` | publish-update | see crates.io, Account Settings, API Tokens |
+| `HOMEBREW_TAP_TOKEN` | Homebrew | `hoffresearch/homebrew-urna` | contents write on the tap | 2027-09-26 |
+| `ANACONDA_ORG_TOKEN` | conda | anaconda.org org `hoffresearch` | upload | 2027-10-01 |
+| `SCOOP_BUCKET_TOKEN` | scoop | `hoffresearch/scoop-urna` | fine-grained, contents write on the bucket | 2027-10-15 |
+| `COPR_CONFIG` | COPR | FAS `hoffresearch` | copr-cli config | 2027-04-11 |
+| `WINGET_TOKEN` | winget | `brennercruvinel` | classic, `public_repo` | 2027-10-14 |
+| `CHOCOLATEY_API_KEY` | Chocolatey | `hoffresearch` | push | no expiry |
+| `PPA_SIGNING_KEY`, `PPA_SIGNING_FPR` | PPA | Launchpad `brennercruvinel`, team `hoffresearch` | OpenPGP key for the upload only | 2028-10-13 |
+| `APT_SIGNING_KEY`, `APT_SIGNING_FPR` | apt | none | OpenPGP key for the apt index only | 2028-10-13 |
+| `R2_APT_ACCESS_KEY_ID`, `R2_APT_SECRET_ACCESS_KEY`, `R2_APT_ENDPOINT` | apt | Cloudflare account | object write on the `urna-apt` bucket only | 2027-10-14 |
+
+Cloudflare for `urna.dev/apt`: `tool/tasks/aptserver.py` creates the `urna-apt` bucket, the Worker and the route `urna.dev/apt/*`, and a second run changes nothing. It takes a token with Workers Scripts, Workers R2 Storage and Workers Routes, used by hand; the release run does not need it.
 
 1. **Homebrew tap**: the public repo `hoffresearch/homebrew-urna` (created 2026-09-26) carries `Formula/urna.rb`, at 0.5.4 since the v0.5.4 release; the `publish-homebrew-formula` job in `release.yml` checks it out and pushes `Formula/urna.rb` to it. The job authenticates with the `HOMEBREW_TAP_TOKEN` secret, a fine-grained token (`urna-homebrew-tap`, resource owner `hoffresearch`) with contents read and write on that repo only, expiring 2027-09-26 (the org caps fine-grained tokens at 365 days). GitHub has no API that mints one: rotate it by hand in the account settings and replace the secret. Without it the job fails and the rest of the release stands.
 2. **npm**: `@urna/cli` publishes under the `urna` npm org with the `NPM_TOKEN` secret, a granular token with package and org write on that org (user `notlikedev`). Granular tokens expire: the current one expires 2026-12-11, rotate it before a release that falls after that date. 0.5.0 was published by hand from the release's npm package after the bare name was refused.
