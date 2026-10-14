@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The install panel over the ask tab: when a query fails because the
 //! corpus's model needs packages or weights this machine lacks, and the
 //! payload's catalog offers that model, the panel says what installing it

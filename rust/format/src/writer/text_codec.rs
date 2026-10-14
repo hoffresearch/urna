@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! the chunks_canonical text-codec chooser (compressed presets only).
 //!
 //! under a compressed (zstd-text) preset the writer takes the SMALLEST of

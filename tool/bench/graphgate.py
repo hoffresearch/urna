@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """recall@10 gate for the G1 chunk_overlap drop.
 
 proves a chunk_overlap-dropped + NEXT_CHUNK-reconstructed corpus holds

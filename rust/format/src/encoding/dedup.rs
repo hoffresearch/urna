@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! content-hash dedup of canonical texts BEFORE zstd (the dedup-map
 //! optional section, id 0x0B). a build-time pass over the DECOMPRESSED
 //! canonical texts (the load-bearing nix/ipfs order rule: dedup on

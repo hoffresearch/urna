@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! int8 codec round-trip coverage (`encoding=3`).
 //!
 //! These positive-path tests live here (not inline in `encoding/mod.rs`)

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Declarative build spec: parse + validate the TOML/JSON contract (RFC-1).
 
 Every user-facing choice lives here as a typed field with its default; every

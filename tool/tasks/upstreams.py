@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The values urna's model catalogue takes from its upstreams instead of
 having them written by hand, resolved once here and committed as
 `rust/bridge/python/urna/model/upstreams.json`:

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 #![no_main]
 //! One section / payload codec per input, selected by the first byte, fed
 //! the remaining bytes directly (no container around it), so each decoder

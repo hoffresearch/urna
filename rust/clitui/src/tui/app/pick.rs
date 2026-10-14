@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The file picker overlay (ratatui-explorer), showing directories and
 //! `.urna` files only, themed with the palette. enter walks into a
 //! directory or opens the file; esc closes.

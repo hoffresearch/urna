@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The terminal report of modelrank.py: one block per tier, never
 one number across tiers (T1 is inflated by construction, T2 is a cost,
 T3 is the utility ruler). Split out of modelrank.py, which runs

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Shared encoding/decoding primitives used by every section payload.
 //! Cursor for length-checked reads, prefix writer/reader, length-
 //! prefixed UTF-8 strings.

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Decoded section access + identity hashes (file_hash, content_hash).
 
 use std::borrow::Cow;

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Terminal lifecycle and the frame clock. Two shapes: the inline viewport
 //! the installer draws in (ratatui's inline example: the last frame stays
 //! in the scrollback) and the full screen the explorer takes. both restore

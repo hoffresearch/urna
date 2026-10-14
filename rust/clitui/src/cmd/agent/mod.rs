@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The agent-facing verbs: `ask`, `retrieve`, `build`. They are a product
 //! layered OVER the engine verbs in the parent module, not part of the
 //! engine: each one shells out to python (the offline query embedder or the

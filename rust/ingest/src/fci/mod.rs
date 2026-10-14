@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! the .fci (forge canonical intermediate) schema, FROZEN at
 //! `FCI_SCHEMA_VERSION`. it is the stable contract between forge (which
 //! produces it from messy inputs) and the python adapter (which feeds it

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! blob overlay integration: a media corpus built with the 0x14/0x16 pair
 //! opens with its 0x03 placeholder spans REPLACED by the blob-relative
 //! spans (uri + byte range from the overlay), so search hits and

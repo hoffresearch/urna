@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! space_table (0x15) positive coverage:
 //!
 //! - decode(encode(entries)) == entries over empty / single / many-space

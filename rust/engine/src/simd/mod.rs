@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! SIMD-accelerated dot products for the search hot path.
 //!
 //! Three dtype paths, three SIMD targets:

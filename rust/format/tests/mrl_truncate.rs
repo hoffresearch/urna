@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Matryoshka truncate-then-renormalize roundtrip (WO EMB-matryoshka).
 //!
 //! The python builder (rust/bridge/src/build_fn.rs) does the prefix

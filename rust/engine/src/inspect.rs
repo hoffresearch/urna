@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `MmapUrnaFile::inspect_json`: the `urna inspect --json` document. Kept out
 //! of `mmap_file.rs`, which opens and validates the file; this is pure
 //! presentation (re-parse the mmap, dump header + section table +

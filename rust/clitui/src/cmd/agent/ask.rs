@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna ask <file> "<query>"` - the flagship user-facing verb. text query
 //! in, cited hits out. embeds the query OFFLINE with the default potion
 //! static table (NEVER sentence-transformers, so it works offline-by-

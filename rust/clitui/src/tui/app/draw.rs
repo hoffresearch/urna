@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! One frame of the explorer: the chrome, the active tab, the picker
 //! overlay, the toasts, then the effects and the color fold.
 

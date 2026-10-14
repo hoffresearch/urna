@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! end-to-end search benchmarks through the public api (the
 //! reproducible version of the docs/BENCH.md numbers): one `.urna` per stored dtype,
 //! 20k x 384 synthetic l2-normalized rows, the same hnsw graph in every

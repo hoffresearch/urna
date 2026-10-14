@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The marked rows: the checkbox (symbol set and label-right layout of
 //! tui-checkbox 0.4, sorinirimies, MIT, carried here because it is still on
 //! ratatui 0.29), noble's boot badges, and the doctor rows built from both.

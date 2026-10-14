@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Manifest types and constants. The `validate` impl lives in
 //! `manifest::validate`; the canonical-JSON serializer in
 //! `manifest::canonical`. This module owns the data shape only.

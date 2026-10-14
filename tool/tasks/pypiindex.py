@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Check where the wheels came from and which of them PyPI still needs.
 
 pypiindex.yml runs this before its upload, in two steps:

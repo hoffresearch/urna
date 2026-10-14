@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """remember which fullcheck steps passed, keyed by a hash of their inputs.
 
 a step that passed with the same inputs passes again, so `fullcheck.sh`

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! zstd_dict (encoding id 5) negative coverage: a truncated dict-framed
 //! payload, a missing dictionary, and an oversized/garbage dict must all
 //! return a typed UrnaError, never a panic. exhaustive prefix-truncation

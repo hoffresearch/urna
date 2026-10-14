@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! property tests for the section codecs.
 //!
 //! two claims per codec, the ones the citation uri and the reproducible

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Lays a verified payload tarball down under the data root. The archive is
 //! unpacked into a staging dir first (entries that would escape it, `..`
 //! or absolute paths, abort the install) and checked: every file of

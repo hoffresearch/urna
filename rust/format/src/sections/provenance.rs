@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `provenance` section (`SECTION_PROVENANCE = 0x05`). A single
 //! versioned JSON blob carrying ingestion metadata. v1 keeps it
 //! schema-free so callers can include whatever they need (legacy

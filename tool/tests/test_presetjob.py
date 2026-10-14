@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the preset job refuses what it cannot judge and settles the device once.
 
 `tool/tasks/presetjob.py` installs every preset through `urna setup` on the

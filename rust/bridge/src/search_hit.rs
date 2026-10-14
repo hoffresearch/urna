@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `SearchHitPy`: the Python-visible search hit. One field per
 //! `urna_engine::SearchHit` field, all read-only from Python; `score` is
 //! the exact-cosine rerank value and `citation_id` the stable

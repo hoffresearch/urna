@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! urna-ingest: the forge canonical intermediate (.fci) schema and the
 //! deterministic core of the forge ingestion layer.
 //!

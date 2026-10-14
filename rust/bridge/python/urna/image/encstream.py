@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Encode side of image corpus media: the av1 stream encoder.
 
 Backend selection and the control corpus live in `urna/image/orchestra.py`;

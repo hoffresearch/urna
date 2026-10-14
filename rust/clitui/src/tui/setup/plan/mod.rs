@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The plan: which steps run, derived from the scan and the flags. A step
 //! that is already satisfied starts unticked (ticking it reinstalls); a
 //! step the machine cannot run is blocked with the reason, never hidden.

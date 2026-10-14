@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Recall harness: the real potion table vs the lexical floor on demo/corpora/intro.
 
 run: python tool/bench/recallcmp.py

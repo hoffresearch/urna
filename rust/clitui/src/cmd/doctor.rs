@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna doctor` - post-install health check (issue #75).
 //!
 //! validates the whole install surface a user/agent depends on and exits

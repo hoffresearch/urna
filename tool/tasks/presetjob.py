@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Install every model preset the catalogue offers through `urna setup`, one
 at a time, and prove each answers a query: what `.github/workflows/presetjob.yml`
 runs on a clean runner whenever the lock changes.

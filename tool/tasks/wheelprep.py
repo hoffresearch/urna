@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """stage the maturin wheel project under pkgs/stage/.
 
 the repo keeps the `urna` package at rust/bridge/python/urna/ with the

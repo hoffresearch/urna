@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """check the naming convention of docs/adr/structure/0003 against the tree.
 
 one rule: siblings of the same kind have the same length. LEVELS below says,

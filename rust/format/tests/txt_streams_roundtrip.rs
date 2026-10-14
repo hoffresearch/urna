@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! positive coverage for the `txt_streams` wire codec (encoding id 10):
 //! the per-chunk-streams re-layout of the `chunks_canonical` (0x02)
 //! section. the load-bearing invariant is that `decode_payload(10, ...)`

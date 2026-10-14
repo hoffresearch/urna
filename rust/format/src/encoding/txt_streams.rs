@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! per-chunk independent canonical-text streams (the `txt_streams` wire
 //! codec, encoding id 10). re-layouts the `chunks_canonical` (0x02)
 //! section's COMPRESSED form from one concatenated zstd-19 blob into N

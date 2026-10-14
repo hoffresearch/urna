@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Downloads through the system `curl`: the binary links no network stack,
 //! so the only socket `urna setup` ever opens belongs to a curl child
 //! process, the same tool `installer.sh` uses. bytes are hashed while they

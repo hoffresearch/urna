@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! layout tests, carved out of `layout/mod.rs` so the module holds the
 //! layout alone (same precedent as `ann/codec/mod.rs`).
 

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Row loaders for declarative builds: sqlite/csv/jsonl/image_dir.
 
 Every loader returns the same shape: an ordered list of Row with the item

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Check that a release's version and origin agree before anything is built.
 
 Tree mode (every pull request, ``gatecheck.yml``): the workspace version in

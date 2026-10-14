@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the gate's corpus is fetched only when allowed and measured only if pinned.
 
 `tool/tasks/benchdata.py` resolves the corpus fullcheck measures. this suite

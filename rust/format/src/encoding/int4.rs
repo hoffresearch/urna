@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! int4 block-64 quantized embeddings (`encoding=7`).
 //!
 //! On disk:

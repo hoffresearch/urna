@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `BlobRef`: a content-hash reference to an original source artifact.
 
 use serde::{Deserialize, Serialize};

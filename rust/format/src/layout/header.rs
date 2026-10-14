@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! fixed-size binary header (128 bytes). The header contains
 //! everything a reader needs to discover the section table and the
 //! manifest without reading the file body. The `header_checksum` is

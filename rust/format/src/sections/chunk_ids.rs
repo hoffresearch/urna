@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `chunk_ids` section (`SECTION_CHUNK_IDS = 0x01`). Length-prefixed
 //! UTF-8 strings of the form `sha256:<64 hex>` - one per chunk.
 //!

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna search-ann <file> <query-json> -k K --ef N` - force the HNSW
 //! path. Falls back to exact if the file has no HNSW section.
 

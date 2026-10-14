@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna setup` end to end: the real binary against a `file://` release
 //! built here (a payload tarball and its `.sha256`, the layout the release
 //! workflow publishes), so the download, the checksum, the unpack and the

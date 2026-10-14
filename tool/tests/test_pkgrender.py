@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove each channel's manifest comes from the release, escaped, or not at all.
 
 `tool/tasks/pkgrender.py` fills the templates in `pkgs/` from a release's

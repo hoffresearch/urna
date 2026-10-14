@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The gop probe behind `gop_policy=auto`: encode a sample both ways, decide.
 
 Carved out of `urna/image/encstream.py`; both arms go through `encode_av1`

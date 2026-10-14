@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Regression for the mutation-fuzz findings in the BM25 codec: a posting
 //! whose doc id is outside `doc_lengths` indexed out of bounds at query
 //! time, and a hostile length field could wrap the cursor's `pos + n`

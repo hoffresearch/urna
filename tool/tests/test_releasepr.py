@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove tool/tasks/releasepr.sh prepares a release and nothing else.
 
 every case runs the real script, with the pinned cargo-release, in a scratch

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The validated installs of the presets setup offers, and the reviewed
 code they run: data, kept apart from the registry (`presetmap`) that
 attaches them.

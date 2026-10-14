@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Space kwarg parsing and band emission for `build()`, carved out of
 //! `build_inputs.rs`, which parses the chunks.
 

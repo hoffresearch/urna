@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Named embedding-model presets: models are data, not per-project code.
 
 A preset declares what a model IS (ids, dims, validated MRL ladder, modalities),

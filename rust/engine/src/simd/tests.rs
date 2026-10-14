@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! SIMD parity tests. Compare each backend's dispatched output to the
 //! scalar reference; tolerance is 1e-4 for f32 / i8 paths and 1e-3 for
 //! f16 (which loses ~5e-4 per component to rounding).

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Search an image corpus with a query image or a clinical description.
 
 Queries go through `retrieve`, so the embedder's `model_hash` is checked

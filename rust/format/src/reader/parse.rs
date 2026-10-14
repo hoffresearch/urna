@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `UrnaView::from_bytes` - header, section table, manifest, footer
 //! parsing. Validation hooks are in `super::validate` and run after the
 //! basic structure has been recognized.

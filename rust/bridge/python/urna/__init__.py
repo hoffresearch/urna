@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Python entry point for the .urna binary format.
 
 Loads the PyO3 extension `_urna` (built from the `urna-bridge` Rust crate)

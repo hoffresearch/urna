@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Negative paths for the int8 embeddings encoding (`encoding=3`):
 //!
 //! - Payload version other than 1 → `UnsupportedSectionVersion`.

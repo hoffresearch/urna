@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the declarative build contract (RFC-1) with the fake preset:
 spec validation errors name their key; total ordering is enforced; the
 fake e2e build emits valid multi-space files in all three output modes

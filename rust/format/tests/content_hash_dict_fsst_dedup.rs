@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! the load-bearing content_hash invariant for the three text levers: a
 //! file whose chunks_canonical is dict-framed (5), fsst-framed (9), or
 //! deduped (0x0B) must carry the SAME content_hash as its raw-text twin, so

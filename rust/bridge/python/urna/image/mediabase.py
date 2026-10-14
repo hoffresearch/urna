@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Shared media primitives for image corpora: canvas, uri, probes, hashes.
 
 The corpus contract: every image is normalized onto one fixed canvas before

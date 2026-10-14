@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """distpatch.py's edits against dist's text.
 
 `tool/tasks/distpatch.py` applies to release.yml the edits cargo-dist has no

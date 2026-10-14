@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Validation hooks called during `from_bytes` after structural
 //! parsing succeeds. Each function focuses on one invariant; callers
 //! get a typed error pointing at the offending section / dtype.

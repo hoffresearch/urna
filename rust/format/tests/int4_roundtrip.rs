@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! int4 block-64 codec round-trip and unit coverage (`encoding=7`).
 //!
 //! These tests live here (not inline in `encoding/int4.rs`) so the codec

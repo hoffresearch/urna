@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna inspect <file> [--json]` - header, section table, manifest,
 //! hashes. JSON variant mirrors `MmapUrnaFile::inspect_json` for
 //! programmatic consumers.

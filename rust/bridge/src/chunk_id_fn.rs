@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `chunk_id()` Python helper. Mirrors the Rust `chunk_id` derivation
 //! so Python ingestion can dedupe before passing chunks to `build()`.
 

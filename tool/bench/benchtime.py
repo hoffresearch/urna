@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Latency-bench helpers used by `presetrun.py`.
 
 Pure functions over a `urna.UrnaFile` plus a list of `(qvec, qtext)`

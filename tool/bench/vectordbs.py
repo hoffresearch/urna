@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """adapters for vectorcmp.py: one class per system, same four verbs.
 
 every adapter builds from the SAME float32 rows, persists to `path`, reports

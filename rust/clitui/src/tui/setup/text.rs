@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna setup --yes`, and any setup without a terminal on both ends (ci,
 //! a pipe, an npm postinstall): the default plan, no questions, one plain
 //! line per event, colored only when stdout is a terminal.

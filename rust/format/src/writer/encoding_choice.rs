@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Wire-encoding and dtype choices exposed by the builder. The two
 //! enums are 1:1 mapped to `SECTION_ENCODING_*` values; this layer
 //! keeps the public API enum-friendly and the layout module pure.

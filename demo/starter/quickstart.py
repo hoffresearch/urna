@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """build a .urna from a handful of paragraphs, ask it a question, get a cited
 answer. offline, deterministic, no torch. the same flow as `urna build` +
 `urna ask`, on the python surface.

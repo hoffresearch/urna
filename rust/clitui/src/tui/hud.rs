@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Drawing primitives shared by the installer and the explorer: the
 //! rounded panel, the thin gauge, the dotted leader row and the checkbox.
 //! The panel, the gauge and the leader are adapted from noble's hud

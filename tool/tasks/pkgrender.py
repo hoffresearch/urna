@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Render each package channel's manifest from one release.
 
     python tool/tasks/pkgrender.py render --channel scoop \

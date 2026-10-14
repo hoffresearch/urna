@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The plan: a checkbox per step with what it will do (or why it cannot),
 //! and where every byte goes.
 

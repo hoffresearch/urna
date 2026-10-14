@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Recompute the header checksum, every in-bounds section checksum and the
 //! footer hash so a fuzzer-mutated container passes the integrity layer and
 //! reaches the decoders. Mirrors `tests/common/mutation.rs::reseal`.

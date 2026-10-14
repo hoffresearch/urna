@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Negative-decode tests for the HNSW payload.
 //!
 //! A crafted payload must yield a typed `Err`, never a panic or a giant

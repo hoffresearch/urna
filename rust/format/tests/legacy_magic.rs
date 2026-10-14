@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Files written before the rename carry the `NEST` magic. The reader
 //! accepts them unchanged (same layout, same hashes); the writer never
 //! emits that magic; any other magic is still rejected.
