@@ -1,0 +1,61 @@
+# the release's package files for one channel: the tag from the release
+# plan (a post-announce job) or from the dispatch input, refused unless it
+# is vX.Y.Z; that release's dist-manifest.json and sha256.sum; and
+# pkgs/<channel> rendered by tool/tasks/pkgrender.py into
+# $RUNNER_TEMP/render, which refuses a manifest of any other tag. the job's
+# checkout must hold Cargo.toml, the channel's templates,
+# tool/tasks/pkgrender.py and this folder; the steps after it read the tag
+# and the version from its outputs.
+name: pkgrender
+description: render a channel's package files from a published release
+inputs:
+  channel:
+    description: the pkgrender.py channel (conda, scoop, dnf, wingt, choco)
+    required: true
+  plan:
+    description: the release plan JSON, when called as a post-announce job
+    required: false
+    default: ""
+  tag:
+    description: the release tag, vX.Y.Z, when dispatched by hand
+    required: false
+    default: ""
+  token:
+    description: a token that can read the repository's releases
+    required: false
+    default: ${{ github.token }}
+outputs:
+  tag:
+    description: the release tag
+    value: ${{ steps.render.outputs.tag }}
+  version:
+    description: the release version, the tag without its v
+    value: ${{ steps.render.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - name: the release's manifest and checksums, rendered
+      id: render
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        CHANNEL: ${{ inputs.channel }}
+        PLAN: ${{ inputs.plan }}
+        TAG_INPUT: ${{ inputs.tag }}
+      run: |
+        set -eu
+        if [ -n "$PLAN" ]; then
+          tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+        else
+          tag="$TAG_INPUT"
+        fi
+        [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
+        gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
+        # windows runners name it python; python3 there can be the store's stub.
+        py=python3
+        [ "$RUNNER_OS" = Windows ] && py=python
+        "$py" tool/tasks/pkgrender.py render --channel "$CHANNEL" --tag "$tag" \
+          --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
+          --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
+        echo "tag=$tag" >> "$GITHUB_OUTPUT"
+        echo "version=${tag#v}" >> "$GITHUB_OUTPUT"

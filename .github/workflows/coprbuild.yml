@@ -52,29 +52,29 @@ jobs:
             .github/coprtools.txt
             pkgs/linux/dnf/urna.spec
             tool/tasks/pkgrender.py
+            .github/actions/pkgrender
           sparse-checkout-cone-mode: false
-      - name: the release's manifest, checksums and archives
+      - name: the release's manifest and checksums, rendered
+        id: release
+        uses: ./.github/actions/pkgrender
+        with:
+          channel: dnf
+          plan: ${{ inputs.plan }}
+          tag: ${{ inputs.tag }}
+      - name: the release's archives
         env:
+          TAG: ${{ steps.release.outputs.tag }}
           GH_TOKEN: ${{ github.token }}
-          PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -eu
-          if [ -n "$PLAN" ]; then
-            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
-          else
-            tag="$TAG_INPUT"
-          fi
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
           top="$RUNNER_TEMP/rpmbuild"
           mkdir -p "$top/SOURCES" "$top/SPECS"
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'urna-*-unknown-linux-musl.tar.xz' -D "$top/SOURCES"
+          gh release download "$TAG" -R "$GITHUB_REPOSITORY" -p 'urna-*-unknown-linux-musl.tar.xz' -D "$top/SOURCES"
           (cd "$top/SOURCES" && grep -E 'unknown-linux-musl\.tar\.xz$' "$RUNNER_TEMP/rel/sha256.sum" | sed 's/ \*/  /' | sha256sum -c -)
-          echo "TAG=$tag" >> "$GITHUB_ENV"
-          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
       - name: skip a version copr already built
         id: have
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -eu
           built="$(curl -fsS "https://copr.fedorainfracloud.org/api_3/package/?ownername=${PROJECT%/*}&projectname=${PROJECT#*/}&packagename=urna&with_latest_succeeded_build=true" \
@@ -86,9 +86,6 @@ jobs:
         run: |
           set -eu
           top="$RUNNER_TEMP/rpmbuild"
-          python3 tool/tasks/pkgrender.py render --channel dnf --tag "$TAG" \
-            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
-            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           cp "$RUNNER_TEMP/render/linux/dnf/urna.spec" "$top/SPECS/"
           rpmbuild --define "_topdir $top" -bs "$top/SPECS/urna.spec"
           ls -l "$top"/SRPMS/

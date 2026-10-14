@@ -41,13 +41,19 @@ rules:
 
   # the `$/` syntax for same-repository workflows is newer than actionlint
   # 1.7.12, which refuses it (rhysd/actionlint#711), and dist writes `./`.
-  # for a reusable workflow, `./` already resolves to the caller's commit.
+  # for a reusable workflow, `./` already resolves to the caller's commit;
+  # for the local render action, `./` is the job's own checkout.
   self-repository:
     ignore:
       - release.yml
       - rehearsal.yml
       - wheelmake.yml
       - pypiindex.yml
+      - condaship.yml
+      - scoopship.yml
+      - coprbuild.yml
+      - wingtship.yml
+      - chocoship.yml
 
   # npm (dist's publish job) and crates.io (rustready.yml) still publish
   # with a token; trusted publishing needs registry setup by the maintainer.
