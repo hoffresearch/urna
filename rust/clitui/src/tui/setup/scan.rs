@@ -409,9 +409,19 @@ impl Scan {
     }
 }
 
-/// `$HOME/x` as `~/x`, for display only.
+/// `$HOME/x` as `~/x`, for display only. On Windows `current_exe` names
+/// the binary by its verbatim path (`\\?\C:\...`, `\\?\UNC\host\...`);
+/// the prefix only lifts the path-length limit, so it is not shown.
 pub fn tilde(p: &Path) -> String {
-    crate::tui::txt::home(&p.display().to_string())
+    let s = p.display().to_string();
+    let s = if let Some(rest) = s.strip_prefix(r"\\?\UNC\") {
+        format!(r"\\{rest}")
+    } else if let Some(rest) = s.strip_prefix(r"\\?\") {
+        rest.to_string()
+    } else {
+        s
+    };
+    crate::tui::txt::home(&s)
 }
 
 #[cfg(test)]
@@ -435,6 +445,19 @@ mod tests {
         std::fs::write(t.join("__init__.py"), b"").unwrap();
         assert!(has_torch(&win));
         std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn tilde_hides_the_windows_verbatim_prefix() {
+        assert_eq!(
+            tilde(Path::new(r"\\?\D:\scoop\apps\urna\0.5.6\urna.exe")),
+            r"D:\scoop\apps\urna\0.5.6\urna.exe"
+        );
+        assert_eq!(
+            tilde(Path::new(r"\\?\UNC\host\share\urna.exe")),
+            r"\\host\share\urna.exe"
+        );
+        assert_eq!(tilde(Path::new("/opt/urna/bin/urna")), "/opt/urna/bin/urna");
     }
 
     #[test]
