@@ -20,8 +20,9 @@ of `pkgs/` and a Cargo.toml with `[workspace.metadata.pkgs]`:
   another tag is refused;
   the PowerShell script gets no text at all;
 - workflows: each step that renders with `--tag "$tag"` sets `tag` in its
-  own script, since a shell variable does not outlive its step; the later
-  steps read `$TAG` from the job's environment.
+  own script, since a shell variable does not outlive its step; the five
+  channel jobs render through `.github/actions/pkgrender`, which their
+  sparse checkout holds.
 
 Run: python tool/tests/test_pkgrender.py
 """
@@ -39,6 +40,13 @@ from pathlib import Path
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
+CHANNEL_JOBS = {
+    "condaship": "conda",
+    "scoopship": "scoop",
+    "coprbuild": "dnf",
+    "wingtship": "wingt",
+    "chocoship": "choco",
+}
 spec = importlib.util.spec_from_file_location("pkgrender", REPO / "tool/tasks/pkgrender.py")
 pkgrender = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(pkgrender)
@@ -270,9 +278,13 @@ def case_escaping(tmp: Path):
 
 
 def case_workflow_tags():
+    files = sorted((REPO / ".github" / "workflows").glob("*.yml"))
+    files += sorted((REPO / ".github" / "actions").glob("*/action.yml"))
     renders = 0
-    for wf in sorted((REPO / ".github" / "workflows").glob("*.yml")):
-        for job, spec in yaml.safe_load(wf.read_text(encoding="utf-8"))["jobs"].items():
+    for wf in files:
+        doc = yaml.safe_load(wf.read_text(encoding="utf-8"))
+        jobs = doc["jobs"].items() if "jobs" in doc else [("runs", doc["runs"])]
+        for job, spec in jobs:
             for step in spec.get("steps", []):
                 run = step.get("run", "")
                 if "pkgrender.py render" not in run:
@@ -282,8 +294,15 @@ def case_workflow_tags():
                     assert re.search(r"^\s*tag=", run, re.M), (
                         f"{wf.name} {job} '{step.get('name')}' reads $tag but never sets it"
                     )
-    assert renders >= 5, renders
-    print(f"case 4 (the {renders} render steps set the tag they read): OK")
+    assert renders == 2, renders
+    for wf, channel in CHANNEL_JOBS.items():
+        doc = yaml.safe_load((REPO / ".github" / "workflows" / f"{wf}.yml").read_text())
+        steps = next(iter(doc["jobs"].values()))["steps"]
+        uses = [s for s in steps if s.get("uses") == "./.github/actions/pkgrender"]
+        assert len(uses) == 1 and uses[0]["with"]["channel"] == channel, wf
+        sparse = steps[0]["with"]["sparse-checkout"].split()
+        assert ".github/actions/pkgrender" in sparse, f"{wf} does not check out the action"
+    print(f"case 4 (the {renders} render steps set the tag they read; the 5 channel jobs render through the action): OK")
 
 
 def main():

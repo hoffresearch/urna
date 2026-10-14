@@ -50,25 +50,19 @@ jobs:
             Cargo.toml
             pkgs/conda/recipe.yaml
             tool/tasks/pkgrender.py
+            .github/actions/pkgrender
           sparse-checkout-cone-mode: false
-      - name: the release's manifest and checksums
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          set -eu
-          if [ -n "$PLAN" ]; then
-            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
-          else
-            tag="$TAG_INPUT"
-          fi
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          echo "TAG=$tag" >> "$GITHUB_ENV"
-          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: the release's manifest and checksums, rendered
+        id: release
+        uses: ./.github/actions/pkgrender
+        with:
+          channel: conda
+          plan: ${{ inputs.plan }}
+          tag: ${{ inputs.tag }}
       - name: skip a version the channel already serves
         id: have
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -eu
           code="$(curl -s -o /dev/null -w '%{http_code}' "https://api.anaconda.org/release/$CHANNEL/urna/$VERSION")"
@@ -88,9 +82,6 @@ jobs:
         if: steps.have.outputs.skip == 'false'
         run: |
           set -eu
-          python3 tool/tasks/pkgrender.py render --channel conda --tag "$TAG" \
-            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
-            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           for platform in linux-64 linux-aarch64 osx-64 osx-arm64 win-64; do
             "$RUNNER_TEMP/rattler-build" build -r "$RUNNER_TEMP/render/conda/recipe.yaml" \
               --target-platform "$platform" --test native --output-dir "$RUNNER_TEMP/out"

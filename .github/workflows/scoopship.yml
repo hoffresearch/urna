@@ -47,25 +47,15 @@ jobs:
             Cargo.toml
             pkgs/scoop/urna.json
             tool/tasks/pkgrender.py
+            .github/actions/pkgrender
           sparse-checkout-cone-mode: false
-      - name: the release's manifest and checksums
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          set -eu
-          if [ -n "$PLAN" ]; then
-            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
-          else
-            tag="$TAG_INPUT"
-          fi
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          python3 tool/tasks/pkgrender.py render --channel scoop --tag "$tag" \
-            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
-            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
-          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - name: the release's manifest and checksums, rendered
+        id: release
+        uses: ./.github/actions/pkgrender
+        with:
+          channel: scoop
+          plan: ${{ inputs.plan }}
+          tag: ${{ inputs.tag }}
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: ${{ env.BUCKET }}
@@ -73,6 +63,8 @@ jobs:
           path: bucket-repo
           persist-credentials: true
       - name: push the manifest
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -eu
           cd bucket-repo

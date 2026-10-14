@@ -53,27 +53,19 @@ jobs:
             Cargo.toml
             pkgs/wingt
             tool/tasks/pkgrender.py
+            .github/actions/pkgrender
           sparse-checkout-cone-mode: false
-      - name: the release's manifest and checksums
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          set -eu
-          if [ -n "$PLAN" ]; then
-            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
-          else
-            tag="$TAG_INPUT"
-          fi
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          python3 tool/tasks/pkgrender.py render --channel wingt --tag "$tag" \
-            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
-            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
-          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: the release's manifest and checksums, rendered
+        id: release
+        uses: ./.github/actions/pkgrender
+        with:
+          channel: wingt
+          plan: ${{ inputs.plan }}
+          tag: ${{ inputs.tag }}
       - name: skip a version winget-pkgs already holds
         id: have
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -eu
           url="https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/h/HoffResearch/Urna/${VERSION}/${PACKAGE}.yaml"

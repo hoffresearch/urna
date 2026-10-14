@@ -55,27 +55,19 @@ jobs:
             Cargo.toml
             pkgs/choco
             tool/tasks/pkgrender.py
+            .github/actions/pkgrender
           sparse-checkout-cone-mode: false
-      - name: the release's manifest and checksums
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag }}
-        run: |
-          set -eu
-          if [ -n "$PLAN" ]; then
-            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
-          else
-            tag="$TAG_INPUT"
-          fi
-          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
-          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          python tool/tasks/pkgrender.py render --channel choco --tag "$tag" \
-            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
-            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
-          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: the release's manifest and checksums, rendered
+        id: release
+        uses: ./.github/actions/pkgrender
+        with:
+          channel: choco
+          plan: ${{ inputs.plan }}
+          tag: ${{ inputs.tag }}
       - name: skip a version the repository publishes
         id: have
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -eu
           url="https://community.chocolatey.org/api/v2/Packages(Id='${PACKAGE}',Version='${VERSION}')"
@@ -92,6 +84,8 @@ jobs:
             *) echo "skip=false" >> "$GITHUB_OUTPUT" ;;
           esac
       - name: pack, install from the package, run
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/pkg"
@@ -103,6 +97,7 @@ jobs:
       - name: push to the community repository
         if: steps.have.outputs.skip == 'false'
         env:
+          VERSION: ${{ steps.release.outputs.version }}
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
           set -eu
