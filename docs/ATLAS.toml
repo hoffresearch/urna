@@ -3167,8 +3167,14 @@ links = [
 [[inventory.distribution]]
 path = ".github/workflows/stampwork.yml"
 kind = "ci-workflow"
-purpose = "The release's OpenTimestamps proof, a global-artifacts job between the global build and the host: it stamps the global build's sha256.sum under a read-only token and hands sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
-links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py"]
+purpose = "The release's OpenTimestamps proofs, a global-artifacts job after the global build and linuxpack and before the host: it stamps sha256.sum and packages.sha256.sum under a read-only token and hands sha256.sum.ots and packages.sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
+links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py", ".github/workflows/linuxpack.yml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/linuxpack.yml"
+kind = "ci-workflow"
+purpose = "The release's .deb and .rpm packages, a global-artifacts job after the global build and before stampwork and the host: nfpm (pinned by version and SHA-256) packs the x86_64 and aarch64 musl archives from pkgs/linux/nfpm.yaml rendered by pkgrender.py from the plan and sha256.sum, writes packages.sha256.sum, installs the amd64 .deb and checks its version, and hands the four packages to the host as `artifacts-linuxpack`"
+links = ["pkgs/linux/nfpm.yaml", "tool/tasks/pkgrender.py", "tool/tasks/distpatch.py", ".github/workflows/stampwork.yml", "Cargo.toml"]
 
 [[inventory.distribution]]
 path = ".github/stamplock.txt"
