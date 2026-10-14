@@ -17,9 +17,13 @@ Edits:
 - the npm publish job's ``setup-node`` sets ``package-manager-cache: false``
   (zizmor ``cache-poisoning``): a job that publishes restores no cache, and
   setup-node v5+ turns caching on by default.
-- the global-artifacts job ``custom-stampwork`` also waits for
+- the global-artifacts job ``custom-linuxpack`` also waits for
   ``build-global-artifacts``: dist runs a global-artifacts job beside the
-  global build, but the stamp needs the ``sha256.sum`` that build writes.
+  global build, but the packages are rendered from the ``sha256.sum`` that
+  build writes.
+- the global-artifacts job ``custom-stampwork`` also waits for
+  ``build-global-artifacts`` and ``custom-linuxpack``: the stamp covers the
+  ``sha256.sum`` of the one and the ``packages.sha256.sum`` of the other.
 
 Subcommands:
 
@@ -71,7 +75,23 @@ EDITS = [
         "      - build-local-artifacts\n"
         "      - custom-wheelmake\n"
         "      - build-global-artifacts\n"
+        "      - custom-linuxpack\n"
         "    uses: ./.github/workflows/stampwork.yml\n",
+    ),
+    (
+        "  custom-linuxpack:\n"
+        "    needs:\n"
+        "      - plan\n"
+        "      - build-local-artifacts\n"
+        "      - custom-wheelmake\n"
+        "    uses: ./.github/workflows/linuxpack.yml\n",
+        "  custom-linuxpack:\n"
+        "    needs:\n"
+        "      - plan\n"
+        "      - build-local-artifacts\n"
+        "      - custom-wheelmake\n"
+        "      - build-global-artifacts\n"
+        "    uses: ./.github/workflows/linuxpack.yml\n",
     ),
 ]
 

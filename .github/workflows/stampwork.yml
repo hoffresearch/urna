@@ -1,14 +1,17 @@
-# an opentimestamps proof that the release's sha256.sum (the checksum of
-# every archive and the npm package) existed at release time, published
-# with the release as sha256.sum.ots. the calendars commit it to bitcoin
-# within hours; until then the proof is pending, and `ots upgrade`
-# completes any copy of it from the calendars at any later time.
+# opentimestamps proofs that the release's sha256.sum (the checksum of
+# every archive and the npm package) and packages.sha256.sum (the .deb and
+# .rpm packages linuxpack built) existed at release time, published with
+# the release as sha256.sum.ots and packages.sha256.sum.ots. the calendars
+# commit them to bitcoin within hours; until then a proof is pending, and
+# `ots upgrade` completes any copy of it from the calendars at any later
+# time.
 #
 # releases here are immutable: an asset can only be added when the host job
-# creates the release. so this runs between the global build, which writes
-# sha256.sum, and the host, which publishes every `artifacts-*` artifact of
-# the run: the proof travels as `artifacts-stamp`, and no job here can
-# write to the release. a past release cannot gain the proof.
+# creates the release. so this runs after the global build, which writes
+# sha256.sum, and linuxpack, which writes packages.sha256.sum, and before
+# the host, which publishes every `artifacts-*` artifact of the run: the
+# proofs travel as `artifacts-stamp`, and no job here can write to the
+# release. a past release cannot gain a proof.
 #
 # if fewer than two calendars answer, the stamp fails and the host does not
 # run, so nothing is published; re-running the failed jobs resumes the
@@ -20,7 +23,7 @@
 #
 # trigger: cargo-dist calls it as a global-artifacts job
 # (`global-artifacts-jobs` in Cargo.toml); distpatch.py makes it wait for
-# build-global-artifacts, and the host waits for it.
+# build-global-artifacts and linuxpack, and the host waits for it.
 
 name: stampwork
 
@@ -56,16 +59,23 @@ jobs:
         with:
           name: artifacts-build-global
           path: ${{ runner.temp }}/global
-      - name: stamp sha256.sum
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: artifacts-linuxpack
+          path: ${{ runner.temp }}/linuxpack
+      - name: stamp sha256.sum and packages.sha256.sum
         run: |
           set -eu
           mkdir -p "$RUNNER_TEMP/stamp"
-          cp "$RUNNER_TEMP/global/sha256.sum" "$RUNNER_TEMP/stamp/"
+          cp "$RUNNER_TEMP/global/sha256.sum" "$RUNNER_TEMP/linuxpack/packages.sha256.sum" "$RUNNER_TEMP/stamp/"
           cd "$RUNNER_TEMP/stamp"
-          ots stamp --timeout 30 sha256.sum
+          ots stamp --timeout 30 sha256.sum packages.sha256.sum
           ots info sha256.sum.ots
+          ots info packages.sha256.sum.ots
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: artifacts-stamp
-          path: ${{ runner.temp }}/stamp/sha256.sum.ots
+          path: |
+            ${{ runner.temp }}/stamp/sha256.sum.ots
+            ${{ runner.temp }}/stamp/packages.sha256.sum.ots
           if-no-files-found: error
