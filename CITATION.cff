@@ -7,8 +7,7 @@ type: software
 version: "0.5.6"
 date-released: "2026-10-14"
 authors:
-  - name: "Brenner Cruvinel"
-    given-names: Brenner
+  - given-names: Brenner
     family-names: Viana Cruvinel
     alias: Brenner Viana Cruvinel
     orcid: https://orcid.org/0009-0002-3079-8829
