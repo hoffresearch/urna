@@ -376,8 +376,8 @@ summary = "Same synthetic rows, same queries, same machine: urna exact / hybrid 
 [[inventory.root]]
 path = "docs/img"
 kind = "directory"
-purpose = "Every image the README and the repo pages use: the header (urna-hoff-research-db-iage-thumb-git.png) and the `urna setup` / `urna tui` screenshots; the README links them by raw main URL so crates.io and PyPI render them too (docs/ keeps text only; sovereign-ai.png sits here unreferenced)"
-links = ["README.md"]
+purpose = "Every image the README and the repo pages use: the header (urna-hoff-research-db-iage-thumb-git.png), the `urna setup` / `urna tui` screenshots and the demos recorded with anina (urna-build, urna-ask, and the installs urna-brew, urna-npm, urna-cargo, urna-pypi); the README and USAGE link them by raw main URL so crates.io, PyPI and npm render them too (docs/ keeps text only; sovereign-ai.png sits here unreferenced)"
+links = ["README.md", "docs/USAGE.md"]
 
 [[inventory.root]]
 path = "news"
@@ -425,7 +425,7 @@ links = ["Cargo.toml"]
 [[inventory.root]]
 path = "Cargo.toml"
 kind = "workspace-manifest"
-purpose = "Workspace members, edition, resolver, rust-version 1.85 (the MSRV of urna-format, urna-engine and urna-bridge; rust/clitui pins its own 1.88), and shared dependencies"
+purpose = "Workspace members, edition, resolver, rust-version 1.85 (the MSRV of urna-format, urna-engine and urna-bridge; rust/clitui pins its own 1.88), shared dependencies, and [workspace.metadata.pkgs]: the summary, description and tags every package channel shows"
 links = [
     "rust/format/Cargo.toml",
     "rust/engine/Cargo.toml",
@@ -2415,7 +2415,7 @@ links = ["tool/tasks/embedpack.py", "rust/bridge/python/urna/embed/presetqry.py"
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_preflight.py"
 kind = "python-test"
-purpose = "The release preflight against the checkout and against temp copies with one field drifted per case (a workspace pin, a crate not inheriting, a lockfile entry, each versioned CITATION field, the citation date, the changelog section, an entry under [Unreleased], a news/ fragment of no towncrier type), and the tag checks in throwaway repos (another version, off main, dated before the release, lightweight, a stale CITATION on the tag's commit while the checkout carries the fix, a release file missing from the commit); in fullcheck.sh and gatecheck.yml; a tag made at 22:30 at -03:00 fits a release dated the next UTC day, one dated two days later is refused"
+purpose = "The release preflight against the checkout and against temp copies with one field drifted per case (a workspace pin, a crate not inheriting, a lockfile entry, each versioned CITATION field, the citation date, the changelog section, an entry under [Unreleased], a news/ fragment of no towncrier type, a wheel description that opens unlike the crate's, a summary past 80 characters), and the tag checks in throwaway repos (another version, off main, dated before the release, lightweight, a stale CITATION on the tag's commit while the checkout carries the fix, a release file missing from the commit); in fullcheck.sh and gatecheck.yml; a tag made at 22:30 at -03:00 fits a release dated the next UTC day, one dated two days later is refused"
 links = ["tool/tasks/preflight.py"]
 
 [[inventory.data_docs_python_script_tests]]
@@ -3146,7 +3146,7 @@ links = [
 [[inventory.distribution]]
 path = "tool/tasks/preflight.py"
 kind = "python-source"
-purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's), the changelog section, and nothing under [Unreleased] with every news/ fragment named <issue>.<type>.md for a towncrier type; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
+purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's), the changelog section, and nothing under [Unreleased] with every news/ fragment named <issue>.<type>.md for a towncrier type; the package texts: the crate and wheel descriptions open with the same sentence and the [workspace.metadata.pkgs] summary fits in 80 characters; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
 links = [".github/workflows/tagverify.yml", ".github/workflows/gatecheck.yml", "tool/tests/test_preflight.py"]
 
 [[inventory.distribution]]

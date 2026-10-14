@@ -19,7 +19,10 @@ changed per case, and against throwaway git repos for the tag checks:
   commit has a stale CITATION while main and the checkout carry the fix
   (tag mode reads the tag's commit, not the working tree); a release file
   missing from the tag's commit;
-- edge case: a pin that drifts only in Cargo.lock (the manifests agree).
+- edge case: a pin that drifts only in Cargo.lock (the manifests agree);
+- package texts: a wheel description that opens unlike the crate's and a
+  summary past 80 characters are refused; a closing clause of the
+  channel's own passes.
 
 Run: python tool/tests/test_preflight.py
 """
@@ -31,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -40,6 +44,7 @@ preflight = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(preflight)
 
 FILES = ["Cargo.toml", "Cargo.lock", "CITATION.cff", "docs/CHANGELOG", "pyproject.toml"]
+FILES += ["pkgs/wheel/pyproject.toml"]
 VERSION = preflight.workspace_version(REPO)
 MARKER = "<!-- towncrier: each release lands below this line -->"
 GIT = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false"]
@@ -133,6 +138,35 @@ def test_a_drift_only_in_the_lockfile() -> None:
         edit(root, "Cargo.lock", lock, lock.replace(VERSION, bump(VERSION)))
         errors = preflight.check_tree(root)
         assert errors == [f"Cargo.lock: urna-bridge is {bump(VERSION)!r}, not {VERSION!r}"], errors
+
+
+def test_the_package_texts_agree() -> None:
+    wheel = tomllib.loads((REPO / preflight.WHEEL).read_text(encoding="utf-8"))
+    said = wheel["project"]["description"]
+    lead, clause = said.rsplit(", ", 1)
+    # the channel's own closing clause is free
+    with tempfile.TemporaryDirectory() as tmp:
+        root = copy_tree(Path(tmp))
+        edit(root, preflight.WHEEL, said, f"{lead}, from Python")
+        assert preflight.check_tree(root) == [], preflight.check_tree(root)
+    # the sentence before it is not
+    with tempfile.TemporaryDirectory() as tmp:
+        root = copy_tree(Path(tmp))
+        edit(root, preflight.WHEEL, said, f"A vector store, {clause}")
+        errors = preflight.check_tree(root)
+        assert len(errors) == 1 and "does not open like" in errors[0], errors
+    # nor a summary past the 80 characters a channel shows
+    pkgs = tomllib.loads((REPO / "Cargo.toml").read_text(encoding="utf-8"))
+    summary = pkgs["workspace"]["metadata"]["pkgs"]["summary"]
+    for new in (summary + "x" * (81 - len(summary)), ""):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = copy_tree(Path(tmp))
+            edit(root, "Cargo.toml", f'summary = "{summary}"', f'summary = "{new}"')
+            errors = preflight.check_tree(root)
+            assert errors == [
+                f"Cargo.toml: [workspace.metadata.pkgs] summary is {len(new)} characters, "
+                f"not 1 to {preflight.SUMMARY_MAX}"
+            ], errors
 
 
 def test_a_tag_on_main_passes() -> None:
