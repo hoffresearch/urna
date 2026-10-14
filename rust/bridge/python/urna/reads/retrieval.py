@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """offline retrieve convenience + the one-gif flagship demo over demo/corpora/intro.
 
 this is the agent-native flagship end to end, OFFLINE and deterministic:
@@ -60,7 +56,7 @@ def retrieve(urnafile, query: str, k: int = 5, embedder=None, verify_model: bool
 
 
 def build_demo(out_path: str) -> str:
-    """build a .urna from the cc0 demo corpus with the potion embedder.
+    """build a .urna from the demo corpus with the potion embedder.
     deterministic + offline: same docs + same table => byte-identical file."""
     emb = potion_embedder()
     cfg = BuildConfig(

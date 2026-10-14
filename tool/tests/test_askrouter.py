@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the query-embedder ROUTING (RFC-4): a manifest whose
 embedding_model is a registry model routes ask/retrieve through
 presetqry.py (observable: the fake preset's env gate error surfaces

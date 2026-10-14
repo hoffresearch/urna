@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! On-disk encoding/decoding for the HNSW section (`0x07`, `encoding=raw`).
 //!
 //! Payload version 2 bitpacks the graph with the shared `intpack` codec:

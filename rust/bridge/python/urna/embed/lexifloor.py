@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Default static embedder for forge: offline, deterministic, no network.
 
 the flagship is a pip-installable retrieve() that must work offline by

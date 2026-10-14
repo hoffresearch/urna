@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! aarch64 NEON implementations. Gated by `cfg(target_arch = "aarch64")`;
 //! the dispatcher only calls these after
 //! `is_aarch64_feature_detected!("neon")` returns true (which is

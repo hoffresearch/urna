@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `Bm25Index` struct + build/search. Encoding/decoding lives in
 //! `super::codec`.
 

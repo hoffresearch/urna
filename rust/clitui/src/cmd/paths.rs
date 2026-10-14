@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Where an installed urna keeps its data: the embedder payload
 //! (`<root>/urna/python/urna/...`) and the python env `urna setup` creates
 //! (`<root>/urna/venv`). One ladder for every reader and for the installer,

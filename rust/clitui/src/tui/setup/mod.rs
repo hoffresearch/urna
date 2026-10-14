@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna setup`: the installer every channel ends in. brew, npm, crates.io
 //! and the tarballs all ship the bare binary; this lays down what the
 //! binary cannot carry (the offline embedder payload and a python with

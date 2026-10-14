@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `UrnaFileBuilder::build_bytes` - orchestrates manifest validation,
 //! payload encoding, layout planning, buffer assembly, and final
 //! checksums + file_hash. Result is byte-deterministic for identical

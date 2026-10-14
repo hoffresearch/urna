@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Deterministic mutation fuzz over the reader: build real `.urna` files in
 //! every stored-dtype / text-encoding combination the writer supports,
 //! then hammer `UrnaView::from_bytes` and every section decoder with

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `MmapUrnaFile`: owns the mmap, parses section metadata once, exposes
 //! search/inspect entry points. Search math lives in `super::search`;
 //! dtype-agnostic vector materialization lives in `super::materialize`.

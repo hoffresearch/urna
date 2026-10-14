@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 // the format crate has no `unsafe` (its byte views go through bytemuck), so
 // it forbids it outright; the workspace cannot, the engine's SIMD needs it.
 #![forbid(unsafe_code)]

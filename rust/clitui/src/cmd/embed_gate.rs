@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The ONE copy of the query-embedder spawn protocol and the three-layer
 //! model gate (name -> dim -> model_hash). `search-text`, `ask` and
 //! `retrieve` all come through here.

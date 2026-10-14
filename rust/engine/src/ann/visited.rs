@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! visited-set abstraction for `layer_search`.
 //!
 //! the build loop calls `layer_search` once per layer per inserted node

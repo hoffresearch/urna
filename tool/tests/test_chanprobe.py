@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the channel probes wait for the exact version and the report survives a failure.
 
 `tool/tasks/chanprobe.py` is what setuptest waits with and what

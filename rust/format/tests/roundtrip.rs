@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 // not under miri: full-file roundtrips through the zstd text presets (c code miri cannot call) on large fixtures; the raw-preset paths are covered by golden and the section tests under miri.
 #![cfg(not(miri))]
 #![allow(

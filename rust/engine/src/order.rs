@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Total-order comparators for f32 scores and distances.
 //!
 //! `partial_cmp(..).unwrap_or(Equal)` is NOT a total order once a NaN is in

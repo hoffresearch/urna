@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Discovery layer for image corpora: what goes in, and in what order.
 
 Separate from the builder because the ordering rules are the load-bearing

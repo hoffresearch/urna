@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! float16 conversions for the `encoding=2` embeddings path. The
 //! runtime never accumulates in f16 - quantize at write time, decode
 //! lane-by-lane into f32 at read time.

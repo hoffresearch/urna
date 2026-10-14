@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Fitting text into columns: keep the end of a path, wrap prose, and
 //! show the home directory as `~`.
 

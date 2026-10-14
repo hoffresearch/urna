@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! bounded breadth-first traversal over `CsrIndex`. pure integer work: it
 //! GENERATES candidate chunk ordinals and never scores. the caller hands the
 //! deduped candidate set to the mandatory exact-cosine rerank

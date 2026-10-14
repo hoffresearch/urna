@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """urna vs the embedded vector stores it gets compared to, one table.
 
 same rows, same queries, same machine, same process; every number is

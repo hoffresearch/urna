@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Guard test: the sentence-transformers entrypoints force HuggingFace
 OFFLINE by default, and honor URNA_ALLOW_DOWNLOAD=1 as the explicit opt-in
 (audit findings S5 / P1).

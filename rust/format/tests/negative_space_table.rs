@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! negative paths for the space_table (0x15) codec: every malformed or
 //! hostile payload must return a typed `UrnaError`, NEVER panic (mirrors
 //! negative_blob_refs discipline). plus an exhaustive prefix-truncation

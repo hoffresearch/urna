@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Measurement battery for image corpora, grau publicacao.
 
 One home for the statistics every published image-corpus number must carry,

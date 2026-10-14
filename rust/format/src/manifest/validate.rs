@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Manifest validation. Single-purpose: turn the data shape into a
 //! "valid for v1 contract or not" answer with typed errors.
 

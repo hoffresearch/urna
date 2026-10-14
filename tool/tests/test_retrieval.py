@@ -1,8 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
-"""self-test for the offline retrieve flagship over the cc0 demo corpus.
+"""self-test for the offline retrieve flagship over the demo corpus.
 
 proves the one-gif demo path is sovereign and honest:
   - build_demo + retrieve open NO socket (block connect/getaddrinfo first)

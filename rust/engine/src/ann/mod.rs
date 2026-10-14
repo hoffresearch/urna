@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Pure-Rust HNSW index for approximate nearest neighbor search.
 //!
 //! This is a minimal, self-contained HNSW implementation tailored to

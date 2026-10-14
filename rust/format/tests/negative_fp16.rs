@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Negative paths for the float16 embeddings encoding (`encoding=2`):
 //!
 //! - `validate_embeddings_values` walks the section and rejects NaN

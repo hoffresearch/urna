@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Toast notifications, stacked at the top right. Adapted from
 //! ratatui-toaster 0.1.4 (JayanAXHF, MIT OR Unlicense): the same look, a
 //! padded message between quadrant bars in the kind's color. changes: the

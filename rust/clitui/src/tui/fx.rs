@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Every animation the ui runs, as tachyonfx presets. Screens never build
 //! effects inline: they ask for one of these by intent (a page coming in, a
 //! row landing, a success), so the motion language stays the same across

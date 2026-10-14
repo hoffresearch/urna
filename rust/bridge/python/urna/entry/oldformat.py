@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Convert a legacy SQLite-based truw_ptbr.urna into the new v1 binary format.
 
 Legacy layout:

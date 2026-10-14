@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Build a searchable `.urna` corpus from an image directory or from PDFs.
 
     images (or rendered pdf pages)

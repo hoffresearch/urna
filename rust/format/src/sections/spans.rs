@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `chunks_original_spans` section (`SECTION_CHUNKS_ORIGINAL_SPANS = 0x03`).
 //! `(source_uri, byte_start, byte_end)` per chunk - the offset into the
 //! original source document the chunk text came from. Required for

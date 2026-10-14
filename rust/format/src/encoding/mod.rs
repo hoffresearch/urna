@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! section payload encoding (raw / zstd / float16 / int8).
 //!
 //! Two orthogonal axes:

@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """End-to-end tests for the image corpus pipeline.
 
 These run against a dataset generated inside the test, not against a path

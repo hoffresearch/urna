@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Drive the release binary's space surface (RFC-4): search-space happy path
 and typed errors, the stats spaces block, inspect --json spaces[], and
 benchmark --space. Corpus built via urna.build spaces= (as test_spaceband).

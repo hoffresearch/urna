@@ -8,7 +8,7 @@ domain: demos
 
 # quickstart
 
-the smallest corpus that exercises the whole loop: twelve paragraphs of cc0
+the smallest corpus that exercises the whole loop: twelve paragraphs of original
 prose about urna itself (`docs.jsonl`, one paragraph per row, mirrored from
 `demo/corpora/intro/`), the smallest spec that builds them
 (`corpus.toml`), and the same build on the python surface (`quickstart.py`).

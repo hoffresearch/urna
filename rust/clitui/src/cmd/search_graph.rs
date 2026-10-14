@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna search-graph <file> <query-json> -k K --hops H --ef N`: seed from
 //! the exact-cosine top-`ef`, expand a bounded bfs over the chunk-to-chunk
 //! csr, then exact-rerank the union. the graph only generates candidates;

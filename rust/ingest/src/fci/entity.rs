@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Entities and typed edges. Extraction is a forge-belt concern (later,
 //! and allowed to be non-deterministic), but the .fci stores entities and
 //! edges in a fixed shape so the deterministic serialize is the

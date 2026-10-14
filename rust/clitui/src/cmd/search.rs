@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna search <file> <query-as-json> -k K` - exact path with a JSON
 //! array query vector.
 

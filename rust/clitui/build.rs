@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Decides whether this binary is a release or a development build, from
 //! the tag, never from a value kept by hand.
 //!

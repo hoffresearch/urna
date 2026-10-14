@@ -1,14 +1,10 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Recall harness: the real potion table vs the lexical floor on demo/corpora/intro.
 
 run: python tool/bench/recallcmp.py
 
 each query is a PARAPHRASE of one demo doc that avoids the doc's literal
 keywords, so a lexical embedder (shared-token cosine) has little to grab while a
-semantic embedder retrieves by meaning. we split the four cc0 docs into
+semantic embedder retrieves by meaning. we split the four demo docs into
 paragraph passages, embed them with both embedders, rank passages per query, and
 report recall@1 / recall@3 / mrr side by side, plus the top hit each picks. the
 point is not a leaderboard, it is the contrast: potion finds the right doc by

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Regression for the first coverage-guided fuzz finding (cargo-fuzz,
 //! `section-decoders`, 2026-09-05): a 90-byte intpack-repacked spans payload
 //! claimed a uri pool of 1.3 billion entries and `Vec::with_capacity` asked

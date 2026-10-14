@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the workspaces outside the root keep its lint policy.
 
 rust/ingest (the root excludes it) and fuzz/ (cargo-fuzz needs nightly)

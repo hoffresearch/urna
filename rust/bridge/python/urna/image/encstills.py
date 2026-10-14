@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Per-image (still) encoders of the image corpus media: avif and jxl.
 
 Carved out of `urna/image/encstream.py` (which keeps the av1 stream encoder

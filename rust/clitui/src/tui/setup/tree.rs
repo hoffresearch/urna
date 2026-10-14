@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The payload of a development build: the checkout it was compiled from
 //! (`cmd::buildid::DEV_TREE`), staged in the release layout
 //! (`cmd::payload::REQUIRED`) and laid down like a downloaded one. A

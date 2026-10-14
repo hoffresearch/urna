@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna tui`: the corpus explorer, full screen. four tabs (home, corpus,
 //! ask, health), a file picker overlay, toasts, and tachyonfx on every
 //! change of screen. slow work (opening a corpus, asking it, the doctor

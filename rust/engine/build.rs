@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! detect whether the compiling rustc is new enough for the aarch64 NEON
 //! f16 intrinsics (`float16x4_t` / `vcvt_f32_f16`, stable since 1.94). when
 //! it is, emit `cfg(neon_f16)` so the f16 dot product uses the vectorized

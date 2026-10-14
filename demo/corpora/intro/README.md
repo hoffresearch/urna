@@ -14,9 +14,8 @@ with a clickable `urna://` citation that reopens the exact span.
 
 ## license
 
-these documents are ORIGINAL prose written for the urna demo and are released
-into the public domain under cc0 1.0
-(https://creativecommons.org/publicdomain/zero/1.0/). there is no third-party
+these documents are ORIGINAL prose written for the urna demo, under the MIT
+license of the repository (`LICENSE` at the root). there is no third-party
 or academic-only data here, so the corpus can be redistributed with the
 project without any licensing risk. that is deliberate: the flagship demo must
 ship a corpus anyone can copy.

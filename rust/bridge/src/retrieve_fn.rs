@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `UrnaFile.retrieve(query, k, ...)`: the agent-native flagship on the
 //! python surface. returns cited spans where each hit's `score` IS the
 //! exact-cosine rerank value (the same gate rerank_contract.rs enforces),

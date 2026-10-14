@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Persistent worker process for sentence-transformers multimodal embedders.
 
 Loading two trust_remote_code ST models (jina + wemm) in ONE process

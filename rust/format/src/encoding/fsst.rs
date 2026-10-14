@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! fsst (fast static symbol table) text codec over per-chunk canonical
 //! streams (the `fsst` wire codec, encoding id 9). a clean-room 255-entry
 //! static symbol table maps frequent 1-8 byte substrings to single-byte

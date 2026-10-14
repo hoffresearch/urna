@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Self-test for the forge REAL static embedder (#10, model2vec/potion-base-8M).
 
 run: python tool/tests/test_potiontab.py   (or: pytest this file)

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The edits release.yml needs that cargo-dist has no setting for.
 
 ``.github/workflows/release.yml`` is dist's template. Each edit below is

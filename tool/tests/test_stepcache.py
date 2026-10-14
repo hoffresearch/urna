@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the fullcheck step cache skips a step only when nothing it reads moved.
 
 `tool/tasks/stepcache.py` keys each fullcheck step by a hash of its inputs.

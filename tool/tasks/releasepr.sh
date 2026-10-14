@@ -7,7 +7,7 @@
 # branch release-X.Y.Z:
 #   1. cargo-release, at the version pinned below, sets the workspace version,
 #      the urna-format and urna-engine pins and the lockfile (`cargo release
-#      version`); towncrier, at the version pinned below, turns the news/
+#      version`); towncrier, at the version pinned below, turns the docs/news/
 #      fragments into the release's dated changelog section and removes
 #      them (`towncrier build`); cargo-release sets the versioned fields of
 #      CITATION.cff (`cargo release replace`, the list in
@@ -60,13 +60,13 @@ git -C "$repo" rev-parse --verify --quiet "$base^{commit}" >/dev/null || die "no
 ! git -C "$repo" rev-parse --verify --quiet "refs/tags/v$version" >/dev/null || die "tag v$version already exists"
 [[ ! -e "$worktree" ]] || die "$worktree already exists"
 
-# the version moves forward and news/ has something to release.
+# the version moves forward and docs/news/ has something to release.
 current="$(git -C "$repo" show "$base:Cargo.toml" | sed -n '/^\[workspace.package\]/,/^\[/s/^version = "\(.*\)"$/\1/p')"
 [[ -n "$current" ]] || die "no [workspace.package] version in $base:Cargo.toml"
 newest="$(printf '%s\n%s\n' "$current" "$version" | LC_ALL=C sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
 [[ "$version" != "$current" && "$newest" == "$version" ]] || die "$version is not after $current"
-[[ -n "$(git -C "$repo" ls-tree --name-only "$base" -- news/)" ]] \
-  || die "news/ has nothing to release"
+[[ -n "$(git -C "$repo" ls-tree --name-only "$base" -- docs/news/)" ]] \
+  || die "docs/news/ has nothing to release"
 
 GIT_LFS_SKIP_SMUDGE=1 git -C "$repo" worktree add --quiet -b "$branch" "$worktree" "$base"
 cd "$worktree"
@@ -78,13 +78,13 @@ python3 tool/tasks/preflight.py
 
 # untracked files count too: anything a tool created is a change. towncrier
 # removed every fragment (git rm), which is the one other change allowed.
-changed="$(git status --porcelain | grep -v '^D  news/' | awk '{print $2}' | LC_ALL=C sort | tr '\n' ' ' || true)"
+changed="$(git status --porcelain | grep -v '^D  docs/news/' | awk '{print $2}' | LC_ALL=C sort | tr '\n' ' ' || true)"
 [[ "$changed" == "${FILES[*]} " ]] || die "expected changes in exactly ${FILES[*]}, got: $changed"
-[[ -z "$(git ls-files -- news/)" ]] || die "towncrier left fragments in news/"
+[[ -z "$(git ls-files -- docs/news/)" ]] || die "towncrier left fragments in docs/news/"
 git add -- "${FILES[@]}"
 date="$(sed -n 's/^date-released: "\(.*\)"$/\1/p' CITATION.cff)"
 git commit --quiet -S -m "Release $version" -m "The workspace version, the urna-format and urna-engine pins, the lockfile,
-the changelog section dated $date from the news/ fragments and the versioned
+the changelog section dated $date from the docs/news/ fragments and the versioned
 fields of CITATION.cff, prepared by tool/tasks/releasepr.sh with cargo-release
 $CARGO_RELEASE_VERSION and towncrier $TOWNCRIER_VERSION."
 echo "releasepr: $branch at $(git rev-parse --short HEAD) in $worktree, release date $date (UTC)"

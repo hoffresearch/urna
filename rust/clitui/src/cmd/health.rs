@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The install health checks as data: one ordered list of rows that
 //! `urna doctor` prints and the terminal ui draws. The order, the stop
 //! points and the typed codes are the `doctor` contract (see its module

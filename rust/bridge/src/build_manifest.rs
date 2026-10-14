@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Manifest assembly for `build()`, carved out of `build_fn.rs`, which
 //! stays the entry point.
 

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Blob section open logic (0x14 blob_refs + 0x16 blob_span_overlay),
 //! carved out of `mmap_file.rs`, which keeps the required sections. Both sections are OPTIONAL and content_hash-excluded, and
 //! open only behind the additive `blobs_present` capability, mirroring how

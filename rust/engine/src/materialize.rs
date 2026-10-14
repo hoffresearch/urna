@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Packed vector store for the ANN graph.
 //!
 //! The HNSW graph needs to read embedding rows as f32 to compute cosine

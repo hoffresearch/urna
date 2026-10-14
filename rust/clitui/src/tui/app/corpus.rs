@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The corpus tab: what one `.urna` is, read the way `inspect` and
 //! `validate` read it. Loading happens off the ui thread (a big corpus
 //! takes a moment to hash); the tab renders the manifest as leader rows and

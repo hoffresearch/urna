@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! JCS-canonical JSON serialization for the manifest. Field order
 //! follows declaration order; `extra` keys are sorted (BTreeMap);
 //! whitespace is stripped (CompactFormatter). Result is byte-identical

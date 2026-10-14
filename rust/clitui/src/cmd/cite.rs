@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna cite <file> urna://...` - resolve a citation URI into the
 //! canonical text, source span, and verifying hashes.
 

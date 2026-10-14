@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the upstream values the catalogue carries are read, not written.
 
 `tool/tasks/upstreams.py` resolves the uv release setup downloads (a url

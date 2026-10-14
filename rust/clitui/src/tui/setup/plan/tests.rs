@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The plan's cases: which steps run, blocked or ticked, from a scan
 //! and the flags, with the catalogue's uv and python range.
 

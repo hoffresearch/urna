@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """CLI for `urna.image.assembler.build_corpus` (re-exported here for callers).
 
     images (or rendered pdf pages)

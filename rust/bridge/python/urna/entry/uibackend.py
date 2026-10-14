@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """JSON bridge between the urna UI and the engine: browse + search in every
 mode, with hits enriched (label, media frame) so the browser renders cards,
 never terminal text.

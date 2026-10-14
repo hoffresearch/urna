@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `search_contract` section (`SECTION_SEARCH_CONTRACT = 0x06`). A
 //! versioned JSON document mirroring the manifest's search-related
 //! fields (metric, score_type, normalize, index_type, rerank_policy).

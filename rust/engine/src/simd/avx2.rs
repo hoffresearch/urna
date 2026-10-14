@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! x86_64 AVX2+FMA implementations. Gated by `cfg(target_arch =
 //! "x86_64")`; the dispatcher only calls these after
 //! `is_x86_feature_detected!("avx2")` and `"fma"` both return true.

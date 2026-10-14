@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Measured media recipes behind `[media] profile = "..."` (RFC-1).
 
 A profile resolves into knob defaults BEFORE the explicit keys of the

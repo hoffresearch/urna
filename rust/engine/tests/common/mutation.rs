@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Byte-level mutation engine for the mutation-fuzz tests: a seeded
 //! xorshift rng, one mutation step that mirrors what libFuzzer's default
 //! mutators do (bit flips, byte sets, zero runs, integer specials at

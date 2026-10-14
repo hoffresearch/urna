@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """The identity side of the embed-cache triad: the embedding recipe (what
 usage the vectors were computed under) and the model_hash probe (which
 model computed them), both spec-independent so cache entries can be

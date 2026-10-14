@@ -116,12 +116,12 @@ forbidden_modules = [
 ]
 
 [tool.towncrier]
-# the changelog's unreleased entries: one file per change in news/, named
+# the changelog's unreleased entries: one file per change in docs/news/, named
 # <issue>.<type>.md (+<name>.<type>.md for a change with no issue), so no two
 # pull requests edit the same line of docs/CHANGELOG. tool/tasks/releasepr.sh
 # runs `towncrier build`, which writes them as the dated section of the
 # release below the marker in docs/CHANGELOG and removes them.
-directory = "news"
+directory = "docs/news"
 filename = "docs/CHANGELOG"
 start_string = "<!-- towncrier: each release lands below this line -->\n"
 title_format = "## [{version}] - {project_date}"

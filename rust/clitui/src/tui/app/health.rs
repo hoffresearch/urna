@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The health tab: the doctor checks, run off the ui thread on open and on
 //! `r`, drawn with the same rows the installer ends on.
 

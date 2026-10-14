@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """bridge coverage for the multimodal space bands (0x15 + 0x20).
 
 real artifacts only: builds a tiny text+vision .urna through urna.build

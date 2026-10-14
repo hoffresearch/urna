@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 #![no_main]
 //! `UrnaView::from_bytes` plus every section decoder and both hashes.
 

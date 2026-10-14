@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Declarative build orchestration (RFC-1): rows → dedup → media → embed → emit.
 
 Transactional (RFC-0 N7): each expensive stage records completion + a params

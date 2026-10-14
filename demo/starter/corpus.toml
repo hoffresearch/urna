@@ -1,4 +1,4 @@
-# the smallest build spec that works: twelve paragraphs of cc0 prose about
+# the smallest build spec that works: twelve paragraphs of original prose about
 # urna itself (docs.jsonl), embedded offline with the bundled potion table,
 # emitted as ONE self-contained .urna. paths resolve from the CWD, so run
 # it from the repo root:

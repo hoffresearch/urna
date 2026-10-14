@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Compare two `presetrun.py --json` dumps against the project's
 regression gates and exit non-zero on any failure.
 

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! The uv setup downloads when the machine has none: the release the
 //! payload's catalogue names, one archive per platform, checked against
 //! the sha256 the catalogue holds before anything is unpacked. the

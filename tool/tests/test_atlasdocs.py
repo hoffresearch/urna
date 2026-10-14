@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove docs/ATLAS.toml's summary says what urna is today, not its history.
 
 the summary grew into a changelog: one dated paragraph per change, 17,789

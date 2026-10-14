@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! chunk-to-chunk csr adjacency codec for SECTION_GRAPH_ADJACENCY (0x0C).
 //!
 //! OPTIONAL and EXCLUDED from content_hash (not in CANONICAL_SECTIONS), so

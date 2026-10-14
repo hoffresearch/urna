@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Real model2vec/potion static embedder for forge: offline, no torch, no network.
 
 the #04 default is a quality FLOOR: each token gets a fixed pseudo-random vector,

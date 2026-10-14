@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! blob_span_overlay (0x16): per-chunk overlay that replaces the canonical
 //! chunks_original_spans (0x03) for out-of-line media (images, video, audio).
 //!

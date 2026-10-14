@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! fsst (encoding id 9) negative coverage: a bad kind byte, truncated codes,
 //! an oversized declared table length, and a trailing escape must all return
 //! a typed UrnaError, never a panic. exhaustive prefix-truncation fuzz.

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """embed: the embedders of the ingestion layer and the query scripts.
 
 the default is the REAL semantic static table (model2vec/potion-base-8M,

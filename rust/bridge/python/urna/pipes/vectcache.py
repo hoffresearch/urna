@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Embedding cache with the RFC-0 N2 key triad and N8 concurrency rules.
 
 A cache entry is valid only when (model_hash, embedding_recipe_hash,

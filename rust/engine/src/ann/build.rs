@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! HNSW construction: insert nodes one at a time, link bidirectionally,
 //! and call `select_neighbors_heuristic` (Algorithm 4) at every neighbor
 //! selection point. Build is deterministic given the same seed: level

@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove tool/tasks/releasepr.sh prepares a release and nothing else.
 
 every case runs the real script, with the pinned cargo-release, in a scratch
@@ -11,7 +7,7 @@ runs with --no-push, so nothing leaves the machine:
 
 - happy path: the next patch version lands in the workspace version, both
   pins, the four crates of Cargo.lock, a dated changelog section below the
-  towncrier marker that holds every news/ fragment, and the five versioned
+  towncrier marker that holds every docs/news/ fragment, and the five versioned
   CITATION.cff fields; every other CITATION.cff line is unchanged; the
   preflight passes; one signed commit on release-X.Y.Z in its own worktree
   touches exactly those four files and removes every fragment; the base
@@ -19,7 +15,7 @@ runs with --no-push, so nothing leaves the machine:
 - error path: the current version, a malformed version, and a cargo-release
   or a towncrier other than the pinned one are refused before any branch or
   worktree exists;
-- edge case: a news/ with no fragment is refused.
+- edge case: a docs/news/ with no fragment is refused.
 
 skips when the pinned cargo-release or towncrier is not installed (the
 script names the install command).
@@ -108,9 +104,9 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
     major, minor, patch = map(int, old.split("."))
     new = f"{major}.{minor}.{patch + 1}"
     base = git(repo, "rev-parse", "main").stdout.strip()
-    fragments = sorted(p.name for p in (repo / "news").iterdir())
-    entries = [(repo / "news" / name).read_text().strip() for name in fragments]
-    assert entries, "the checkout has no news/ fragment to release"
+    fragments = sorted(p.name for p in (repo / "docs" / "news").iterdir())
+    entries = [(repo / "docs" / "news" / name).read_text().strip() for name in fragments]
+    assert entries, "the checkout has no docs/news/ fragment to release"
     cff_before = (repo / "CITATION.cff").read_text().splitlines()
     wt = tmp / "wt-happy"
     proc = prepare(repo, new, wt)
@@ -131,7 +127,9 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
     section = log.split(head, 1)[1].split(f"\n## [{old}]", 1)[0]
     for entry in entries:
         assert f"\n- {entry}\n" in section, entry
-    assert not (wt / "news").exists() or not any((wt / "news").iterdir()), "fragments left"
+    assert not (wt / "docs" / "news").exists() or not any((wt / "docs" / "news").iterdir()), (
+        "fragments left"
+    )
     cff = (wt / "CITATION.cff").read_text()
     for line in (
         f'version: "{new}"',
@@ -149,8 +147,10 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
     shown = git(wt, "log", "-1", "--format=%G?%n%s").stdout.split("\n")
     assert shown[:2] == ["G", f"Release {new}"], shown
     names = git(wt, "diff", "--name-only", f"{base}..HEAD").stdout.split()
-    assert sorted(n for n in names if not n.startswith("news/")) == FILES, names
-    assert sorted(n for n in names if n.startswith("news/")) == [f"news/{f}" for f in fragments]
+    assert sorted(n for n in names if not n.startswith("docs/news/")) == FILES, names
+    assert sorted(n for n in names if n.startswith("docs/news/")) == [
+        f"docs/news/{f}" for f in fragments
+    ]
     assert git(wt, "status", "--porcelain").stdout == "", "left uncommitted changes"
     run([sys.executable, "tool/tasks/preflight.py"], wt)
     assert git(repo, "rev-parse", "main").stdout.strip() == base, "main moved"
@@ -194,13 +194,13 @@ def case_wrong_tool(repo: Path, tmp: Path):
 
 
 def case_no_news(repo: Path, tmp: Path):
-    git(repo, "rm", "-q", "-r", "news")
+    git(repo, "rm", "-q", "-r", "docs/news")
     git(repo, "commit", "-q", "-m", "nothing to release")
     wt = tmp / "wt-empty"
     proc = prepare(repo, "99.0.0", wt)
-    assert proc.returncode != 0 and "news/ has nothing to release" in proc.stderr, proc.stderr
+    assert proc.returncode != 0 and "docs/news/ has nothing to release" in proc.stderr, proc.stderr
     untouched(repo, "release-99.0.0", wt)
-    print("case 4 (a news/ with no fragment refused): OK")
+    print("case 4 (a docs/news/ with no fragment refused): OK")
 
 
 def main():

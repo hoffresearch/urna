@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! `urna benchmark <file> -q N -k K [--ann EF] [--madvise-cold]` -
 //! latency stats over random queries, with optional ANN comparison +
 //! recall@k vs exact, plus an opt-in madvise-cold pass.

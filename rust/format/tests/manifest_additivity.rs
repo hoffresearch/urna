@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Manifest additivity guard (phase 0, task #03).
 //!
 //! The manifest is covered by file_hash and is JCS-canonical, so a NEW

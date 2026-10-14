@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! multimodal space band integration (0x15 + 0x20):
 //!
 //! - search_space("vision") scores the vision band with real exact cosine

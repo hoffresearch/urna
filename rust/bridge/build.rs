@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 fn main() {
     // without this, cargo reruns the script on any change in the crate,
     // python/ included.

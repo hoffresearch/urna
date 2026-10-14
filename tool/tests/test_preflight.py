@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the release preflight agrees with the tree and refuses every drift.
 
 `tool/tasks/preflight.py` runs on every pull request (tree mode) and
@@ -52,7 +48,7 @@ GIT += ["-c", "tag.gpgsign=false"]
 
 
 def copy_tree(dst: Path) -> Path:
-    news = [str(p.relative_to(REPO)) for p in REPO.glob("news/*")]
+    news = [str(p.relative_to(REPO)) for p in REPO.glob("docs/news/*")]
     for rel in FILES + news + [str(p.relative_to(REPO)) for p in REPO.glob("rust/*/Cargo.toml")]:
         (dst / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / rel, dst / rel)
@@ -125,10 +121,10 @@ def test_each_drift_is_named() -> None:
     for name in ("544.feature.md", "notes.md", "544.added.txt"):
         with tempfile.TemporaryDirectory() as tmp:
             root = copy_tree(Path(tmp))
-            (root / "news").mkdir(exist_ok=True)
-            (root / "news" / name).write_text("an entry\n", encoding="utf-8")
+            (root / "docs" / "news").mkdir(exist_ok=True)
+            (root / "docs" / "news" / name).write_text("an entry\n", encoding="utf-8")
             errors = preflight.check_tree(root)
-            assert any(f"news/{name}" in e for e in errors), (name, errors)
+            assert any(f"docs/news/{name}" in e for e in errors), (name, errors)
 
 
 def test_a_drift_only_in_the_lockfile() -> None:

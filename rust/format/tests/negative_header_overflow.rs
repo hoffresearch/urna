@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Regression for the first mutation-fuzz finding: a header whose
 //! `n_embeddings * embedding_dim` does not fit in `usize` must be a typed
 //! rejection, never an arithmetic-overflow panic (debug) or a wrapped

@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! blob section codecs (media blob references and the blob-relative span
 //! overlay). both are OPTIONAL and EXCLUDED from content_hash, additive
 //! within frozen format v1, and never touch the embedding hot path.

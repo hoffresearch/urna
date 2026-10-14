@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Search entry points: exact, ANN, hybrid. All paths return `SearchResult`
 //! with the real cosine score (ANN/hybrid rerank candidates with the exact
 //! dot product before returning).

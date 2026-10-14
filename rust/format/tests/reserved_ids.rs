@@ -1,7 +1,3 @@
-// SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-//
-// SPDX-License-Identifier: MIT
-
 //! Reconciled additive section-id reservation (phase 0, task #02).
 //!
 //! The four redesign pillars (graph, catalog, multimodal, lens) each

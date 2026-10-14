@@ -1,7 +1,3 @@
-# SPDX-FileCopyrightText: 2026 Brenner Cruvinel, V. Hoff Research
-#
-# SPDX-License-Identifier: MIT
-
 """Prove the benchmark rebuild never destroys the corpus it replaces.
 
 `presetrun.py` (and through it `fullcheck.sh`) rebuilds
