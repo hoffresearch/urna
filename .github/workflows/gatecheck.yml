@@ -384,6 +384,10 @@ jobs:
         # debian/ filled from the workspace texts in control syntax, the
         # vendored crates keep their own checksum, a wrong tag writes nothing.
         run: python tool/tests/test_ppasource.py
+      - name: urna.dev/apt's Cloudflare setup stays inside its route
+        # against a recorder for the Cloudflare API: created once, kept on a
+        # second run, a wider or taken route refused, worker.js uploaded as is.
+        run: python tool/tests/test_aptserver.py
 
   payload-py310:
     name: payload staged under python 3.10

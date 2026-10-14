@@ -1,0 +1,134 @@
+# the release on apt: urna.dev/apt serves a signed index of every release's
+# .deb. tool/tasks/aptrender.sh downloads the .deb packages of each vX.Y.Z
+# release, writes Packages per architecture and Release, signs Release as
+# InRelease and Release.gpg, and this job uploads the index and the
+# keyring (urna.gpg) to the urna-apt R2 bucket, the Packages files first
+# and the signed Release last, so apt never reads a Release naming a
+# Packages that is not there yet. the urna-apt Worker
+# (pkgs/linux/apt/worker.js, deployed by tool/tasks/aptserver.py) serves
+# the bucket on urna.dev/apt/* and redirects pool/<tag>/<file> to the
+# release asset; a .deb is never uploaded. an index already serving this
+# version for both architectures is left alone.
+#
+# the job needs APT_SIGNING_KEY (the armored private key kept for the apt
+# index only), APT_SIGNING_FPR (its fingerprint), and R2_APT_ACCESS_KEY_ID,
+# R2_APT_SECRET_ACCESS_KEY and R2_APT_ENDPOINT, an R2 key that can write
+# objects in the urna-apt bucket and nothing else.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# publish a release that already exists.
+
+name: aptsigner
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to publish, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  SITE: https://urna.dev/apt
+  BUCKET: urna-apt
+
+jobs:
+  index:
+    name: apt index on urna.dev
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: the release tag
+        env:
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: skip a version the index already serves
+        id: have
+        run: |
+          set -eu
+          skip=true
+          for arch in amd64 arm64; do
+            url="$SITE/dists/stable/main/binary-$arch/Packages"
+            code="$(curl -sS --retry 3 --retry-all-errors -o "$RUNNER_TEMP/Packages-$arch" -w '%{http_code}' "$url")"
+            case "$code" in
+              200) grep -qx "Version: ${VERSION}-1" "$RUNNER_TEMP/Packages-$arch" || skip=false ;;
+              404) skip=false ;;
+              *) echo "$url answered $code" >&2; exit 1 ;;
+            esac
+          done
+          echo "skip=$skip" | tee -a "$GITHUB_OUTPUT"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        if: steps.have.outputs.skip == 'false'
+        with:
+          persist-credentials: false
+          sparse-checkout: tool/tasks/aptrender.sh
+          sparse-checkout-cone-mode: false
+      - name: build and sign the index
+        if: steps.have.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+          APT_SIGNING_FPR: ${{ secrets.APT_SIGNING_FPR }}
+        run: |
+          set -eu
+          printf '%s\n' "$APT_SIGNING_KEY" | gpg --batch --import
+          bash tool/tasks/aptrender.sh "$RUNNER_TEMP/apt" "$GITHUB_REPOSITORY"
+          for arch in amd64 arm64; do
+            grep -qx "Version: ${VERSION}-1" "$RUNNER_TEMP/apt/dists/stable/main/binary-$arch/Packages" \
+              || { echo "the $arch index has no ${VERSION}-1" >&2; exit 1; }
+          done
+      - name: upload the index, the signed Release last
+        if: steps.have.outputs.skip == 'false'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_APT_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_APT_SECRET_ACCESS_KEY }}
+          R2_APT_ENDPOINT: ${{ secrets.R2_APT_ENDPOINT }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP/apt"
+          put() {
+            aws s3 cp --only-show-errors --endpoint-url "$R2_APT_ENDPOINT" \
+              --content-type "$2" "$1" "s3://$BUCKET/$1"
+          }
+          for arch in amd64 arm64; do
+            put "dists/stable/main/binary-$arch/Packages" "text/plain; charset=utf-8"
+            put "dists/stable/main/binary-$arch/Packages.gz" application/gzip
+          done
+          put urna.gpg application/pgp-keys
+          put dists/stable/Release "text/plain; charset=utf-8"
+          put dists/stable/Release.gpg application/pgp-signature
+          put dists/stable/InRelease "text/plain; charset=utf-8"
+      - name: urna.dev/apt serves the version, signed
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          curl -sS --retry 3 --retry-all-errors -fo "$RUNNER_TEMP/InRelease" "$SITE/dists/stable/InRelease"
+          gpg --batch --verify "$RUNNER_TEMP/InRelease"
+          for arch in amd64 arm64; do
+            curl -sS --retry 3 --retry-all-errors -f "$SITE/dists/stable/main/binary-$arch/Packages" \
+              | grep -qx "Version: ${VERSION}-1" || { echo "urna.dev/apt has no $arch ${VERSION}-1" >&2; exit 1; }
+          done
+          code="$(curl -sS -o /dev/null -w '%{http_code}' "$SITE/pool/$TAG/urna_${VERSION}-1_amd64.deb")"
+          [ "$code" = 302 ] || { echo "the pool answered $code, not a redirect" >&2; exit 1; }

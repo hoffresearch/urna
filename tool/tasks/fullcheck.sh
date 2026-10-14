@@ -366,6 +366,12 @@ python_tests() {
   "$PY" tool/tests/test_ppasource.py
   ok "ppasource (4 cases)"
 
+  # what serves urna.dev/apt: created once, kept on a second run, and no
+  # route of the Worker beyond urna.dev/apt/*.
+  step "python tool/tests/test_aptserver.py"
+  "$PY" tool/tests/test_aptserver.py
+  ok "aptserver (3 cases)"
+
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and
   # CITATION.cff; skips without the pinned cargo-release.
