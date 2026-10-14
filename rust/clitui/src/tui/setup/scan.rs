@@ -51,12 +51,13 @@ impl Channel {
     }
 
     /// The command that moves this install to the newest release, for the
-    /// channels that have one.
+    /// channels that have one. A `.deb` installed by hand has none: no apt
+    /// source serves urna yet, so apt would answer that it is the newest.
     pub fn update(self) -> Option<&'static str> {
         Some(match self {
             Channel::Homebrew => "brew upgrade urna",
             Channel::Npm => "npm install -g @urna/cli@latest",
-            Channel::Cargo => "cargo binstall urna",
+            Channel::Cargo => "cargo install urna",
             Channel::OneLiner => {
                 "curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh"
             }
@@ -65,9 +66,8 @@ impl Channel {
             Channel::Winget => "winget upgrade HoffResearch.Urna",
             Channel::Chocolatey => "choco upgrade urna",
             Channel::Nix => "nix profile upgrade urna",
-            Channel::Apt => "sudo apt install --only-upgrade urna",
             Channel::Dnf => "sudo dnf upgrade urna",
-            Channel::Dev | Channel::Other => return None,
+            Channel::Apt | Channel::Dev | Channel::Other => return None,
         })
     }
 
@@ -515,7 +515,7 @@ mod tests {
     }
 
     #[test]
-    fn every_channel_but_dev_and_manual_names_its_update() {
+    fn every_channel_with_a_source_names_its_update() {
         for c in [
             Channel::Homebrew,
             Channel::Npm,
@@ -526,7 +526,6 @@ mod tests {
             Channel::Winget,
             Channel::Chocolatey,
             Channel::Nix,
-            Channel::Apt,
             Channel::Dnf,
         ] {
             assert!(
@@ -536,6 +535,7 @@ mod tests {
                 c.name()
             );
         }
+        assert_eq!(Channel::Apt.update(), None);
         assert_eq!(Channel::Dev.update(), None);
         assert_eq!(Channel::Other.update(), None);
         assert_eq!(Channel::Scoop.update(), Some("scoop update urna"));

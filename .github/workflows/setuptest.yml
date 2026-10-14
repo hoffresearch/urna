@@ -111,25 +111,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # shows: the channel `urna setup` must name for that install.
+        # shows, update: the channel `urna setup` must name for that install,
+        # and the exact update command it prints (none when empty).
         include:
-          - { channel: homebrew, os: macos-latest, shows: homebrew }
-          - { channel: homebrew, os: ubuntu-24.04, shows: homebrew }
-          - { channel: npm, os: ubuntu-24.04, shows: npm }
-          - { channel: npm, os: macos-latest, shows: npm }
-          - { channel: npm, os: windows-latest, shows: npm }
-          - { channel: binstall, os: ubuntu-24.04, shows: cargo }
+          - { channel: homebrew, os: macos-latest, shows: homebrew, update: brew upgrade urna }
+          - { channel: homebrew, os: ubuntu-24.04, shows: homebrew, update: brew upgrade urna }
+          - { channel: npm, os: ubuntu-24.04, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: npm, os: macos-latest, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: npm, os: windows-latest, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: binstall, os: ubuntu-24.04, shows: cargo, update: cargo install urna }
           # the same @urna/cli package through the other node package managers.
-          - { channel: bun, os: ubuntu-24.04, shows: npm }
-          - { channel: bun, os: macos-latest, shows: npm }
-          - { channel: pnpm, os: ubuntu-24.04, shows: npm }
-          - { channel: pnpm, os: macos-latest, shows: npm }
-          - { channel: yarn, os: ubuntu-24.04, shows: npm }
+          - { channel: bun, os: ubuntu-24.04, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: bun, os: macos-latest, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: pnpm, os: ubuntu-24.04, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: pnpm, os: macos-latest, shows: npm, update: npm install -g @urna/cli@latest }
+          - { channel: yarn, os: ubuntu-24.04, shows: npm, update: npm install -g @urna/cli@latest }
           # the runner's own Miniconda, into a fresh environment.
-          - { channel: conda, os: ubuntu-24.04, shows: conda }
-          - { channel: conda, os: windows-latest, shows: conda }
-          - { channel: scoop, os: windows-latest, shows: scoop }
-          - { channel: deb, os: ubuntu-24.04, shows: apt }
+          - { channel: conda, os: ubuntu-24.04, shows: conda, update: conda update -c hoffresearch urna }
+          - { channel: conda, os: windows-latest, shows: conda, update: conda update -c hoffresearch urna }
+          - { channel: scoop, os: windows-latest, shows: scoop, update: scoop update urna }
+          # no apt source serves urna yet: setup names no update for a .deb.
+          - { channel: deb, os: ubuntu-24.04, shows: apt, update: '' }
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     defaults:
@@ -237,10 +239,15 @@ jobs:
         working-directory: ${{ runner.temp }}
         env:
           SHOWS: ${{ matrix.shows }}
+          UPDATE: ${{ matrix.update }}
         run: |
           urna setup --yes --version "$TAG" | tee "$RUNNER_TEMP/setup.log"
           grep -E "^  channel +${SHOWS} · " "$RUNNER_TEMP/setup.log"
-          grep -E "^  update +" "$RUNNER_TEMP/setup.log"
+          if [ -n "$UPDATE" ]; then
+            grep -Fx "$(printf '  %-18s %s' update "$UPDATE")" "$RUNNER_TEMP/setup.log"
+          elif grep -E "^  update " "$RUNNER_TEMP/setup.log"; then
+            echo "setup names an update for ${SHOWS}, which has none" >&2; exit 1
+          fi
       - name: doctor and validate after setup
         working-directory: ${{ runner.temp }}
         run: |
@@ -286,7 +293,7 @@ jobs:
         run: |
           urna setup --yes --version "$TAG" | tee "$RUNNER_TEMP/setup.log"
           grep -E "^  channel +dnf · " "$RUNNER_TEMP/setup.log"
-          grep -E "^  update +sudo dnf upgrade urna" "$RUNNER_TEMP/setup.log"
+          grep -Fx "$(printf '  %-18s %s' update 'sudo dnf upgrade urna')" "$RUNNER_TEMP/setup.log"
       - name: doctor and validate after setup
         working-directory: ${{ runner.temp }}
         run: |

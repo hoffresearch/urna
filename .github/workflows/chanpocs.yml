@@ -1,0 +1,37 @@
+# temporary POC for #567, removed before merge: v0.5.5 from the
+# hoffresearch conda channel through the runner's Miniconda, this branch's
+# binary swapped in where conda put it, and what `urna setup` says.
+
+name: chanpocs
+
+on:
+  push:
+    branches: [chansetup]
+
+permissions:
+  contents: read
+
+jobs:
+  conda:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - run: cargo build --release -p urna
+      - run: |
+          set -eu
+          if [ "$RUNNER_OS" = "Windows" ]; then conda="$CONDA/Scripts/conda.exe"; bin=Library/bin; exe=urna.exe; else conda="$CONDA/bin/conda"; bin=bin; exe=urna; fi
+          "$conda" create -y -p "$RUNNER_TEMP/env" --override-channels -c hoffresearch "urna=0.5.5"
+          "$RUNNER_TEMP/env/$bin/$exe" --version
+          cp "target/release/$exe" "$RUNNER_TEMP/env/$bin/$exe"
+          "$RUNNER_TEMP/env/$bin/$exe" setup --yes --no-payload --no-python | tee "$RUNNER_TEMP/s.log" || true
+          grep -E "^  channel +conda · " "$RUNNER_TEMP/s.log"
+          grep -Fx "$(printf '  %-18s %s' update 'conda update -c hoffresearch urna')" "$RUNNER_TEMP/s.log"
