@@ -141,6 +141,7 @@ def probe_github(version: str, repo: str) -> str:
 CONDA_PLATFORMS = 5
 PACKAGES = ("{v}-1_amd64.deb", "{v}-1_arm64.deb", "{v}-1.x86_64.rpm", "{v}-1.aarch64.rpm")
 MODERATED = "in moderation"
+PUBLISHED_STATUS = ("Approved", "Exempted")
 
 
 def probe_conda(version: str) -> str:
@@ -177,16 +178,17 @@ def probe_packages(version: str, repo: str) -> str:
 
 
 def probe_chocolatey(version: str) -> str:
-    """Served once approved; a package the moderators still review is in
-    moderation, which is not a failure of the release."""
+    """Served once approved or exempted from moderation; a package the
+    moderators still review is in moderation, which is not a failure of the
+    release."""
     api = _env("CHOCOLATEY_API", "https://community.chocolatey.org/api/v2")
     url = f"{api}/Packages(Id='urna',Version='{version}')"
     status, body = _get(url, accept="application/atom+xml")
     found = re.search(r"<d:PackageStatus>([^<]*)</d:PackageStatus>", body)
     at = found.group(1) if found and status == 200 else None
-    if at and at != "Approved":
+    if at and at not in PUBLISHED_STATUS:
         return f"{MODERATED} ({at})"
-    return _state(status, at == "Approved", f"chocolatey has no urna {version}")
+    return _state(status, at in PUBLISHED_STATUS, f"chocolatey has no urna {version}")
 
 
 def probe_winget(version: str) -> str:

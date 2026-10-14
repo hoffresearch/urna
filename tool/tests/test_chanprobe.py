@@ -318,6 +318,8 @@ def test_moderation_is_not_a_failure_but_absence_is() -> None:
     assert ok, text
     assert "| Chocolatey | in moderation (Submitted) |" in text, text
     assert "| winget | in moderation (#9) |" in text, text
+    ROUTES[f"/choco/Packages(Id='urna',Version='{V}')"] = choco("Exempted")
+    assert ch.probe_chocolatey(V) == "served", ch.probe_chocolatey(V)
     ROUTES[WINGET_PRS] = {"items": [{"number": 8, "title": f"New version: HoffResearch.Urna {V}0"}]}
     ROUTES[f"/choco/Packages(Id='urna',Version='{V}')"] = None
     ROUTES[COPR] = {"builds": {"latest_succeeded": {"source_package": {"version": "0.5.2-1"}}}}
