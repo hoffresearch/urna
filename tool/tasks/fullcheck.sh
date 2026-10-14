@@ -360,6 +360,12 @@ python_tests() {
   "$PY" tool/tests/test_pkgrender.py
   ok "pkgrender (3 cases)"
 
+  # the PPA's source package: debian/ filled from the workspace texts, the
+  # vendored crates' checksums, and a wrong tag refused before any write.
+  step "python tool/tests/test_ppasource.py"
+  "$PY" tool/tests/test_ppasource.py
+  ok "ppasource (4 cases)"
+
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and
   # CITATION.cff; skips without the pinned cargo-release.

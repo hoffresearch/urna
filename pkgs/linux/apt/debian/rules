@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+# the CLI from the release's source, offline: the crates come from the
+# vendor/ tarball (urna_<version>.orig-vendor.tar.xz), the toolchain from
+# Ubuntu's versioned rustc and cargo packages. URNA_RELEASE_TAG makes
+# build.rs name the binary a release of this version.
+
+export CARGO = cargo-1.91
+export RUSTC = rustc-1.91
+export RUSTDOC = rustdoc-1.91
+export CARGO_HOME = $(CURDIR)/debian/cargo-home
+export URNA_RELEASE_TAG = v$(DEB_VERSION_UPSTREAM)
+
+include /usr/share/dpkg/pkg-info.mk
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	mkdir -p $(CARGO_HOME)
+	printf '[source.crates-io]\nreplace-with = "vendored"\n\n[source.vendored]\ndirectory = "$(CURDIR)/vendor"\n' > $(CARGO_HOME)/config.toml
+
+override_dh_auto_build:
+	$(CARGO) build --release --offline --frozen -p urna
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	$(CARGO) test --release --offline --frozen -p urna
+endif
+
+override_dh_auto_install:
+	install -Dm755 target/release/urna debian/urna/usr/bin/urna
+
+override_dh_auto_clean:
+	rm -rf target $(CARGO_HOME)
