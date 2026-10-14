@@ -34,6 +34,18 @@ cargo install urna
 conda install -c hoffresearch urna
 ```
 
+<details>
+<summary><strong>Fedora/RHEL</strong></summary>
+
+```sh
+sudo dnf copr enable hoffresearch/urna
+sudo dnf install urna
+```
+
+Fedora 43 and later, rawhide, and EPEL 9 and 10, on x86_64 and aarch64. The package holds the release's own static binary.
+
+</details>
+
 Or download it: binaries for Linux, macOS and Windows are on the [releases](https://github.com/hoffresearch/urna/releases), each with its `.sha256`, and the one-line installer fetches the right one:
 
 ```sh
