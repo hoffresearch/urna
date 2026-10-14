@@ -25,6 +25,7 @@ license: MIT
 url: https://urna.dev
 repository-code: https://github.com/hoffresearch/urna
 repository-artifact: https://crates.io/crates/urna/0.5.6
+doi: 10.5281/zenodo.23371900
 identifiers:
   - type: url
     value: https://github.com/hoffresearch/urna/releases/tag/v0.5.6
