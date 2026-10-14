@@ -37,7 +37,6 @@ path = [
     "Dockerfile",
     "docs/CHANGELOG",
     "pkgs/linux/apt/debian/**",
-    "pkgs/linux/aur/PKGBUILD",
     "tool/tasks/precommit",
 ]
 SPDX-FileCopyrightText = "2026 Brenner Cruvinel, V. Hoff Research"

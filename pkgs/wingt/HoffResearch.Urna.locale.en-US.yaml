@@ -1,0 +1,19 @@
+# yaml-language-server: $$schema=https://aka.ms/winget-manifest.defaultLocale.1.10.0.schema.json
+PackageIdentifier: HoffResearch.Urna
+PackageVersion: ${version}
+PackageLocale: en-US
+Publisher: Hoff Research
+PublisherUrl: https://github.com/hoffresearch
+PublisherSupportUrl: ${repository}/issues
+Author: Brenner Cruvinel
+PackageName: urna
+PackageUrl: ${homepage}
+License: ${license}
+LicenseUrl: ${repository}/blob/${tag}/LICENSE
+ShortDescription: ${summary}
+Description: ${description}
+Moniker: urna
+Tags: ${tags_list}
+ReleaseNotesUrl: ${repository}/releases/tag/${tag}
+ManifestType: defaultLocale
+ManifestVersion: 1.10.0

@@ -382,6 +382,10 @@ jobs:
         # against a local http server: the registry waits, the crates
         # publisher's outage handling, the report of a failed release.
         run: python tool/tests/test_chanprobe.py
+      - name: each channel's manifest comes from the release
+        # the templates in pkgs/ against v0.5.4's archives and hashes: every
+        # url and hash the release's, texts escaped, a bad input writes nothing.
+        run: python tool/tests/test_pkgrender.py
 
   payload-py310:
     name: payload staged under python 3.10

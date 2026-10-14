@@ -1,0 +1,23 @@
+# one .deb and one .rpm per architecture from the release's musl archive,
+# extracted next to this file by the linuxpack job.
+name: urna
+arch: ${arch}
+platform: linux
+version: ${version}
+release: 1
+section: utils
+priority: optional
+maintainer: Hoff Research <brenner@hoffresearch.com>
+vendor: Hoff Research
+homepage: ${homepage}
+license: ${license}
+description: ${about}
+contents:
+  - src: ${dir}/urna
+    dst: /usr/bin/urna
+    file_info:
+      mode: 0755
+  - src: ${dir}/LICENSE
+    dst: /usr/share/licenses/urna/LICENSE
+  - src: ${dir}/README.md
+    dst: /usr/share/doc/urna/README.md

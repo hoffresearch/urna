@@ -368,6 +368,12 @@ python_tests() {
   "$PY" tool/tests/test_chanprobe.py
   ok "chanprobe (8 cases)"
 
+  # each channel's manifest is rendered from the release: its URLs, its
+  # hashes, the texts escaped for the file, or nothing written at all.
+  step "python tool/tests/test_pkgrender.py"
+  "$PY" tool/tests/test_pkgrender.py
+  ok "pkgrender (3 cases)"
+
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and
   # CITATION.cff; skips without the pinned cargo-release.
