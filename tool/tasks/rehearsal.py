@@ -59,6 +59,7 @@ DROP = (
     "custom-setuptest",
     "custom-stampwork",
     "custom-archiving",
+    "custom-scoopship",
 )
 PLAN_RUN = (
     "dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', "

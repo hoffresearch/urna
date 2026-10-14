@@ -1,0 +1,89 @@
+# the release on scoop: pkgs/scoop/urna.json, rendered by
+# tool/tasks/pkgrender.py from the release's dist-manifest.json and
+# sha256.sum, is pushed to the bucket hoffresearch/scoop-urna as
+# bucket/urna.json, the same way the Homebrew job pushes the formula to
+# homebrew-urna. a bucket that already holds this version is left alone.
+#
+# the push needs SCOOP_BUCKET_TOKEN, a repository secret: a fine-grained
+# token with contents write on the bucket only.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# publish a release that already exists.
+
+name: scoopship
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to publish, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  BUCKET: hoffresearch/scoop-urna
+
+jobs:
+  ship:
+    name: scoop bucket
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Cargo.toml
+            pkgs/scoop/urna.json
+            tool/tasks/pkgrender.py
+          sparse-checkout-cone-mode: false
+      - name: the release's manifest and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
+          python3 tool/tasks/pkgrender.py render --channel scoop \
+            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
+            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          repository: ${{ env.BUCKET }}
+          token: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+          path: bucket-repo
+          persist-credentials: true
+      - name: push the manifest
+        run: |
+          set -eu
+          cd bucket-repo
+          mkdir -p bucket
+          cp "$RUNNER_TEMP/render/scoop/urna.json" bucket/urna.json
+          if git diff --quiet -- bucket/urna.json && git ls-files --error-unmatch bucket/urna.json >/dev/null 2>&1; then
+            echo "the bucket already serves ${TAG}"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add bucket/urna.json
+          git commit -m "urna ${TAG#v}"
+          git push origin HEAD
