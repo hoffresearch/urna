@@ -3151,6 +3151,24 @@ purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py render
 links = ["pkgs/choco/urna.nuspec", "pkgs/choco/tools/chocolateyInstall.ps1", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/nixosship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: nix run of the tag's flake (github:hoffresearch/urna/<tag>) on Linux and macOS, which builds the CLI from source and must print the tag's version; nothing is uploaded, since github serves the flake"
+links = ["flake.nix", "pkgs/nixos/package.nix", "Cargo.toml"]
+
+[[inventory.distribution]]
+path = "flake.nix"
+kind = "package-manifest"
+purpose = "The nix flake: packages.<system>.urna (and default) for x86_64/aarch64 Linux and macOS, from pkgs/nixos/package.nix on nixos-unstable; flake.lock pins nixpkgs"
+links = ["pkgs/nixos/package.nix", "flake.lock"]
+
+[[inventory.distribution]]
+path = "pkgs/nixos/package.nix"
+kind = "package-manifest"
+purpose = "buildRustPackage of the urna CLI from source with Cargo.lock, version and summary read from Cargo.toml; the source leaves out rust/bridge/python (its git-lfs model) and rust/ingest, so build.rs names the binary a release; the install check runs urna --version"
+links = ["flake.nix", "Cargo.toml", "Cargo.lock", "rust/clitui/build.rs"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"

@@ -560,3 +560,14 @@ jobs:
     secrets: inherit
     permissions:
       "contents": "read"
+
+  custom-nixosship:
+    needs:
+      - plan
+      - announce
+    uses: ./.github/workflows/nixosship.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+    permissions:
+      "contents": "read"

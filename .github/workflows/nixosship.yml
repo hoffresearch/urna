@@ -1,0 +1,63 @@
+# the release on nix: `nix run github:hoffresearch/urna/<tag>` builds the
+# flake at the root, which builds the CLI from source through
+# pkgs/nixos/package.nix with the crates pinned by Cargo.lock. nothing is
+# uploaded: github serves the flake itself. this job proves the tag's flake
+# builds, runs its install check (`urna --version` is the tag's version)
+# and runs through `nix run`, on Linux and macOS.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# check a release that already exists.
+
+name: nixosship
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to build, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: nix ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    steps:
+      - name: the release tag
+        env:
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+      - uses: cachix/install-nix-action@13d8dd58da0234aa297dedd986986ccb8e7f3e24 # v31.11.1
+        with:
+          github_access_token: ${{ github.token }}
+      - name: nix run the tag's flake
+        run: |
+          set -eu
+          got="$(nix run "github:${GITHUB_REPOSITORY}/${TAG}" -- --version)"
+          echo "$got"
+          [ "$got" = "urna ${TAG#v}" ] || { echo "expected urna ${TAG#v}" >&2; exit 1; }
