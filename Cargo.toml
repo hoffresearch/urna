@@ -15,6 +15,36 @@ homepage = "https://urna.dev"
 readme = "README.md"
 keywords = ["vector-database", "embeddings", "search", "offline", "citations"]
 
+# the texts every package channel shows (issue #558): a summary of at most
+# 80 characters, one paragraph with an example, and the search tags, plain
+# text with no markup, since some channels render none. crates.io, npm and
+# Homebrew read `description` from rust/clitui/Cargo.toml and PyPI from
+# pkgs/wheel/pyproject.toml; tool/tasks/preflight.py checks that those two
+# agree and that the summary fits.
+[workspace.metadata.pkgs]
+summary = "Offline-first vector database in one file, with citations you can verify"
+description = """\
+Urna keeps a whole knowledge base in one .urna file: the text, its \
+embeddings, its HNSW and BM25 indexes and the hashes that prove nothing \
+changed. You copy it like a SQLite file and search it with no server and no \
+network. Every hit is reranked by exact cosine similarity and carries a \
+urna:// citation that resolves back to the stored text. For example, urna \
+ask quickstart.urna "how do citations work" -k 1 prints the closest passage \
+with its citation, and urna cite turns that citation back into the exact \
+text and the hashes it is bound to."""
+tags = [
+    "vector-database",
+    "embeddings",
+    "semantic-search",
+    "offline-first",
+    "single-file",
+    "citations",
+    "rag",
+    "hnsw",
+    "bm25",
+    "cli",
+]
+
 # workspace-wide lint policy (every crate opts in with `[lints] workspace =
 # true`). `unwrap_used`, `expect_used` and `undocumented_unsafe_blocks` are
 # the hardening contract of docs/SECURITY.md made mechanical: a runtime that
