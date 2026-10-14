@@ -3,7 +3,8 @@
 # pkgs/nixos/package.nix with the crates pinned by Cargo.lock. nothing is
 # uploaded: github serves the flake itself. this job proves the tag's flake
 # builds, runs its install check (`urna --version` is the tag's version)
-# and runs through `nix run`, on Linux and macOS.
+# and runs through `nix run`, on Linux: one build proves the flake
+# compiles, and a macOS runner would compile it again in every release.
 #
 # trigger: cargo-dist calls it as a post-announce job
 # (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
@@ -29,15 +30,11 @@ permissions:
 
 jobs:
   build:
-    name: nix ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: nix run the tag's flake
+    runs-on: ubuntu-24.04
     timeout-minutes: 40
     permissions:
       contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-24.04, macos-latest]
     steps:
       - name: the release tag
         env:

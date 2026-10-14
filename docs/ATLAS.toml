@@ -3153,7 +3153,7 @@ links = ["pkgs/choco/urna.nuspec", "pkgs/choco/tools/chocolateyInstall.ps1", "to
 [[inventory.distribution]]
 path = ".github/workflows/nixosship.yml"
 kind = "ci-workflow"
-purpose = "Post-announce job, or manual dispatch with a tag: nix run of the tag's flake (github:hoffresearch/urna/<tag>) on Linux and macOS, which builds the CLI from source and must print the tag's version; nothing is uploaded, since github serves the flake"
+purpose = "Post-announce job, or manual dispatch with a tag: nix run of the tag's flake (github:hoffresearch/urna/<tag>) on Linux, which builds the CLI from source and must print the tag's version; nothing is uploaded, since github serves the flake"
 links = ["flake.nix", "pkgs/nixos/package.nix", "Cargo.toml"]
 
 [[inventory.distribution]]
