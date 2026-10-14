@@ -2461,6 +2461,12 @@ purpose = "ppasource.py with no network and no Debian tools: the repository's de
 links = ["tool/tasks/ppasource.py"]
 
 [[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_aptserver.py"
+kind = "python-test"
+purpose = "aptserver.py against a recorder for the Cloudflare API: an empty account gets the bucket, the Worker with workers.dev off and the route urna.dev/apt/*, a second run keeps them; a wider route of the Worker, a route taken by another script and an API error are refused; worker.js is uploaded byte for byte as an ES module with the bucket bound as APT; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/aptserver.py"]
+
+[[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_askrouter.py"
 kind = "python-test"
 purpose = "Routing by manifest model observable via the fake preset; --mrl-dim passed for truncated default spaces; slice_renorm equals the engine truncation"
@@ -3149,6 +3155,30 @@ path = ".github/workflows/ppaupload.yml"
 kind = "ci-workflow"
 purpose = "Post-announce job, or manual dispatch with a tag: for each supported Ubuntu series with rustc-1.91 (jammy, noble, resolute), ppasource.py builds the source package of the tag, debsign signs it with PPA_SIGNING_KEY and PPA_SIGNING_FPR and dput uploads it to ppa:hoffresearch/urna, where Launchpad compiles it for amd64 and arm64; a version the PPA already publishes for a series is skipped"
 links = ["tool/tasks/ppasource.py", "pkgs/linux/apt/debian"]
+
+[[inventory.distribution]]
+path = ".github/workflows/aptsigner.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: aptrender.sh builds the apt index of every release's .deb and signs it with APT_SIGNING_KEY, and the job uploads it to the urna-apt R2 bucket with an R2 key that can write that bucket only, the Packages files first and the signed Release last, then checks that urna.dev/apt serves the version, signed, and redirects its pool path; an index already serving the version is left alone"
+links = ["tool/tasks/aptrender.sh", "pkgs/linux/apt/worker.js", "tool/tasks/aptserver.py", "Cargo.toml"]
+
+[[inventory.distribution]]
+path = "tool/tasks/aptrender.sh"
+kind = "shell-script"
+purpose = "Downloads the .deb packages of every vX.Y.Z release into a scratch pool/<tag>/, writes Packages per architecture (dpkg-scanpackages, Filename pool/<tag>/<file>) and Release (apt-ftparchive), signs Release as InRelease and Release.gpg with the key APT_SIGNING_FPR names, and exports that key as urna.gpg, the keyring users point signed-by at"
+links = [".github/workflows/aptsigner.yml"]
+
+[[inventory.distribution]]
+path = "pkgs/linux/apt/worker.js"
+kind = "config"
+purpose = "The Cloudflare Worker on urna.dev/apt/*: serves the keyring, Release, InRelease, Release.gpg and Packages from the urna-apt R2 bucket, answers pool/<tag>/<file> with a redirect to that release's .deb on GitHub (apt checks it against the signed index), and refuses any other path and any method but GET and HEAD"
+links = ["tool/tasks/aptserver.py", ".github/workflows/aptsigner.yml"]
+
+[[inventory.distribution]]
+path = "tool/tasks/aptserver.py"
+kind = "python-tool"
+purpose = "Creates or updates, idempotently, what serves urna.dev/apt on Cloudflare: the urna-apt R2 bucket, the urna-apt Worker from pkgs/linux/apt/worker.js with the bucket bound and no workers.dev address, and the route urna.dev/apt/* (and no other route of the Worker); run by hand with a Cloudflare token, the release does not need it"
+links = ["pkgs/linux/apt/worker.js", "tool/tests/test_aptserver.py"]
 
 [[inventory.distribution]]
 path = ".github/workflows/wingtship.yml"

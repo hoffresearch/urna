@@ -63,6 +63,7 @@ DROP = (
     "custom-wingtship",
     "custom-chocoship",
     "custom-nixosship",
+    "custom-aptsigner",
     "custom-ppaupload",
 )
 PLAN_RUN = (

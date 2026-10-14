@@ -85,6 +85,8 @@ tool/tasks/chanprobe.py
 tool/tests/test_chanprobe.py
 tool/tasks/ppasource.py
 tool/tests/test_ppasource.py
+tool/tasks/aptserver.py
+tool/tests/test_aptserver.py
 tool/tests/test_releasepr.py
 rust/bridge/python/urna/__init__.py
 rust/bridge/python/urna/embed/__init__.py
