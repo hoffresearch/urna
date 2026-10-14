@@ -310,9 +310,9 @@ The profile names are the forge's (`[media] profile = "..."`, usage section 14).
 
 ## Cite
 
-[![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23371900.svg)](https://doi.org/10.5281/zenodo.23371900) [![Software Heritage](https://archive.softwareheritage.org/badge/origin/https://github.com/hoffresearch/urna/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/hoffresearch/urna)
 
-Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id.
+Cite the version you used: its release tag holds the `CITATION.cff` with that version's metadata (`https://github.com/hoffresearch/urna/blob/v<version>/CITATION.cff`), and GitHub's "Cite this repository" renders the [latest one](https://github.com/hoffresearch/urna/blob/main/CITATION.cff). Every release tag is archived in Software Heritage, outside GitHub; its identifier is `swh:1:rel:` followed by the tag's git object id. Zenodo archives every release too: the DOI [10.5281/zenodo.23371900](https://doi.org/10.5281/zenodo.23371900) always resolves to the latest version, and each version has a DOI of its own on its Zenodo record.
 
 ## Reference
 
