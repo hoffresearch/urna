@@ -61,6 +61,8 @@ DROP = (
     "custom-stampwork",
     "custom-linuxpack",
     "custom-archiving",
+    "custom-condaship",
+    "custom-scoopship",
     "custom-coprbuild",
 )
 PLAN_RUN = (
