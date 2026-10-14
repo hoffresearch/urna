@@ -261,7 +261,7 @@ jobs:
   copr:
     name: dnf fedora
     runs-on: ubuntu-24.04
-    container: registry.fedoraproject.org/fedora:42
+    container: registry.fedoraproject.org/fedora:44
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     defaults:

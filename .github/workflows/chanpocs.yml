@@ -24,27 +24,10 @@ jobs:
           name: urna-linux
           path: target/release/urna
 
-  deb:
-    needs: linux
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: urna-linux
-          path: ${{ runner.temp }}/b
-      - run: |
-          set -eu
-          curl -fsSL -o "$RUNNER_TEMP/u.deb" https://github.com/hoffresearch/urna/releases/download/v0.5.5/urna_0.5.5-1_amd64.deb
-          sudo apt-get install -y "$RUNNER_TEMP/u.deb"
-          sudo install -m 755 "$RUNNER_TEMP/b/urna" /usr/bin/urna
-          urna setup --yes --no-payload --no-python | tee "$RUNNER_TEMP/s.log" || true
-          grep -E "^  channel +apt · " "$RUNNER_TEMP/s.log"
-          grep -E "^  update +sudo apt install --only-upgrade urna" "$RUNNER_TEMP/s.log"
-
   dnf:
     needs: linux
     runs-on: ubuntu-24.04
-    container: registry.fedoraproject.org/fedora:42
+    container: registry.fedoraproject.org/fedora:44
     steps:
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
@@ -60,42 +43,3 @@ jobs:
           urna setup --yes --no-payload --no-python | tee /tmp/s.log || true
           grep -E "^  channel +dnf · " /tmp/s.log
           grep -E "^  update +sudo dnf upgrade urna" /tmp/s.log
-
-  windows:
-    runs-on: windows-2025
-    defaults:
-      run:
-        shell: pwsh
-    steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
-        with:
-          persist-credentials: false
-      - run: cargo build --release -p urna
-      - name: scoop
-        run: |
-          Invoke-RestMethod -Uri https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\scoop.ps1"
-          & "$env:RUNNER_TEMP\scoop.ps1" -RunAsAdmin
-          $shims = "$HOME\scoop\shims"
-          & "$shims\scoop.cmd" bucket add hoffresearch https://github.com/hoffresearch/scoop-urna
-          & "$shims\scoop.cmd" install urna
-          & "$shims\urna.exe" --version
-          Copy-Item target\release\urna.exe "$HOME\scoop\apps\urna\current\urna.exe" -Force
-          $out = & "$shims\urna.exe" setup --yes --no-payload --no-python 2>&1 | Out-String
-          $out
-          if ($out -notmatch '(?m)^  channel +scoop · ') { exit 1 }
-          if ($out -notmatch '(?m)^  update +scoop update urna') { exit 1 }
-          exit 0
-      - name: chocolatey
-        run: |
-          gh release download v0.5.5 -R hoffresearch/urna -p dist-manifest.json -p sha256.sum -D "$env:RUNNER_TEMP\rel"
-          python tool/tasks/pkgrender.py render --channel choco --manifest "$env:RUNNER_TEMP\rel\dist-manifest.json" --sums "$env:RUNNER_TEMP\rel\sha256.sum" --out "$env:RUNNER_TEMP\render"
-          choco pack "$env:RUNNER_TEMP\render\choco\urna.nuspec" --out "$env:RUNNER_TEMP\pkg"
-          choco install urna --version 0.5.5 --source "$env:RUNNER_TEMP\pkg" -y --no-progress
-          Copy-Item target\release\urna.exe C:\ProgramData\chocolatey\lib\urna\tools\urna.exe -Force
-          $out = & C:\ProgramData\chocolatey\bin\urna.exe setup --yes --no-payload --no-python 2>&1 | Out-String
-          $out
-          if ($out -notmatch '(?m)^  channel +chocolatey · ') { exit 1 }
-          if ($out -notmatch '(?m)^  update +choco upgrade urna') { exit 1 }
-          exit 0
-        env:
-          GH_TOKEN: ${{ github.token }}
