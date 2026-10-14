@@ -66,6 +66,7 @@ DROP = (
     "custom-coprbuild",
     "custom-wingtship",
     "custom-chocoship",
+    "custom-nixosship",
 )
 PLAN_RUN = (
     "dist ${{ (!github.event.pull_request && format('host --steps=create --tag={0}', "
