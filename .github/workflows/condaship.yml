@@ -88,7 +88,7 @@ jobs:
         if: steps.have.outputs.skip == 'false'
         run: |
           set -eu
-          python3 tool/tasks/pkgrender.py render --channel conda --tag "$tag" \
+          python3 tool/tasks/pkgrender.py render --channel conda --tag "$TAG" \
             --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
             --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           for platform in linux-64 linux-aarch64 osx-64 osx-arm64 win-64; do

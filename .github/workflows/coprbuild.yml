@@ -86,7 +86,7 @@ jobs:
         run: |
           set -eu
           top="$RUNNER_TEMP/rpmbuild"
-          python3 tool/tasks/pkgrender.py render --channel dnf --tag "$tag" \
+          python3 tool/tasks/pkgrender.py render --channel dnf --tag "$TAG" \
             --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
             --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           cp "$RUNNER_TEMP/render/linux/dnf/urna.spec" "$top/SPECS/"
