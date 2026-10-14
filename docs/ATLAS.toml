@@ -2461,6 +2461,12 @@ purpose = "chanprobe.py against a local HTTP server standing in for the GitHub A
 links = ["tool/tasks/chanprobe.py"]
 
 [[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_pkgrender.py"
+kind = "python-test"
+purpose = "pkgrender.py against v0.5.4's archives, layout and hashes in a scratch root: every channel rendered with the release's URLs and hashes, scoop's own $version kept, one nfpm config per architecture; a missing hash, a bad tag, another version, a long summary, an unknown placeholder and an empty template refused with nothing written; quotes, ampersands, angle brackets and newlines escaped in JSON, YAML and XML, no text in PowerShell, URLs of another repository or tag refused; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/pkgrender.py"]
+
+[[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_askrouter.py"
 kind = "python-test"
 purpose = "Routing by manifest model observable via the fake preset; --mrl-dim passed for truncated default spaces; slice_renorm equals the engine truncation"
@@ -3103,6 +3109,12 @@ purpose = "One probe per channel for one exact version (npm version document, cr
 links = [".github/workflows/setuptest.yml", ".github/workflows/runreport.yml", "tool/tests/test_chanprobe.py"]
 
 [[inventory.distribution]]
+path = "tool/tasks/pkgrender.py"
+kind = "python-source"
+purpose = "Renders each package channel's manifest (scoop, winget, conda, Chocolatey, the COPR spec, one nfpm config per Linux architecture) from the templates in pkgs/, a release's dist-manifest.json and sha256.sum, and [workspace.metadata.pkgs] in Cargo.toml; every URL must be under the release's tag, texts are escaped per file kind, and a channel is written whole or not at all"
+links = ["tool/tests/test_pkgrender.py", "pkgs/scoop/urna.json", "pkgs/wingt/HoffResearch.Urna.installer.yaml", "pkgs/conda/recipe.yaml", "pkgs/choco/urna.nuspec", "pkgs/linux/dnf/urna.spec", "pkgs/linux/nfpm.yaml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"
@@ -3155,8 +3167,14 @@ links = [
 [[inventory.distribution]]
 path = ".github/workflows/stampwork.yml"
 kind = "ci-workflow"
-purpose = "The release's OpenTimestamps proof, a global-artifacts job between the global build and the host: it stamps the global build's sha256.sum under a read-only token and hands sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
-links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py"]
+purpose = "The release's OpenTimestamps proofs, a global-artifacts job after the global build and linuxpack and before the host: it stamps sha256.sum and packages.sha256.sum under a read-only token and hands sha256.sum.ots and packages.sha256.sum.ots to the host as `artifacts-stamp`, since an immutable release takes assets only when it is created; fewer than two calendars answering fails it, and the host does not run"
+links = ["docs/SECURITY.md", "Cargo.toml", ".github/stamplock.txt", "tool/tasks/distpatch.py", ".github/workflows/linuxpack.yml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/linuxpack.yml"
+kind = "ci-workflow"
+purpose = "The release's .deb and .rpm packages, a global-artifacts job after the global build and before stampwork and the host: nfpm (pinned by version and SHA-256) packs the x86_64 and aarch64 musl archives from pkgs/linux/nfpm.yaml rendered by pkgrender.py from the plan and sha256.sum, writes packages.sha256.sum, installs the amd64 .deb and checks its version, and hands the four packages to the host as `artifacts-linuxpack`"
+links = ["pkgs/linux/nfpm.yaml", "tool/tasks/pkgrender.py", "tool/tasks/distpatch.py", ".github/workflows/stampwork.yml", "Cargo.toml"]
 
 [[inventory.distribution]]
 path = ".github/stamplock.txt"

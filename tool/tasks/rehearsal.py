@@ -8,8 +8,9 @@
 ``release.yml`` dist writes, so the rehearsal runs the same commands,
 versions, runners and matrix. The transformation is small and strict: it
 keeps the four build jobs (plan, the five archives, the wheels, the global
-job), drops every job that hosts or publishes and the release's stamp (each
-run would send its checksum to the opentimestamps calendars), strips the
+job), drops every job that hosts or publishes, the release's stamp (each
+run would send its checksum to the opentimestamps calendars) and the .deb
+and .rpm packing (it installs its own package before it uploads), strips the
 attestation steps and every write permission and secret, and refuses any
 structure it does not know (a dist upgrade that changes a job, a condition
 or a step stops here until this file learns it).
@@ -58,6 +59,7 @@ DROP = (
     "announce",
     "custom-setuptest",
     "custom-stampwork",
+    "custom-linuxpack",
     "custom-archiving",
 )
 PLAN_RUN = (
