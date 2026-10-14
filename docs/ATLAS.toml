@@ -3121,6 +3121,24 @@ purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py render
 links = ["pkgs/conda/recipe.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/scoopship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/scoop/urna.json from the release's dist-manifest.json and sha256.sum and the job pushes it to the hoffresearch/scoop-urna bucket as bucket/urna.json with SCOOP_BUCKET_TOKEN (contents write on the bucket only), the same way the Homebrew job pushes the formula; a bucket already at that version is left alone"
+links = ["pkgs/scoop/urna.json", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
+path = ".github/workflows/coprbuild.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/linux/dnf/urna.spec from the release's dist-manifest.json and sha256.sum, the job checks the two musl archives against sha256.sum, builds the source rpm and copr-cli (from .github/coprtools.txt, pinned by hash) builds it on the hoffresearch/urna COPR project with COPR_CONFIG; a version COPR already built is skipped"
+links = ["pkgs/linux/dnf/urna.spec", ".github/coprtools.txt", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
+path = ".github/coprtools.txt"
+kind = "lockfile"
+purpose = "copr-cli and its dependencies pinned by hash (uv pip compile --generate-hashes), installed with --require-hashes by coprbuild.yml, which holds the COPR credentials"
+links = [".github/workflows/coprbuild.yml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/wingtship.yml"
 kind = "ci-workflow"
 purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders the three winget manifests in pkgs/wingt from the release's dist-manifest.json and sha256.sum, and Komac (pinned by version and SHA-256) opens the pull request to microsoft/winget-pkgs with WINGET_TOKEN (classic, public_repo only); a version winget-pkgs already holds is skipped"

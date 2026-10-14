@@ -145,15 +145,18 @@ publish-jobs = ["homebrew", "npm", "./rustready", "./pypiready"]
 # asks software heritage to save the repository, so the tagged tree is kept
 # outside github. condaship publishes the release's binaries to the
 # `hoffresearch` conda channel (ANACONDA_ORG_TOKEN, a repo secret);
-# wingtship opens the winget-pkgs pull request for the release
-# (WINGET_TOKEN, a repo secret).
-post-announce-jobs = ["./setuptest", "./archiving", "./condaship", "./wingtship"]
+# scoopship pushes the release's scoop manifest to the
+# hoffresearch/scoop-urna bucket (SCOOP_BUCKET_TOKEN, a repo secret);
+# coprbuild builds the release's rpm on copr (hoffresearch/urna;
+# COPR_CONFIG, a repo secret); wingtship opens the winget-pkgs pull
+# request for the release (WINGET_TOKEN, a repo secret).
+post-announce-jobs = ["./setuptest", "./archiving", "./condaship", "./scoopship", "./coprbuild", "./wingtship"]
 # a custom job gets `id-token` + `packages` by default, which zeroes
 # `contents`; the crates job checks out the tag, so it asks for read (and
 # keeps id-token for a later move to crates.io trusted publishing).
 # wheelmake attests its wheels (id-token + attestations); pypiready
 # dispatches pypiindex.yml and reads its run (actions: write).
-github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "read" }, "linuxpack" = { contents = "read" }, "archiving" = { contents = "read" }, "condaship" = { contents = "read" }, "wingtship" = { contents = "read" } }
+github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "read" }, "linuxpack" = { contents = "read" }, "archiving" = { contents = "read" }, "condaship" = { contents = "read" }, "scoopship" = { contents = "read" }, "coprbuild" = { contents = "read" }, "wingtship" = { contents = "read" } }
 # sigstore keyless provenance for the five binary archives, verifiable with
 # `gh attestation verify` (issue #75); the global job's artifacts (payload,
 # sbom, formula, npm package) carry none, and wheelmake.yml attests the
