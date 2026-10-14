@@ -18,7 +18,10 @@ of `pkgs/` and a Cargo.toml with `[workspace.metadata.pkgs]`:
 - edge case: quotes, `&`, `<` and a newline in the texts stay inside their
   JSON, YAML and XML strings; an archive URL of another repository or of
   another tag is refused;
-  the PowerShell script gets no text at all.
+  the PowerShell script gets no text at all;
+- workflows: each step that renders with `--tag "$tag"` sets `tag` in its
+  own script, since a shell variable does not outlive its step; the later
+  steps read `$TAG` from the job's environment.
 
 Run: python tool/tests/test_pkgrender.py
 """
@@ -29,8 +32,11 @@ import io
 import json
 import shutil
 import tempfile
+import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
+
+import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("pkgrender", REPO / "tool/tasks/pkgrender.py")
@@ -263,13 +269,31 @@ def case_escaping(tmp: Path):
     )
 
 
+def case_workflow_tags():
+    renders = 0
+    for wf in sorted((REPO / ".github" / "workflows").glob("*.yml")):
+        for job, spec in yaml.safe_load(wf.read_text(encoding="utf-8"))["jobs"].items():
+            for step in spec.get("steps", []):
+                run = step.get("run", "")
+                if "pkgrender.py render" not in run:
+                    continue
+                renders += 1
+                if re.search(r"\$\{?tag\b", run):
+                    assert re.search(r"^\s*tag=", run, re.M), (
+                        f"{wf.name} {job} '{step.get('name')}' reads $tag but never sets it"
+                    )
+    assert renders >= 5, renders
+    print(f"case 4 (the {renders} render steps set the tag they read): OK")
+
+
 def main():
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)
         case_every_channel(tmp / "1")
         case_refused(tmp / "2")
         case_escaping(tmp / "3")
-    print("pkgrender: 3 cases passed")
+    case_workflow_tags()
+    print("pkgrender: 4 cases passed")
 
 
 if __name__ == "__main__":
