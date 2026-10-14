@@ -1,0 +1,99 @@
+# the release on winget: the three manifests in pkgs/wingt, rendered by
+# tool/tasks/pkgrender.py from the release's dist-manifest.json and
+# sha256.sum, declare the release zip with urna.exe as a nested portable,
+# and Komac opens the pull request to microsoft/winget-pkgs that adds this
+# version of HoffResearch.Urna. winget's own pipeline validates it and its
+# moderators merge it. a version winget-pkgs already holds is not sent
+# again.
+#
+# Komac installs from its release archive, pinned by version and SHA-256.
+# the pull request needs WINGET_TOKEN, a repository secret: a classic token
+# with only the public_repo scope (Komac takes no fine-grained token), whose
+# account forks winget-pkgs and opens the pull request.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# submit a release that already exists.
+
+name: wingtship
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to submit, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  KOMAC_VERSION: 2.16.0
+  KOMAC_SHA256: 7d2707fa6210f2789a3702de49fbd150b736dbf426ee0b9bc8e098736f9fd82d
+  PACKAGE: HoffResearch.Urna
+
+jobs:
+  submit:
+    name: winget-pkgs pull request
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Cargo.toml
+            pkgs/wingt
+            tool/tasks/pkgrender.py
+          sparse-checkout-cone-mode: false
+      - name: the release's manifest and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
+          python3 tool/tasks/pkgrender.py render --channel wingt \
+            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
+            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: skip a version winget-pkgs already holds
+        id: have
+        run: |
+          set -eu
+          url="https://raw.githubusercontent.com/microsoft/winget-pkgs/master/manifests/h/HoffResearch/Urna/${VERSION}/${PACKAGE}.yaml"
+          code="$(curl -s -o /dev/null -w '%{http_code}' "$url")"
+          echo "status $code"
+          if [ "$code" = 200 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - name: install komac
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o komac.tar.gz \
+            "https://github.com/russellbanks/Komac/releases/download/v${KOMAC_VERSION}/komac-${KOMAC_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${KOMAC_SHA256}  komac.tar.gz" | sha256sum -c -
+          tar -xzf komac.tar.gz komac
+          ./komac --version
+      - name: open the pull request
+        if: steps.have.outputs.skip == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+        run: |
+          set -eu
+          "$RUNNER_TEMP/komac" submit "$RUNNER_TEMP/render/wingt" --yes

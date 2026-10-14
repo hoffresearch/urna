@@ -538,3 +538,14 @@ jobs:
     secrets: inherit
     permissions:
       "contents": "read"
+
+  custom-wingtship:
+    needs:
+      - plan
+      - announce
+    uses: ./.github/workflows/wingtship.yml
+    with:
+      plan: ${{ needs.plan.outputs.val }}
+    secrets: inherit
+    permissions:
+      "contents": "read"
