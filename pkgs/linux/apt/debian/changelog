@@ -1,0 +1,5 @@
+urna (${debversion}) ${series}; urgency=medium
+
+  * Release ${version}: ${repository}/releases/tag/${tag}
+
+ -- Brenner Cruvinel <brenner@hoffresearch.com>  ${date}

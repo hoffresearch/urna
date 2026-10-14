@@ -1,0 +1,86 @@
+# the release on a Launchpad PPA (ppa:hoffresearch/urna): for each
+# Ubuntu series below, tool/tasks/ppasource.py builds the Debian source
+# package of the tag (the source, its crates vendored, pkgs/linux/apt/
+# debian filled in), debsign signs it and dput uploads it; Launchpad then
+# compiles it offline for amd64 and arm64 with Ubuntu's rustc-1.91. a
+# version the PPA already holds for a series is not uploaded again.
+#
+# the upload needs PPA_SIGNING_KEY, a repository secret: the armored
+# private key of a key kept for this upload only, registered on the
+# Launchpad account that owns the hoffresearch team, and PPA_SIGNING_FPR,
+# its fingerprint.
+#
+# trigger: manual dispatch with a tag. it joins the release's
+# post-announce jobs once the PPA and its signing key exist.
+
+name: ppaupload
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to upload, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PPA: ppa:hoffresearch/urna
+  ARCHIVE: https://api.launchpad.net/1.0/~hoffresearch/+archive/ubuntu/urna
+
+jobs:
+  upload:
+    name: ppa ${{ matrix.series }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        series: [noble]
+    steps:
+      - name: the release tag
+        env:
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          [[ "$TAG_INPUT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $TAG_INPUT" >&2; exit 1; }
+          echo "TAG=$TAG_INPUT" >> "$GITHUB_ENV"
+          echo "VERSION=${TAG_INPUT#v}" >> "$GITHUB_ENV"
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          ref: ${{ env.TAG }}
+          persist-credentials: false
+      - name: skip a version the PPA already holds
+        id: have
+        env:
+          SERIES: ${{ matrix.series }}
+        run: |
+          set -eu
+          q="ws.op=getPublishedSources&source_name=urna&exact_match=true&version=${VERSION}-1~${SERIES}1"
+          n="$(curl -sS --retry 3 --retry-all-errors "$ARCHIVE?$q" | jq '.total_size')"
+          echo "published $n"
+          if [ "$n" -gt 0 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - name: the Debian tools
+        if: steps.have.outputs.skip == 'false'
+        run: sudo apt-get install -y -qq devscripts debhelper dput
+      - name: build the source package
+        if: steps.have.outputs.skip == 'false'
+        env:
+          SERIES: ${{ matrix.series }}
+        run: python3 tool/tasks/ppasource.py --tag "$TAG" --series "$SERIES" --out "$RUNNER_TEMP/src"
+      - name: sign and upload
+        if: steps.have.outputs.skip == 'false'
+        env:
+          PPA_SIGNING_KEY: ${{ secrets.PPA_SIGNING_KEY }}
+          PPA_SIGNING_FPR: ${{ secrets.PPA_SIGNING_FPR }}
+          SERIES: ${{ matrix.series }}
+        run: |
+          set -eu
+          printf '%s\n' "$PPA_SIGNING_KEY" | gpg --batch --import
+          changes="$RUNNER_TEMP/src/urna_${VERSION}-1~${SERIES}1_source.changes"
+          debsign -k"$PPA_SIGNING_FPR" --re-sign "$changes"
+          dput "$PPA" "$changes"

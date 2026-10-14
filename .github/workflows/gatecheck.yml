@@ -380,6 +380,10 @@ jobs:
         # the templates in pkgs/ against v0.5.4's archives and hashes: every
         # url and hash the release's, texts escaped, a bad input writes nothing.
         run: python tool/tests/test_pkgrender.py
+      - name: the PPA's source package comes from the tag
+        # debian/ filled from the workspace texts in control syntax, the
+        # vendored crates keep their own checksum, a wrong tag writes nothing.
+        run: python tool/tests/test_ppasource.py
 
   payload-py310:
     name: payload staged under python 3.10
