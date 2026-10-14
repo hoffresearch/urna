@@ -3145,6 +3145,12 @@ purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py render
 links = ["pkgs/wingt/HoffResearch.Urna.installer.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/chocoship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/choco/urna.nuspec and its install script from the release's dist-manifest.json and sha256.sum, choco packs it, installs it from that package on a Windows runner and checks urna --version, then pushes it to the Chocolatey community repository with CHOCOLATEY_API_KEY; a version the repository already holds is not pushed"
+links = ["pkgs/choco/urna.nuspec", "pkgs/choco/tools/chocolateyInstall.ps1", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"
