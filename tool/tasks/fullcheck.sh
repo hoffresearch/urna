@@ -364,7 +364,7 @@ python_tests() {
   # vendored crates' checksums, and a wrong tag refused before any write.
   step "python tool/tests/test_ppasource.py"
   "$PY" tool/tests/test_ppasource.py
-  ok "ppasource (4 cases)"
+  ok "ppasource (5 cases)"
 
   # what serves urna.dev/apt: created once, kept on a second run, and no
   # route of the Worker beyond urna.dev/apt/*.

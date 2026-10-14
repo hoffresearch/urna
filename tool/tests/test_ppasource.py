@@ -13,15 +13,19 @@ decides its content, with no network and no Debian tools:
   tag that is not the workspace version are refused before anything is
   written; a template with an unknown placeholder names its file;
 - edge case: a description with hard-wrapped lines and extra spaces comes
-  out as the same words, one paragraph per blank line.
+  out as the same words, one paragraph per blank line; a tree packed twice
+  with other mtimes is the same bytes, with no owner, so every series can
+  upload the same orig tarballs.
 
 Run: python tool/tests/test_ppasource.py
 """
 
 import importlib.util
 import json
+import os
 import shutil
 import sys
+import tarfile
 import tempfile
 from pathlib import Path
 
@@ -74,6 +78,26 @@ def test_clear_file_sums_keeps_the_crate_checksum() -> None:
         ps.clear_file_sums(Path(tmp))
         assert json.loads(sums.read_text()) == {"files": {}, "package": "ef"}
     print("happy (per-file sums cleared, the crate's own checksum kept): OK")
+
+
+def test_tarballs_are_the_same_bytes_every_run() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        tree = Path(tmp, "vendor")
+        (tree / "a-1.0.0").mkdir(parents=True)
+        (tree / "a-1.0.0" / "lib.rs").write_text("pub fn a() {}\n")
+        packed = []
+        for attempt in range(2):
+            os.utime(tree / "a-1.0.0" / "lib.rs", (1000 + attempt, 1000 + attempt))
+            out = Path(tmp, f"v{attempt}.tar.xz")
+            with tarfile.open(out, "w:xz") as dst:
+                dst.add(tree, arcname="vendor", filter=ps.owned_by_root(1700000000))
+            packed.append(out.read_bytes())
+        assert packed[0] == packed[1], "two runs packed different bytes"
+        with tarfile.open(Path(tmp, "v0.tar.xz")) as src:
+            for member in src.getmembers():
+                owner = (member.uid, member.gid, member.uname, member.mtime)
+                assert owner == (0, 0, "", 1700000000), owner
+    print("edge (the same bytes from two runs with other mtimes, no owner): OK")
 
 
 def test_guards_refuse_before_writing() -> None:

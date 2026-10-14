@@ -154,14 +154,16 @@ publish-jobs = ["homebrew", "npm", "./rustready", "./pypiready"]
 # nixosship builds and runs the tag's flake (no secret: github serves it);
 # aptsigner signs the apt index of every release's .deb and uploads it to
 # the urna-apt R2 bucket urna.dev/apt serves (APT_SIGNING_KEY and the
-# R2_APT_* key, repo secrets).
-post-announce-jobs = ["./setuptest", "./archiving", "./condaship", "./scoopship", "./coprbuild", "./wingtship", "./chocoship", "./nixosship", "./aptsigner"]
+# R2_APT_* key, repo secrets); ppaupload uploads the tag's source package
+# to ppa:hoffresearch/urna for each supported Ubuntu series
+# (PPA_SIGNING_KEY, a repo secret).
+post-announce-jobs = ["./setuptest", "./archiving", "./condaship", "./scoopship", "./coprbuild", "./wingtship", "./chocoship", "./nixosship", "./aptsigner", "./ppaupload"]
 # a custom job gets `id-token` + `packages` by default, which zeroes
 # `contents`; the crates job checks out the tag, so it asks for read (and
 # keeps id-token for a later move to crates.io trusted publishing).
 # wheelmake attests its wheels (id-token + attestations); pypiready
 # dispatches pypiindex.yml and reads its run (actions: write).
-github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "read" }, "linuxpack" = { contents = "read" }, "archiving" = { contents = "read" }, "condaship" = { contents = "read" }, "scoopship" = { contents = "read" }, "coprbuild" = { contents = "read" }, "wingtship" = { contents = "read" }, "chocoship" = { contents = "read" }, "nixosship" = { contents = "read" }, "aptsigner" = { contents = "read" } }
+github-custom-job-permissions = { "rustready" = { contents = "read", id-token = "write" }, "setuptest" = { contents = "read" }, "wheelmake" = { contents = "read", id-token = "write", attestations = "write" }, "pypiready" = { contents = "read", actions = "write" }, "stampwork" = { contents = "read" }, "linuxpack" = { contents = "read" }, "archiving" = { contents = "read" }, "condaship" = { contents = "read" }, "scoopship" = { contents = "read" }, "coprbuild" = { contents = "read" }, "wingtship" = { contents = "read" }, "chocoship" = { contents = "read" }, "nixosship" = { contents = "read" }, "aptsigner" = { contents = "read" }, "ppaupload" = { contents = "read" } }
 # sigstore keyless provenance for the five binary archives, verifiable with
 # `gh attestation verify` (issue #75); the global job's artifacts (payload,
 # sbom, formula, npm package) carry none, and wheelmake.yml attests the
