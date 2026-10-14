@@ -49,7 +49,7 @@ echo 'deb [signed-by=/usr/share/keyrings/urna.gpg] https://urna.dev/apt stable m
 sudo apt update && sudo apt install urna
 ```
 
-On Ubuntu 22.04, 24.04 and 26.04, the PPA builds the same version from source: `sudo add-apt-repository ppa:hoffresearch/urna && sudo apt install urna`.
+On Ubuntu 22.04, 24.04 and 26.04, the PPA builds the same version from source: `sudo add-apt-repository ppa:hoffresearch/urna && sudo apt install urna`. Use one of the two: urna.dev/apt serves the release's own binary, the PPA one that Launchpad compiled; with both configured, apt always takes urna.dev's.
 
 </details>
 

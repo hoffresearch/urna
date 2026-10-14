@@ -752,6 +752,8 @@ urna setup
 
 For Ubuntu 22.04 (jammy), 24.04 (noble) and 26.04 (resolute), on amd64 and arm64. Unlike the apt item above, Launchpad compiles the package from source: `ppaupload.yml` builds the Debian source package of the tag with `tool/tasks/ppasource.py` (the crates vendored, `pkgs/linux/apt/debian` filled in), signs it with a key kept for this upload only and uploads one per series; Launchpad builds it offline with Ubuntu's `rustc-1.91` and signs the PPA with its own key. A series that already holds the version is not uploaded again.
 
+Use this or the apt item above, not both: urna.dev/apt serves the release's own binary, the PPA one that Launchpad compiled from the same tag. With both sources configured, apt always picks urna.dev's `X.Y.Z-1`, which sorts above the PPA's `X.Y.Z-1~<series>N`; the version is the same, so nothing breaks, but the PPA is never used.
+
 </details>
 
 <details>
