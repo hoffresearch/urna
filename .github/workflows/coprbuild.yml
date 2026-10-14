@@ -1,0 +1,110 @@
+# the release on COPR: pkgs/linux/dnf/urna.spec, rendered by
+# tool/tasks/pkgrender.py from the release's dist-manifest.json and
+# sha256.sum, repackages the release's own static musl binaries (nothing is
+# compiled). the job builds the source rpm here and copr builds it for the
+# chroots of hoffresearch/urna, so `dnf copr enable hoffresearch/urna`
+# installs the same bytes as every other channel. a version copr already
+# built is not sent again.
+#
+# copr-cli and its dependencies install from .github/coprtools.txt, pinned
+# by hash (`copr-cli==2.6` on stdin to the uv command at the top of that
+# file). the upload needs COPR_CONFIG, a repository secret: the [copr-cli]
+# block of copr.fedorainfracloud.org/api, valid 180 days.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# publish a release that already exists.
+
+name: coprbuild
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to publish, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: hoffresearch/urna
+
+jobs:
+  build:
+    name: copr build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Cargo.toml
+            .github/coprtools.txt
+            pkgs/linux/dnf/urna.spec
+            tool/tasks/pkgrender.py
+          sparse-checkout-cone-mode: false
+      - name: the release's manifest, checksums and archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          top="$RUNNER_TEMP/rpmbuild"
+          mkdir -p "$top/SOURCES" "$top/SPECS"
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p 'urna-*-unknown-linux-musl.tar.xz' -D "$top/SOURCES"
+          (cd "$top/SOURCES" && grep -E 'unknown-linux-musl\.tar\.xz$' "$RUNNER_TEMP/rel/sha256.sum" | sed 's/ \*/  /' | sha256sum -c -)
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: skip a version copr already built
+        id: have
+        run: |
+          set -eu
+          built="$(curl -fsS "https://copr.fedorainfracloud.org/api_3/package/?ownername=${PROJECT%/*}&projectname=${PROJECT#*/}&packagename=urna&with_latest_succeeded_build=true" \
+            | jq -r '.builds.latest_succeeded.source_package.version // ""' || true)"
+          echo "copr has: ${built:-nothing}"
+          if [ "${built%-*}" = "$VERSION" ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - name: build the source rpm
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          top="$RUNNER_TEMP/rpmbuild"
+          python3 tool/tasks/pkgrender.py render --channel dnf \
+            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
+            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
+          cp "$RUNNER_TEMP/render/linux/dnf/urna.spec" "$top/SPECS/"
+          rpmbuild --define "_topdir $top" -bs "$top/SPECS/urna.spec"
+          ls -l "$top"/SRPMS/
+      - name: install copr-cli
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          python3 -m venv "$RUNNER_TEMP/copr"
+          "$RUNNER_TEMP/copr/bin/pip" install -q --require-hashes --no-deps -r .github/coprtools.txt
+      - name: build on copr
+        if: steps.have.outputs.skip == 'false'
+        env:
+          COPR_CONFIG: ${{ secrets.COPR_CONFIG }}
+        run: |
+          set -eu
+          umask 077
+          printf '%s\n' "$COPR_CONFIG" > "$RUNNER_TEMP/copr.conf"
+          "$RUNNER_TEMP/copr/bin/copr-cli" --config "$RUNNER_TEMP/copr.conf" build "$PROJECT" "$RUNNER_TEMP"/rpmbuild/SRPMS/urna-*.src.rpm
+          rm -f "$RUNNER_TEMP/copr.conf"
