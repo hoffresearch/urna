@@ -1,1 +1,0 @@
-The query embedders refuse every network connection unless `URNA_ALLOW_DOWNLOAD=1` is set (`presetmap.refuse_connections`, in `presetqry.py` and the sentence-transformers worker): the jina v5 omni code fetches any `http(s)://` string it is given as media, and a query must never leave the machine. Local sockets keep working.
