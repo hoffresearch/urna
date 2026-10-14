@@ -12,6 +12,9 @@ the unsigned source package:
 - `urna_<version>-1~<series>1.dsc`, `.debian.tar.xz` and
   `_source.changes`, from `dpkg-buildpackage -S`.
 
+Both tarballs carry the tag commit's time and no owner, so each series
+uploads the same bytes.
+
 `debian/` is `pkgs/linux/apt/debian`, filled with `string.Template` (`$$`
 is a literal `$`, a missing name is an error): the version, the series and
 the date in `changelog`, the summary and description from
@@ -81,6 +84,22 @@ def clear_file_sums(vendor: Path) -> None:
         sums.write_text(json.dumps({"files": {}, "package": data.get("package")}))
 
 
+def owned_by_root(mtime: int):
+    """A tar filter that keeps names, modes and content and drops what
+    differs between two runs: owner and mtime. Both tarballs come out byte
+    for byte the same for one tag, so each series of the matrix can upload
+    them: Launchpad refuses a second orig tarball of the same name with
+    other bytes."""
+
+    def normalize(info: tarfile.TarInfo) -> tarfile.TarInfo:
+        info.uid = info.gid = 0
+        info.uname = info.gname = ""
+        info.mtime = mtime
+        return info
+
+    return normalize
+
+
 def render(debian: Path, values: dict[str, str]) -> None:
     for name in TEMPLATED:
         path = debian / name
@@ -111,6 +130,14 @@ def build(root: Path, tag: str, series: str, out: Path) -> Path:
     tree = out / f"urna-{version}"
     if tree.exists():
         shutil.rmtree(tree)
+    commit_time = subprocess.run(
+        ["git", "log", "-1", "--format=%ct", "HEAD"],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    normalize = owned_by_root(int(commit_time))
     run(
         [
             "git",
@@ -125,14 +152,14 @@ def build(root: Path, tag: str, series: str, out: Path) -> Path:
     )
     with tarfile.open(out / "orig.tar") as src, tarfile.open(orig, "w:xz") as dst:
         for member in src.getmembers():
-            dst.addfile(member, src.extractfile(member) if member.isfile() else None)
+            dst.addfile(normalize(member), src.extractfile(member) if member.isfile() else None)
     (out / "orig.tar").unlink()
     with tempfile.TemporaryDirectory() as tmp:
         vendor = Path(tmp) / "vendor"
         run(["cargo", "vendor", "--locked", "--versioned-dirs", str(vendor)], root)
         clear_file_sums(vendor)
         with tarfile.open(vendor_tar, "w:xz") as dst:
-            dst.add(vendor, arcname="vendor")
+            dst.add(vendor, arcname="vendor", filter=normalize)
     with tarfile.open(orig) as src:
         src.extractall(out, filter="tar")
     with tarfile.open(vendor_tar) as src:

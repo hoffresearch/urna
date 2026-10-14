@@ -364,7 +364,7 @@ python_tests() {
   # vendored crates' checksums, and a wrong tag refused before any write.
   step "python tool/tests/test_ppasource.py"
   "$PY" tool/tests/test_ppasource.py
-  ok "ppasource (4 cases)"
+  ok "ppasource (5 cases)"
 
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and

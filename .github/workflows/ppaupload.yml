@@ -2,20 +2,31 @@
 # Ubuntu series below, tool/tasks/ppasource.py builds the Debian source
 # package of the tag (the source, its crates vendored, pkgs/linux/apt/
 # debian filled in), debsign signs it and dput uploads it; Launchpad then
-# compiles it offline for amd64 and arm64 with Ubuntu's rustc-1.91. a
-# version the PPA already holds for a series is not uploaded again.
+# compiles it offline for amd64 and arm64 with Ubuntu's rustc-1.91. the
+# series are the supported ones that publish rustc-1.91 (jammy in
+# -updates, noble in -updates, resolute in the release); the tarballs are
+# the same bytes in each, as Launchpad requires. a version the PPA already
+# holds for a series is not uploaded again.
 #
 # the upload needs PPA_SIGNING_KEY, a repository secret: the armored
 # private key of a key kept for this upload only, registered on the
 # Launchpad account that owns the hoffresearch team, and PPA_SIGNING_FPR,
 # its fingerprint.
 #
-# trigger: manual dispatch with a tag. it joins the release's
-# post-announce jobs once the PPA and its signing key exist.
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# upload a release that already exists. the job runs the tag's own
+# ppasource.py, so v0.5.7 is the first tag it can upload; 0.5.6 was
+# uploaded by hand from the same script.
 
 name: ppaupload
 
 on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
@@ -40,16 +51,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        series: [noble]
+        series: [jammy, noble, resolute]
     steps:
       - name: the release tag
         env:
+          PLAN: ${{ inputs.plan }}
           TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -eu
-          [[ "$TAG_INPUT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $TAG_INPUT" >&2; exit 1; }
-          echo "TAG=$TAG_INPUT" >> "$GITHUB_ENV"
-          echo "VERSION=${TAG_INPUT#v}" >> "$GITHUB_ENV"
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: ${{ env.TAG }}
