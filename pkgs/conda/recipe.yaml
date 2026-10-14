@@ -1,0 +1,56 @@
+# the release's own binaries, repackaged: conda gets the same bytes as every
+# other channel, for the five targets the release builds.
+package:
+  name: urna
+  version: ${version}
+
+source:
+  - if: linux and x86_64
+    then:
+      url: ${url_x86_64_linux}
+      sha256: ${sha256_x86_64_linux}
+  - if: linux and aarch64
+    then:
+      url: ${url_aarch64_linux}
+      sha256: ${sha256_aarch64_linux}
+  - if: osx and x86_64
+    then:
+      url: ${url_x86_64_macos}
+      sha256: ${sha256_x86_64_macos}
+  - if: osx and arm64
+    then:
+      url: ${url_aarch64_macos}
+      sha256: ${sha256_aarch64_macos}
+  - if: win and x86_64
+    then:
+      url: ${url_x86_64_windows}
+      sha256: ${sha256_x86_64_windows}
+
+build:
+  number: 0
+  # a static binary links nothing to relocate.
+  dynamic_linking:
+    binary_relocation: false
+  # one runner packs all five targets, so the script runs in the build
+  # machine's shell and picks the file for the target.
+  script:
+    - if: win
+      then:
+        - mkdir -p "$$PREFIX/Library/bin"
+        - cp urna.exe "$$PREFIX/Library/bin/urna.exe"
+      else:
+        - mkdir -p "$$PREFIX/bin"
+        - cp urna "$$PREFIX/bin/urna"
+        - chmod 755 "$$PREFIX/bin/urna"
+
+tests:
+  - script:
+      - urna --version
+
+about:
+  homepage: ${homepage}
+  repository: ${repository}
+  license: ${license}
+  license_file: LICENSE
+  summary: ${summary}
+  description: ${description}

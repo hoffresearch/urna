@@ -1,0 +1,24 @@
+{
+    "version": "${version}",
+    "description": ${summary},
+    "homepage": "${homepage}",
+    "license": "${license}",
+    "architecture": {
+        "64bit": {
+            "url": "${url_x86_64_windows}",
+            "hash": "${sha256_x86_64_windows}"
+        }
+    },
+    "bin": "urna.exe",
+    "checkver": "github",
+    "autoupdate": {
+        "architecture": {
+            "64bit": {
+                "url": "${repository}/releases/download/v$$version/urna-x86_64-pc-windows-msvc.zip",
+                "hash": {
+                    "url": "$$url.sha256"
+                }
+            }
+        }
+    }
+}

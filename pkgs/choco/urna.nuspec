@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>urna</id>
+    <version>${version}</version>
+    <title>urna</title>
+    <authors>Brenner Cruvinel</authors>
+    <owners>Hoff Research</owners>
+    <projectUrl>${homepage}</projectUrl>
+    <projectSourceUrl>${repository}</projectSourceUrl>
+    <packageSourceUrl>${repository}/tree/${tag}/pkgs/choco</packageSourceUrl>
+    <docsUrl>${repository}/blob/${tag}/docs/USAGE.md</docsUrl>
+    <bugTrackerUrl>${repository}/issues</bugTrackerUrl>
+    <licenseUrl>${repository}/blob/${tag}/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <tags>${tags_list}</tags>
+    <summary>${summary}</summary>
+    <description>${description}</description>
+    <releaseNotes>${repository}/releases/tag/${tag}</releaseNotes>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+  </files>
+</package>
