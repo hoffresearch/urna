@@ -1,4 +1,4 @@
-# yaml-language-server: $$schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+# yaml-language-server: $$schema=https://aka.ms/winget-manifest.installer.1.12.0.schema.json
 PackageIdentifier: HoffResearch.Urna
 PackageVersion: ${version}
 InstallerType: zip
@@ -13,4 +13,4 @@ Installers:
   InstallerUrl: ${url_x86_64_windows}
   InstallerSha256: ${sha256_x86_64_windows}
 ManifestType: installer
-ManifestVersion: 1.10.0
+ManifestVersion: 1.12.0
