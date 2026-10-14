@@ -86,13 +86,17 @@ def read_sums(path: Path) -> dict[str, str]:
     return sums
 
 
-def release(manifest: Path, sums: Path) -> dict[str, str]:
-    """The per-version values: version, tag and each target's archive."""
+def release(manifest: Path, sums: Path, expect: str | None = None) -> dict[str, str]:
+    """The per-version values: version, tag and each target's archive. With
+    `expect`, the manifest must be that tag's, so a job's own tag and the
+    version it renders cannot part."""
     data = json.loads(manifest.read_text())
     tag = data.get("announcement_tag", "")
     version = tag.removeprefix("v")
     if not VERSION.match(version):
         raise RenderError(f"{manifest.name}: announcement_tag {tag!r} is not vX.Y.Z")
+    if expect is not None and tag != expect:
+        raise RenderError(f"{manifest.name} is the release of {tag}, not {expect}")
     rel = next((r for r in data.get("releases", []) if r.get("app_name") == "urna"), None)
     if rel is None or rel.get("app_version") != version:
         raise RenderError(f"{manifest.name}: no urna release at {version}")
@@ -227,12 +231,13 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--manifest", required=True, type=Path)
     r.add_argument("--sums", required=True, type=Path)
     r.add_argument("--out", required=True, type=Path)
+    r.add_argument("--tag", help="refuse a manifest of any other tag")
     r.add_argument("--root", type=Path, default=REPO, help=argparse.SUPPRESS)
     args = ap.parse_args(argv)
     try:
         files = render(
             args.channel,
-            release(args.manifest, args.sums),
+            release(args.manifest, args.sums, args.tag),
             metadata(args.root),
             args.root,
             args.out,

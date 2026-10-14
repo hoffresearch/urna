@@ -118,7 +118,7 @@ def scratch(tmp: Path, texts=PLAIN, drop=None, data=None) -> tuple[Path, Path, P
     return root, man, sums
 
 
-def run(root: Path, man: Path, sums: Path, out: Path, channel: str) -> int:
+def run(root: Path, man: Path, sums: Path, out: Path, channel: str, *extra: str) -> int:
     args = [
         "render",
         "--channel",
@@ -129,6 +129,7 @@ def run(root: Path, man: Path, sums: Path, out: Path, channel: str) -> int:
         str(sums),
         "--out",
         str(out),
+        *extra,
     ]
     with contextlib.redirect_stdout(io.StringIO()):
         return pkgrender.main([*args, "--root", str(root)])
@@ -203,15 +204,30 @@ def case_refused(tmp: Path):
     # the second of choco's two files breaks: the first is not written either.
     (root / "pkgs/choco/tools/chocolateyInstall.ps1").write_text("'${versoin}'\n")
     assert_refused(root, man, sums, sub / "out", "choco", "unknown or malformed placeholder")
+    sub = tmp / "other-tag"
+    root2, man2, sums2 = scratch(sub)
+    assert_refused(
+        root2,
+        man2,
+        sums2,
+        sub / "out",
+        "choco",
+        "is the release of v0.5.4, not v0.5.5",
+        "--tag",
+        "v0.5.5",
+    )
+    assert run(root2, man2, sums2, sub / "ok", "choco", "--tag", "v0.5.4") == 0
     (root / "pkgs/scoop/urna.json").write_text("")
     assert_refused(root, man, sums, sub / "out", "scoop", "pkgs/scoop/urna.json is empty")
-    print("case 2 (no hash, bad tag, other version, long text, unknown name, empty file): OK")
+    print(
+        "case 2 (no hash, bad tag, other version, another job's tag, long text, unknown name, empty file): OK"
+    )
 
 
-def assert_refused(root, man, sums, out, channel, why):
+def assert_refused(root, man, sums, out, channel, why, *extra):
     err = io.StringIO()
     with contextlib.redirect_stderr(err):
-        code = run(root, man, sums, out, channel)
+        code = run(root, man, sums, out, channel, *extra)
     assert code == 1 and why in err.getvalue(), (why, err.getvalue())
     assert not out.exists(), f"{out} was written"
 

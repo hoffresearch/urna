@@ -1,0 +1,1 @@
+The channel jobs (`condaship`, `scoopship`, `coprbuild`, `wingtship`, `chocoship`) pass their tag to `pkgrender.py render --tag`, which refuses a `dist-manifest.json` of any other release, so the version a job checks, skips and pushes is always the one it rendered.

@@ -2451,7 +2451,7 @@ links = ["tool/tasks/chanprobe.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_pkgrender.py"
 kind = "python-test"
-purpose = "pkgrender.py against v0.5.4's archives, layout and hashes in a scratch root: every channel rendered with the release's URLs and hashes, scoop's own $version kept, one nfpm config per architecture; a missing hash, a bad tag, another version, a long summary, an unknown placeholder and an empty template refused with nothing written; quotes, ampersands, angle brackets and newlines escaped in JSON, YAML and XML, no text in PowerShell, URLs of another repository or tag refused; in fullcheck.sh and gatecheck.yml"
+purpose = "pkgrender.py against v0.5.4's archives, layout and hashes in a scratch root: every channel rendered with the release's URLs and hashes, scoop's own $version kept, one nfpm config per architecture; a missing hash, a bad tag, another version, a manifest of another tag than --tag, a long summary, an unknown placeholder and an empty template refused with nothing written; quotes, ampersands, angle brackets and newlines escaped in JSON, YAML and XML, no text in PowerShell, URLs of another repository or tag refused; in fullcheck.sh and gatecheck.yml"
 links = ["tool/tasks/pkgrender.py"]
 
 [[inventory.data_docs_python_script_tests]]
