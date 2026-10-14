@@ -65,7 +65,7 @@ jobs:
           else
             tag="$TAG_INPUT"
           fi
-          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
           top="$RUNNER_TEMP/rpmbuild"
           mkdir -p "$top/SOURCES" "$top/SPECS"
           gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"

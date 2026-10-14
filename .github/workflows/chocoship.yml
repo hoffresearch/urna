@@ -3,7 +3,9 @@
 # dist-manifest.json and sha256.sum, are packed with choco, installed from
 # that package on this Windows runner and checked with `urna --version`,
 # then pushed to the Chocolatey community repository, where moderators
-# review it. a version the repository already holds is not pushed again.
+# review it. a version the repository has approved is not pushed again; a
+# version still in moderation is, since moderation asks for a fix as a
+# push of the same version.
 #
 # the install script downloads the release zip and checks it against the
 # SHA-256 from sha256.sum; no binary travels inside the package. the push
@@ -66,20 +68,25 @@ jobs:
           else
             tag="$TAG_INPUT"
           fi
-          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
           gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
           python tool/tasks/pkgrender.py render --channel choco \
             --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
             --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
-      - name: skip a version the repository already holds
+      - name: skip a version the repository has approved
         id: have
         run: |
           set -eu
           url="https://community.chocolatey.org/api/v2/Packages(Id='${PACKAGE}',Version='${VERSION}')"
-          code="$(curl -s -o /dev/null -w '%{http_code}' "$url")"
-          echo "status $code"
-          if [ "$code" = 200 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+          code="$(curl -sS --retry 3 --retry-all-errors -o "$RUNNER_TEMP/status.xml" -w '%{http_code}' "$url")"
+          case "$code" in
+            404) status=absent ;;
+            200) status="$(sed -n 's:.*<d\:PackageStatus>\([^<]*\)</d\:PackageStatus>.*:\1:p' "$RUNNER_TEMP/status.xml")" ;;
+            *) echo "the repository answered $code" >&2; exit 1 ;;
+          esac
+          echo "status ${status:-unknown}"
+          if [ "$status" = Approved ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
       - name: pack, install from the package, run
         run: |
           set -eu

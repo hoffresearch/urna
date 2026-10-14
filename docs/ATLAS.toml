@@ -3147,7 +3147,7 @@ links = ["pkgs/wingt/HoffResearch.Urna.installer.yaml", "tool/tasks/pkgrender.py
 [[inventory.distribution]]
 path = ".github/workflows/chocoship.yml"
 kind = "ci-workflow"
-purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/choco/urna.nuspec and its install script from the release's dist-manifest.json and sha256.sum, choco packs it, installs it from that package on a Windows runner and checks urna --version, then pushes it to the Chocolatey community repository with CHOCOLATEY_API_KEY; a version the repository already holds is not pushed"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/choco/urna.nuspec and its install script from the release's dist-manifest.json and sha256.sum, choco packs it, installs it from that package on a Windows runner and checks urna --version, then pushes it to the Chocolatey community repository with CHOCOLATEY_API_KEY; a version the repository has approved is not pushed, one still in moderation is pushed again, and an answer other than 200 or 404 fails the job"
 links = ["pkgs/choco/urna.nuspec", "pkgs/choco/tools/chocolateyInstall.ps1", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
