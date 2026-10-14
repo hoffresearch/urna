@@ -6,7 +6,7 @@ exclude = ["rust/ingest"]
 resolver = "3"
 
 [workspace.package]
-version = "0.5.5"
+version = "0.5.6"
 edition = "2024"
 rust-version = "1.85"
 license = "MIT"
@@ -84,8 +84,8 @@ half = { version = "2", features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
 # path for the workspace, version for crates.io: `cargo publish` strips the
 # path and keeps the version, so both move with every release bump.
-urna-format = { path = "rust/format", version = "0.5.5" }
-urna-engine = { path = "rust/engine", version = "0.5.5" }
+urna-format = { path = "rust/format", version = "0.5.6" }
+urna-engine = { path = "rust/engine", version = "0.5.6" }
 
 # distribution backbone for the `urna` cli binary (issue #75): per-platform
 # tarballs + sha256 checksums + the homebrew tap formula, the npm package

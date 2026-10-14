@@ -4,7 +4,7 @@ message: >-
   metadata in this file.
 title: Urna.dev
 type: software
-version: "0.5.5"
+version: "0.5.6"
 date-released: "2026-10-14"
 authors:
   - name: "Brenner Cruvinel"
@@ -24,11 +24,11 @@ abstract: >-
 license: MIT
 url: https://urna.dev
 repository-code: https://github.com/hoffresearch/urna
-repository-artifact: https://crates.io/crates/urna/0.5.5
+repository-artifact: https://crates.io/crates/urna/0.5.6
 identifiers:
   - type: url
-    value: https://github.com/hoffresearch/urna/releases/tag/v0.5.5
-    description: Release of Urna version 0.5.5.
+    value: https://github.com/hoffresearch/urna/releases/tag/v0.5.6
+    description: Release of Urna version 0.5.6.
 keywords:
   - vector database
   - embeddings

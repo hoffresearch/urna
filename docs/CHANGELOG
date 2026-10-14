@@ -14,9 +14,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version
 
 ## [Unreleased]
 
-<!-- a change goes in news/<issue>.<type>.md (docs/CONTRIBUTING.md), never here -->
+<!-- a change goes in docs/news/<issue>.<type>.md (docs/CONTRIBUTING.md), never here -->
 
 <!-- towncrier: each release lands below this line -->
+
+## [0.5.6] - 2026-10-14
+
+### Added
+
+- urna installs with Chocolatey (#565): `choco install urna`, once Chocolatey's moderators approve the package. The `chocoship` job, after the release is announced, renders `pkgs/choco` with `pkgrender.py` (an install script that downloads the release zip and checks its SHA-256 from `sha256.sum`, so no binary travels inside the package), packs it, installs it from that package on a Windows runner and checks `urna --version`, then pushes it to the community repository; a version the repository publishes (approved or exempted) is skipped, while one still in moderation is pushed again, since moderation asks for a fix as a push of the same version, and a manual dispatch publishes an existing tag.
+- urna runs with nix (#566): `nix run github:hoffresearch/urna -- --version`, or `nix profile install github:hoffresearch/urna`. `flake.nix` at the root builds the CLI from source through `pkgs/nixos/package.nix` (`buildRustPackage` with `Cargo.lock`, the version and summary read from `Cargo.toml`), leaving out the git-lfs model and the separate ingest workspace, so the binary is a release build and `urna setup` fetches that release's payload. The `nixosship` job, after the release is announced, runs the tag's flake on Linux and checks its version.
+- `urna setup` names the channel a binary came from and, where the channel has one, the command that updates it (#567): besides Homebrew, npm, cargo and the install script, it recognises scoop, winget and Chocolatey (by the paths their shims launch), a conda environment (by its `conda-meta/`, so a miniforge under Homebrew still reads conda), nix, and `/usr/bin/urna` owned by dpkg or rpm (apt or dnf; a `.deb` gets no update command until an apt source serves urna). The release report checks the release's `.deb` and `.rpm`, conda, scoop, COPR, Chocolatey and winget, with a version still under review by Chocolatey's or winget's moderators shown as in moderation rather than missing, and `setuptest` installs from conda, scoop, the `.deb` and COPR and checks that setup names each one.
+
+### Changed
+
+- The README's TUI demo is recorded again with 0.5.5, which shows `opening quickstart.urna` while it opens the corpus.
+
+### Removed
+
+- The repository no longer follows REUSE. `LICENSES/`, `REUSE.toml`, the SPDX header at the top of each source file and the `reuse lint` step in the gate and in CI are gone. The single `LICENSE` at the root covers every file under MIT (`release.yml` keeps the notice of the cargo-dist template it comes from), and the demo corpus moves from CC0 to MIT with it. Changelog fragments now live in `docs/news/`.
+
+### Fixed
+
+- The winget manifests declare schema 1.12.0 (#564), the version Komac 2.16.0 writes into the installer manifest when it submits: with the other two at 1.10.0, winget's validation refused the pull request for mixing manifest versions.
+- A manual dispatch of a channel job (`condaship`, `scoopship`, `coprbuild`, `wingtship`, `chocoship`) accepts only a tag of the form `vX.Y.Z`: the old pattern also let `v1.2.3-rc.1` through.
+
 
 ## [0.5.5] - 2026-10-14
 

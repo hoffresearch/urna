@@ -1,1 +1,0 @@
-The repository no longer follows REUSE. `LICENSES/`, `REUSE.toml` and the `reuse lint` step in the gate and in CI are gone. The single `LICENSE` at the root covers every file under MIT, and the demo corpus moves from CC0 to MIT with it. Changelog fragments now live in `docs/news/`.
