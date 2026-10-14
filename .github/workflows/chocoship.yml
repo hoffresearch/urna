@@ -28,8 +28,6 @@ on:
         description: release tag to publish, vX.Y.Z
         required: true
         type: string
-  push:
-    branches: [chocoship]
 
 permissions:
   contents: read
@@ -60,7 +58,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PLAN: ${{ inputs.plan }}
-          TAG_INPUT: ${{ inputs.tag || 'v0.5.5' }}
+          TAG_INPUT: ${{ inputs.tag }}
         run: |
           set -eu
           if [ -n "$PLAN" ]; then
@@ -92,7 +90,7 @@ jobs:
           echo "$got"
           [ "$got" = "urna $VERSION" ] || { echo "expected urna $VERSION" >&2; exit 1; }
       - name: push to the community repository
-        if: steps.have.outputs.skip == 'false' && github.event_name != 'push'
+        if: steps.have.outputs.skip == 'false'
         env:
           CHOCOLATEY_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
         run: |
