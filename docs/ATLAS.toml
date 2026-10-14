@@ -3121,6 +3121,12 @@ purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py render
 links = ["pkgs/conda/recipe.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/wingtship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders the three winget manifests in pkgs/wingt from the release's dist-manifest.json and sha256.sum, and Komac (pinned by version and SHA-256) opens the pull request to microsoft/winget-pkgs with WINGET_TOKEN (classic, public_repo only); a version winget-pkgs already holds is skipped"
+links = ["pkgs/wingt/HoffResearch.Urna.installer.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"
