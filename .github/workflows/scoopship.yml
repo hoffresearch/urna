@@ -62,7 +62,7 @@ jobs:
           fi
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "not a release tag: $tag" >&2; exit 1; }
           gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
-          python3 tool/tasks/pkgrender.py render --channel scoop \
+          python3 tool/tasks/pkgrender.py render --channel scoop --tag "$tag" \
             --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
             --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           echo "TAG=$tag" >> "$GITHUB_ENV"
