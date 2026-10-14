@@ -86,6 +86,9 @@ def setup_function(_=None) -> None:
         ("RAW_GITHUB", "/raw"),
         ("GITHUB_API_URL", "/api"),
         ("CRATES_API", "/crates-api"),
+        ("ANACONDA_API", "/conda"),
+        ("COPR_API", "/copr"),
+        ("CHOCOLATEY_API", "/choco"),
     ]:
         os.environ[var] = BASE + path
     os.environ.pop("GH_TOKEN", None)
@@ -96,6 +99,20 @@ V = "0.5.3"
 SHA = "a" * 40
 INDEX = "/index/ur/na/urna"
 FORMULA = "/raw/hoffresearch/homebrew-urna/main/Formula/urna.rb"
+COPR = (
+    "/copr/package/?ownername=hoffresearch&projectname=urna&packagename=urna"
+    "&with_latest_succeeded_build=true"
+)
+WINGET = f"/raw/microsoft/winget-pkgs/master/manifests/h/HoffResearch/Urna/{V}/" + (
+    "HoffResearch.Urna.yaml"
+)
+WINGET_PRS = (
+    "/api/search/issues?q=repo:microsoft/winget-pkgs+is:pr+is:open+in:title+HoffResearch.Urna+" + V
+)
+
+
+def choco(status: str) -> str:
+    return f"<m:properties><d:PackageStatus>{status}</d:PackageStatus></m:properties>"
 
 
 def index_line(vers: str, yanked: bool = False) -> str:
@@ -112,8 +129,22 @@ def released(version: str = V) -> None:
     """Every channel serving `version`, a green run on SHA with its tag, the
     same wheels on PyPI and the release, an attestation for every artifact."""
     assets = [{"name": n, "digest": f"sha256:{d}"} for n, d in {**ARCHIVES, **WHEELS}.items()]
+    assets += [
+        {"name": n}
+        for n in (
+            f"urna_{version}-1_amd64.deb",
+            f"urna_{version}-1_arm64.deb",
+            f"urna-{version}-1.x86_64.rpm",
+            f"urna-{version}-1.aarch64.rpm",
+        )
+    ]
     ROUTES.update(
         {
+            f"/conda/release/hoffresearch/urna/{version}": {"distributions": [{}] * 5},
+            "/raw/hoffresearch/scoop-urna/main/bucket/urna.json": {"version": version},
+            COPR: {"builds": {"latest_succeeded": {"source_package": {"version": f"{version}-1"}}}},
+            f"/choco/Packages(Id='urna',Version='{version}')": choco("Approved"),
+            WINGET: "PackageIdentifier: HoffResearch.Urna\n",
             f"/npm/@urna%2fcli/{version}": {"version": version},
             INDEX: index_line("0.5.2") + "\n" + index_line(version) + "\n",
             f"/pypi-host/pypi/urna/{version}/json": {
@@ -223,7 +254,13 @@ def test_a_full_release_reports_released() -> None:
         "pypiindex.yml: success",
         "| npm | served |",
         "| PyPI | served (4 files) |",
-        "| GitHub release | served (6 assets) |",
+        "| GitHub release | served (10 assets) |",
+        "| .deb and .rpm | served |",
+        "| conda | served (5 platforms) |",
+        "| scoop | served |",
+        "| COPR | served |",
+        "| Chocolatey | served |",
+        "| winget | served |",
         "the same 4 files",
         "has one (6)",
         "Released everywhere.",
@@ -270,6 +307,33 @@ def test_a_failed_release_is_still_reported() -> None:
     print(
         "error (cancelled run, skipped jobs, absent npm, a 500, an old formula: in the summary): OK"
     )
+
+
+def test_moderation_is_not_a_failure_but_absence_is() -> None:
+    released()
+    ROUTES[f"/choco/Packages(Id='urna',Version='{V}')"] = choco("Submitted")
+    ROUTES[WINGET] = None
+    ROUTES[WINGET_PRS] = {"items": [{"number": 9, "title": f"New version: HoffResearch.Urna {V}"}]}
+    ok, text = ch.report("7", SHA, f"v{V}", "o/r")
+    assert ok, text
+    assert "| Chocolatey | in moderation (Submitted) |" in text, text
+    assert "| winget | in moderation (#9) |" in text, text
+    ROUTES[WINGET_PRS] = {"items": [{"number": 8, "title": f"New version: HoffResearch.Urna {V}0"}]}
+    ROUTES[f"/choco/Packages(Id='urna',Version='{V}')"] = None
+    ROUTES[COPR] = {"builds": {"latest_succeeded": {"source_package": {"version": "0.5.2-1"}}}}
+    ROUTES[f"/conda/release/hoffresearch/urna/{V}"] = {"distributions": [{}] * 4}
+    ROUTES[f"/api/repos/o/r/releases/tags/v{V}"]["assets"].pop()
+    ok, text = ch.report("7", SHA, f"v{V}", "o/r")
+    assert not ok, text
+    for want in [
+        f"winget: absent (winget-pkgs has no HoffResearch.Urna {V})",
+        f"Chocolatey: absent (chocolatey has no urna {V})",
+        "COPR: absent (copr last built 0.5.2-1)",
+        "conda: absent (conda has 4 of 5 platforms)",
+        f".deb and .rpm: absent (the release lacks urna-{V}-1.aarch64.rpm)",
+    ]:
+        assert want in text, (want, text)
+    print("edge (a version under review is in moderation; a missing one fails the report): OK")
 
 
 def test_a_tag_on_another_commit_is_named() -> None:

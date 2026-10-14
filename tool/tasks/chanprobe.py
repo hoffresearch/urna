@@ -6,7 +6,7 @@
 
 Two subcommands share one probe per channel:
 
-- ``wait --channel npm|crates|pypi --version X.Y.Z``: setuptest runs it
+- ``wait --channel npm|crates|pypi|conda|scoop|copr --version X.Y.Z``: setuptest runs it
   before installing from a registry, so a channel that is still propagating
   is waited for (bounded, ``--timeout``) instead of failing the leg. Only the
   exact version counts: ``0.5.30`` is not ``0.5.3``.
@@ -17,8 +17,11 @@ Two subcommands share one probe per channel:
   a release run completes, whatever its conclusion. It writes one summary:
   the run and every job that did not succeed, whether the tag points at the
   run's commit, the pypiindex.yml run for that commit, and what the GitHub
-  release, crates.io, npm, Homebrew and PyPI serve. The summary is written
-  first; the exit code then fails the report when anything is missing.
+  release, crates.io, npm, Homebrew, PyPI, the release's .deb and .rpm,
+  conda, scoop, COPR, Chocolatey and winget serve. Chocolatey and winget
+  are reviewed by people: a version still under review reads "in
+  moderation" and does not fail the report. The summary is written first;
+  the exit code then fails the report when anything is missing.
 
 Endpoints (overridable for tests through the environment):
 
@@ -27,6 +30,12 @@ Endpoints (overridable for tests through the environment):
   binstall resolve through), a non-yanked line with that ``vers``;
 - PyPI: ``$PYPI_URL/pypi/urna/<version>/json``, with files;
 - Homebrew: ``$RAW_GITHUB/hoffresearch/homebrew-urna/main/Formula/urna.rb``;
+- conda: ``$ANACONDA_API/release/hoffresearch/urna/<version>``, all 5 platforms;
+- scoop: ``$RAW_GITHUB/hoffresearch/scoop-urna/main/bucket/urna.json``;
+- COPR: ``$COPR_API/package/`` of hoffresearch/urna, its last succeeded build;
+- Chocolatey: ``$CHOCOLATEY_API/Packages(Id='urna',Version='<version>')``;
+- winget: the manifest in ``microsoft/winget-pkgs`` on ``$RAW_GITHUB``, or
+  an open pull request for the version (GitHub search);
 - GitHub: ``$GITHUB_API_URL`` (release, run, jobs, tag ref), ``GH_TOKEN``.
 
     python tool/tasks/chanprobe.py wait --channel npm --version 0.5.3
@@ -51,9 +60,9 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(name, default).rstrip("/")
 
 
-def _get(url: str, token: bool = False) -> tuple[int, str]:
+def _get(url: str, token: bool = False, accept: str = "application/json") -> tuple[int, str]:
     """(status, body); status 0 when the host does not answer."""
-    headers = {"User-Agent": UA, "Accept": "application/json"}
+    headers = {"User-Agent": UA, "Accept": accept}
     if token and (tok := os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")):
         headers["Authorization"] = f"Bearer {tok}"
     try:
@@ -129,7 +138,83 @@ def probe_github(version: str, repo: str) -> str:
     return f"{SERVED} ({len(assets)} assets)" if state == SERVED else state
 
 
-PROBES = {"npm": probe_npm, "crates": probe_crates, "pypi": probe_pypi}
+CONDA_PLATFORMS = 5
+PACKAGES = ("{v}-1_amd64.deb", "{v}-1_arm64.deb", "{v}-1.x86_64.rpm", "{v}-1.aarch64.rpm")
+MODERATED = "in moderation"
+
+
+def probe_conda(version: str) -> str:
+    api = _env("ANACONDA_API", "https://api.anaconda.org")
+    status, body = _get(f"{api}/release/hoffresearch/urna/{version}")
+    files = _doc(status, body).get("distributions") or []
+    state = _state(status, len(files) == CONDA_PLATFORMS, f"conda has {len(files)} of 5 platforms")
+    return f"{SERVED} ({len(files)} platforms)" if state == SERVED else state
+
+
+def probe_scoop(version: str) -> str:
+    raw = _env("RAW_GITHUB", "https://raw.githubusercontent.com")
+    status, body = _get(f"{raw}/hoffresearch/scoop-urna/main/bucket/urna.json")
+    at = _doc(status, body).get("version")
+    return _state(status, at == version, f"the bucket is at {at}")
+
+
+def probe_copr(version: str) -> str:
+    api = _env("COPR_API", "https://copr.fedorainfracloud.org/api_3")
+    query = "ownername=hoffresearch&projectname=urna&packagename=urna"
+    status, body = _get(f"{api}/package/?{query}&with_latest_succeeded_build=true")
+    build = (_doc(status, body).get("builds") or {}).get("latest_succeeded") or {}
+    at = (build.get("source_package") or {}).get("version") or ""
+    return _state(status, at.startswith(f"{version}-"), f"copr last built {at or 'nothing'}")
+
+
+def probe_packages(version: str, repo: str) -> str:
+    api = _env("GITHUB_API_URL", "https://api.github.com")
+    status, body = _get(f"{api}/repos/{repo}/releases/tags/v{version}", token=True)
+    names = {a.get("name") for a in _doc(status, body).get("assets") or []}
+    want = [f"urna{'_' if n.endswith('.deb') else '-'}{n.format(v=version)}" for n in PACKAGES]
+    lack = [n for n in want if n not in names]
+    return _state(status, not lack, f"the release lacks {', '.join(lack)}")
+
+
+def probe_chocolatey(version: str) -> str:
+    """Served once approved; a package the moderators still review is in
+    moderation, which is not a failure of the release."""
+    api = _env("CHOCOLATEY_API", "https://community.chocolatey.org/api/v2")
+    url = f"{api}/Packages(Id='urna',Version='{version}')"
+    status, body = _get(url, accept="application/atom+xml")
+    found = re.search(r"<d:PackageStatus>([^<]*)</d:PackageStatus>", body)
+    at = found.group(1) if found and status == 200 else None
+    if at and at != "Approved":
+        return f"{MODERATED} ({at})"
+    return _state(status, at == "Approved", f"chocolatey has no urna {version}")
+
+
+def probe_winget(version: str) -> str:
+    """Served once the manifest is in winget-pkgs; an open pull request for
+    the version is in moderation."""
+    raw = _env("RAW_GITHUB", "https://raw.githubusercontent.com")
+    path = f"microsoft/winget-pkgs/master/manifests/h/HoffResearch/Urna/{version}"
+    status, _ = _get(f"{raw}/{path}/HoffResearch.Urna.yaml")
+    if status == 200:
+        return SERVED
+    api = _env("GITHUB_API_URL", "https://api.github.com")
+    q = f"repo:microsoft/winget-pkgs+is:pr+is:open+in:title+HoffResearch.Urna+{version}"
+    found_status, body = _get(f"{api}/search/issues?q={q}", token=True)
+    items = _doc(found_status, body).get("items") or []
+    pr = next((i for i in items if i.get("title", "").endswith(f" {version}")), None)
+    if pr:
+        return f"{MODERATED} (#{pr.get('number')})"
+    return _state(status, False, f"winget-pkgs has no HoffResearch.Urna {version}")
+
+
+PROBES = {
+    "npm": probe_npm,
+    "crates": probe_crates,
+    "pypi": probe_pypi,
+    "conda": probe_conda,
+    "scoop": probe_scoop,
+    "copr": probe_copr,
+}
 
 PUBLISHED, ABSENT = 0, 10
 
@@ -279,11 +364,19 @@ def report(run_id: str, sha: str, tag: str, repo: str) -> tuple[bool, str]:
         "npm": probe_npm(version),
         "Homebrew": probe_homebrew(version),
         "PyPI": probe_pypi(version),
+        ".deb and .rpm": probe_packages(version, repo),
+        "conda": probe_conda(version),
+        "scoop": probe_scoop(version),
+        "COPR": probe_copr(version),
+        "Chocolatey": probe_chocolatey(version),
+        "winget": probe_winget(version),
     }
     lines += ["", "| channel | " + version + " |", "|---|---|"]
     lines += [f"| {name} | {state} |" for name, state in channels.items()]
     problems += [
-        f"{name}: {state}" for name, state in channels.items() if not state.startswith(SERVED)
+        f"{name}: {state}"
+        for name, state in channels.items()
+        if not state.startswith((SERVED, MODERATED))
     ]
     extra, issues = wheels_and_attestations(version, repo)
     lines += ["", *extra]

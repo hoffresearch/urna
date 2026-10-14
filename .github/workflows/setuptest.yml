@@ -4,11 +4,15 @@
 # release download url), then runs `urna validate` on the golden fixture
 # and `urna doctor` with real numpy/tokenizers. a second job installs the
 # binary through each package channel (homebrew, npm, bun, pnpm, yarn,
-# cargo binstall), which ships the bare binary, and proves `urna setup
-# --yes` completes it:
+# cargo binstall, conda, scoop, the release's .deb), which ships the bare
+# binary, and proves `urna setup --yes` names the channel it came from and
+# completes it:
 # payload from the tagged release, a python env built from a runner python
-# that has no numpy, then `urna doctor`. a third job pip-installs the
+# that has no numpy, then `urna doctor`. a third job does the same for dnf
+# from COPR, in a Fedora container. a fourth job pip-installs the
 # published wheel and repeats validate + the uvx console entry point.
+# winget and Chocolatey are left out: a version is installable there only
+# after their moderators approve it, days after the release.
 #
 # trigger: cargo-dist calls it as a post-announce job (`post-announce-jobs`
 # in Cargo.toml), so it runs inside the release run once every channel has
@@ -107,19 +111,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # shows: the channel `urna setup` must name for that install.
         include:
-          - { channel: homebrew, os: macos-latest }
-          - { channel: homebrew, os: ubuntu-24.04 }
-          - { channel: npm, os: ubuntu-24.04 }
-          - { channel: npm, os: macos-latest }
-          - { channel: npm, os: windows-latest }
-          - { channel: binstall, os: ubuntu-24.04 }
+          - { channel: homebrew, os: macos-latest, shows: homebrew }
+          - { channel: homebrew, os: ubuntu-24.04, shows: homebrew }
+          - { channel: npm, os: ubuntu-24.04, shows: npm }
+          - { channel: npm, os: macos-latest, shows: npm }
+          - { channel: npm, os: windows-latest, shows: npm }
+          - { channel: binstall, os: ubuntu-24.04, shows: cargo }
           # the same @urna/cli package through the other node package managers.
-          - { channel: bun, os: ubuntu-24.04 }
-          - { channel: bun, os: macos-latest }
-          - { channel: pnpm, os: ubuntu-24.04 }
-          - { channel: pnpm, os: macos-latest }
-          - { channel: yarn, os: ubuntu-24.04 }
+          - { channel: bun, os: ubuntu-24.04, shows: npm }
+          - { channel: bun, os: macos-latest, shows: npm }
+          - { channel: pnpm, os: ubuntu-24.04, shows: npm }
+          - { channel: pnpm, os: macos-latest, shows: npm }
+          - { channel: yarn, os: ubuntu-24.04, shows: npm }
+          # the runner's own Miniconda, into a fresh environment.
+          - { channel: conda, os: ubuntu-24.04, shows: conda }
+          - { channel: conda, os: windows-latest, shows: conda }
+          - { channel: scoop, os: windows-latest, shows: scoop }
+          - { channel: deb, os: ubuntu-24.04, shows: apt }
     env:
       TAG: ${{ inputs.tag || github.ref_name }}
     defaults:
@@ -143,10 +153,11 @@ jobs:
         # a registry can serve a new version minutes after the publish job
         # ends (npm answered ETARGET on 0.5.3); wait for it, bounded, so a
         # leg fails only when the version really is not there.
-        if: matrix.channel != 'homebrew'
+        if: matrix.channel != 'homebrew' && matrix.channel != 'deb'
         run: |
           case "${{ matrix.channel }}" in
             binstall) channel=crates ;;
+            conda|scoop) channel="${{ matrix.channel }}" ;;
             *) channel=npm ;;
           esac
           python tool/tasks/chanprobe.py wait --channel "$channel" --version "${TAG#v}" --timeout 900
@@ -192,6 +203,29 @@ jobs:
         run: |
           curl -L --proto '=https' --tlsv1.2 -sSf https://raw.githubusercontent.com/cargo-bins/cargo-binstall/main/install-from-binstall-release.sh | bash
           cargo binstall -y urna --version "${TAG#v}"
+      - name: install (conda)
+        if: matrix.channel == 'conda'
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then conda="$CONDA/Scripts/conda.exe"; bin=Library/bin; else conda="$CONDA/bin/conda"; bin=bin; fi
+          "$conda" create -y -p "$RUNNER_TEMP/env" --override-channels -c hoffresearch "urna=${TAG#v}"
+          echo "$RUNNER_TEMP/env/$bin" >> "$GITHUB_PATH"
+      - name: install (scoop)
+        if: matrix.channel == 'scoop'
+        shell: pwsh
+        run: |
+          Invoke-RestMethod -Uri https://get.scoop.sh -OutFile "$env:RUNNER_TEMP\scoop.ps1"
+          & "$env:RUNNER_TEMP\scoop.ps1" -RunAsAdmin
+          $shims = "$HOME\scoop\shims"
+          & "$shims\scoop.cmd" bucket add hoffresearch https://github.com/hoffresearch/scoop-urna
+          & "$shims\scoop.cmd" install urna
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $shims >> $env:GITHUB_PATH
+      - name: install (deb)
+        if: matrix.channel == 'deb'
+        run: |
+          deb="urna_${TAG#v}-1_amd64.deb"
+          curl -fsSL -o "$RUNNER_TEMP/$deb" "https://github.com/hoffresearch/urna/releases/download/$TAG/$deb"
+          sudo apt-get install -y "$RUNNER_TEMP/$deb"
 
       - name: the bare binary reports what is missing
         working-directory: ${{ runner.temp }}
@@ -199,9 +233,14 @@ jobs:
           # every channel, homebrew included, installed the tagged version.
           test "$(urna --version)" = "urna ${TAG#v}"
           urna doctor && exit 1 || echo "doctor fails before setup, as it should (exit $?)"
-      - name: urna setup completes the install
+      - name: urna setup names the channel and completes the install
         working-directory: ${{ runner.temp }}
-        run: urna setup --yes --version "$TAG"
+        env:
+          SHOWS: ${{ matrix.shows }}
+        run: |
+          urna setup --yes --version "$TAG" | tee "$RUNNER_TEMP/setup.log"
+          grep -E "^  channel +${SHOWS} · " "$RUNNER_TEMP/setup.log"
+          grep -E "^  update +" "$RUNNER_TEMP/setup.log"
       - name: doctor and validate after setup
         working-directory: ${{ runner.temp }}
         run: |
@@ -218,6 +257,41 @@ jobs:
           echo "$out"
           test "$code" = 14
           grep -q "potion is not offered: ships inside the payload" <<<"$out"
+
+  copr:
+    name: dnf fedora
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:42
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0: golden fixture
+        with:
+          persist-credentials: false
+      - name: the dnf copr plugin and a bare python
+        run: dnf -y -q install 'dnf-command(copr)' python3
+      - name: wait for the build on copr
+        # coprbuild runs beside this job and its build takes minutes.
+        run: python3 tool/tasks/chanprobe.py wait --channel copr --version "${TAG#v}" --timeout 2400
+      - name: install (dnf)
+        run: |
+          dnf -y -q copr enable hoffresearch/urna
+          dnf -y -q install "urna-${TAG#v}"
+          test "$(urna --version)" = "urna ${TAG#v}"
+      - name: urna setup names the channel and completes the install
+        working-directory: ${{ runner.temp }}
+        run: |
+          urna setup --yes --version "$TAG" | tee "$RUNNER_TEMP/setup.log"
+          grep -E "^  channel +dnf · " "$RUNNER_TEMP/setup.log"
+          grep -E "^  update +sudo dnf upgrade urna" "$RUNNER_TEMP/setup.log"
+      - name: doctor and validate after setup
+        working-directory: ${{ runner.temp }}
+        run: |
+          urna doctor
+          urna validate "$GITHUB_WORKSPACE/rust/format/tests/fixtures/golden_v1_minimal.urna"
 
   wheel:
     name: wheel ${{ matrix.os }}
