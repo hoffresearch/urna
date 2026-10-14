@@ -19,7 +19,12 @@ Tree mode (every pull request, ``gatecheck.yml``): the workspace version in
   named ``<issue>.<type>.md`` (``+<name>`` for no issue) with a type of
   ``[tool.towncrier]`` in ``pyproject.toml``, which
   ``tool/tasks/releasepr.sh`` turns into the release's section, so no two
-  pull requests edit the same line of the changelog.
+  pull requests edit the same line of the changelog;
+- the package texts: the ``description`` of ``rust/clitui/Cargo.toml``
+  (crates.io, npm, Homebrew) and of ``pkgs/wheel/pyproject.toml`` (PyPI)
+  are one sentence, each free to close it with a clause of its own after
+  the last comma (", and the urna CLI", ", read from Python"), and the
+  ``summary`` of ``[workspace.metadata.pkgs]`` fits in 80 characters.
 
 Tag mode (``--tag vX.Y.Z``, the release's ``tagverify.yml`` after the
 signature check): the same checks on the files of the tag's own commit,
@@ -52,6 +57,9 @@ LOCKED = ("urna", "urna-format", "urna-engine", "urna-bridge")
 CRATES_URL = "https://crates.io/crates/urna/{v}"
 RELEASE_URL = "https://github.com/hoffresearch/urna/releases/tag/v{v}"
 RELEASE_DESCRIPTION = "Release of Urna version {v}."
+CRATE = "rust/clitui/Cargo.toml"
+WHEEL = "pkgs/wheel/pyproject.toml"
+SUMMARY_MAX = 80
 
 
 def _toml(text: str) -> dict:
@@ -191,13 +199,29 @@ def _check_news(tree: Tree) -> list[str]:
     return errors
 
 
+def _check_texts(tree: Tree) -> list[str]:
+    crate = _toml(tree.read(CRATE))["package"].get("description", "")
+    wheel = _toml(tree.read(WHEEL))["project"].get("description", "")
+    errors = []
+    # the sentence before each channel's own closing clause
+    if crate.rsplit(", ", 1)[0] != wheel.rsplit(", ", 1)[0]:
+        errors.append(f"{WHEEL}: description {wheel!r} does not open like {CRATE}'s {crate!r}")
+    workspace = _toml(tree.read("Cargo.toml"))["workspace"]
+    summary = workspace.get("metadata", {}).get("pkgs", {}).get("summary", "")
+    if not 0 < len(summary) <= SUMMARY_MAX:
+        msg = f"summary is {len(summary)} characters, not 1 to {SUMMARY_MAX}"
+        errors.append(f"Cargo.toml: [workspace.metadata.pkgs] {msg}")
+    return errors
+
+
 def _check(tree: Tree) -> list[str]:
     v = _version(tree)
     released = _release_date(tree, v)
     errors = _check_manifests(tree, v)
     if released is None:
         errors.append(f"docs/CHANGELOG: no '## [{v}] - YYYY-MM-DD' section")
-    return errors + _check_news(tree) + _check_citation(tree, v, released)
+    errors += _check_news(tree) + _check_texts(tree)
+    return errors + _check_citation(tree, v, released)
 
 
 def check_tree(root: Path = ROOT) -> list[str]:
