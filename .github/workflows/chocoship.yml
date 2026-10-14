@@ -3,9 +3,9 @@
 # dist-manifest.json and sha256.sum, are packed with choco, installed from
 # that package on this Windows runner and checked with `urna --version`,
 # then pushed to the Chocolatey community repository, where moderators
-# review it. a version the repository has approved is not pushed again; a
-# version still in moderation is, since moderation asks for a fix as a
-# push of the same version.
+# review it. a version the repository publishes (approved, or exempted
+# from moderation) is not pushed again; a version still in moderation is,
+# since moderation asks for a fix as a push of the same version.
 #
 # the install script downloads the release zip and checks it against the
 # SHA-256 from sha256.sum; no binary travels inside the package. the push
@@ -74,7 +74,7 @@ jobs:
             --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
             --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
           echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
-      - name: skip a version the repository has approved
+      - name: skip a version the repository publishes
         id: have
         run: |
           set -eu
@@ -85,8 +85,12 @@ jobs:
             200) status="$(sed -n 's:.*<d\:PackageStatus>\([^<]*\)</d\:PackageStatus>.*:\1:p' "$RUNNER_TEMP/status.xml")" ;;
             *) echo "the repository answered $code" >&2; exit 1 ;;
           esac
-          echo "status ${status:-unknown}"
-          if [ "$status" = Approved ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+          [ -n "$status" ] || { echo "the repository answered 200 with no PackageStatus" >&2; exit 1; }
+          echo "status $status"
+          case "$status" in
+            Approved|Exempted) echo "skip=true" >> "$GITHUB_OUTPUT" ;;
+            *) echo "skip=false" >> "$GITHUB_OUTPUT" ;;
+          esac
       - name: pack, install from the package, run
         run: |
           set -eu
