@@ -1,0 +1,107 @@
+# the release on conda: pkgs/conda/recipe.yaml, rendered by
+# tool/tasks/pkgrender.py from the release's dist-manifest.json and
+# sha256.sum, repackages the release's own binaries for linux-64,
+# linux-aarch64, osx-64, osx-arm64 and win-64 on one Linux runner (nothing is
+# compiled), and the packages go to the `hoffresearch` channel on
+# anaconda.org. a version the channel already serves is not uploaded again.
+#
+# rattler-build installs from its release binary, pinned by version and
+# SHA-256. the upload needs ANACONDA_ORG_TOKEN, a repository secret.
+#
+# trigger: cargo-dist calls it as a post-announce job
+# (`post-announce-jobs` in Cargo.toml); or manual dispatch with a tag, to
+# publish a release that already exists.
+
+name: condaship
+
+on:
+  workflow_call:
+    inputs:
+      plan:
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: release tag to publish, vX.Y.Z
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  RATTLER_VERSION: 0.76.1
+  RATTLER_SHA256: 38359a75f4a880442432923d6e984d349bb4134d330edd712eb1cfb2fa80581a
+  CHANNEL: hoffresearch
+
+jobs:
+  ship:
+    name: conda packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            Cargo.toml
+            pkgs/conda/recipe.yaml
+            tool/tasks/pkgrender.py
+          sparse-checkout-cone-mode: false
+      - name: the release's manifest and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN: ${{ inputs.plan }}
+          TAG_INPUT: ${{ inputs.tag }}
+        run: |
+          set -eu
+          if [ -n "$PLAN" ]; then
+            tag="$(printf '%s' "$PLAN" | jq -r .announcement_tag)"
+          else
+            tag="$TAG_INPUT"
+          fi
+          case "$tag" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "not a release tag: $tag" >&2; exit 1 ;; esac
+          gh release download "$tag" -R "$GITHUB_REPOSITORY" -p dist-manifest.json -p sha256.sum -D "$RUNNER_TEMP/rel"
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          echo "VERSION=${tag#v}" >> "$GITHUB_ENV"
+      - name: skip a version the channel already serves
+        id: have
+        run: |
+          set -eu
+          code="$(curl -s -o /dev/null -w '%{http_code}' "https://api.anaconda.org/release/$CHANNEL/urna/$VERSION")"
+          echo "status $code"
+          if [ "$code" = 200 ]; then echo "skip=true" >> "$GITHUB_OUTPUT"; else echo "skip=false" >> "$GITHUB_OUTPUT"; fi
+      - name: install rattler-build
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          cd "$RUNNER_TEMP"
+          curl -fsSL -o rattler-build \
+            "https://github.com/prefix-dev/rattler-build/releases/download/v${RATTLER_VERSION}/rattler-build-x86_64-unknown-linux-musl"
+          echo "${RATTLER_SHA256}  rattler-build" | sha256sum -c -
+          chmod +x rattler-build
+          ./rattler-build --version
+      - name: build the five packages
+        if: steps.have.outputs.skip == 'false'
+        run: |
+          set -eu
+          python3 tool/tasks/pkgrender.py render --channel conda \
+            --manifest "$RUNNER_TEMP/rel/dist-manifest.json" \
+            --sums "$RUNNER_TEMP/rel/sha256.sum" --out "$RUNNER_TEMP/render"
+          for platform in linux-64 linux-aarch64 osx-64 osx-arm64 win-64; do
+            "$RUNNER_TEMP/rattler-build" build -r "$RUNNER_TEMP/render/conda/recipe.yaml" \
+              --target-platform "$platform" --test native --output-dir "$RUNNER_TEMP/out"
+          done
+          find "$RUNNER_TEMP/out" -name '*.conda' | sort
+          test "$(find "$RUNNER_TEMP/out" -name '*.conda' | wc -l)" -eq 5
+      - name: upload to anaconda.org
+        if: steps.have.outputs.skip == 'false'
+        env:
+          ANACONDA_API_KEY: ${{ secrets.ANACONDA_ORG_TOKEN }}
+        run: |
+          set -eu
+          find "$RUNNER_TEMP/out" -name '*.conda' -print0 \
+            | xargs -0 "$RUNNER_TEMP/rattler-build" upload anaconda --owner "$CHANNEL"
