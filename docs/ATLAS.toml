@@ -3147,7 +3147,7 @@ links = ["tool/tasks/ppasource.py"]
 [[inventory.distribution]]
 path = ".github/workflows/ppaupload.yml"
 kind = "ci-workflow"
-purpose = "Manual dispatch with a tag: for each Ubuntu series of its matrix (noble), ppasource.py builds the source package, debsign signs it with PPA_SIGNING_KEY and PPA_SIGNING_FPR and dput uploads it to ppa:brennercruvinel/urna, where Launchpad compiles it for amd64 and arm64; a version the PPA already publishes for a series is skipped"
+purpose = "Manual dispatch with a tag: for each Ubuntu series of its matrix (noble), ppasource.py builds the source package, debsign signs it with PPA_SIGNING_KEY and PPA_SIGNING_FPR and dput uploads it to ppa:hoffresearch/urna, where Launchpad compiles it for amd64 and arm64; a version the PPA already publishes for a series is skipped"
 links = ["tool/tasks/ppasource.py", "pkgs/linux/apt/debian"]
 
 [[inventory.distribution]]

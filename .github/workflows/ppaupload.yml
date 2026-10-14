@@ -1,4 +1,4 @@
-# the release on a Launchpad PPA (ppa:brennercruvinel/urna): for each
+# the release on a Launchpad PPA (ppa:hoffresearch/urna): for each
 # Ubuntu series below, tool/tasks/ppasource.py builds the Debian source
 # package of the tag (the source, its crates vendored, pkgs/linux/apt/
 # debian filled in), debsign signs it and dput uploads it; Launchpad then
@@ -6,8 +6,9 @@
 # version the PPA already holds for a series is not uploaded again.
 #
 # the upload needs PPA_SIGNING_KEY, a repository secret: the armored
-# private key whose public half is registered on the Launchpad account,
-# and PPA_SIGNING_FPR, its fingerprint.
+# private key of a key kept for this upload only, registered on the
+# Launchpad account that owns the hoffresearch team, and PPA_SIGNING_FPR,
+# its fingerprint.
 #
 # trigger: manual dispatch with a tag. it joins the release's
 # post-announce jobs once the PPA and its signing key exist.
@@ -26,8 +27,8 @@ permissions:
   contents: read
 
 env:
-  PPA: ppa:brennercruvinel/urna
-  ARCHIVE: https://api.launchpad.net/1.0/~brennercruvinel/+archive/ubuntu/urna
+  PPA: ppa:hoffresearch/urna
+  ARCHIVE: https://api.launchpad.net/1.0/~hoffresearch/+archive/ubuntu/urna
 
 jobs:
   upload:
