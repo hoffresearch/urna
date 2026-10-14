@@ -3099,13 +3099,13 @@ links = [".github/workflows/rehearsal.yml", "tool/tests/test_rehearsal.py", "too
 [[inventory.distribution]]
 path = ".github/workflows/runreport.yml"
 kind = "ci-workflow"
-purpose = "On workflow_run of Release (completed, any conclusion; tag pushes only): one summary per release named by the triggering run's id and head_sha (github.sha is main's there): the tag's commit, every job that did not succeed, the pypiindex.yml run of that commit, and what the GitHub release, crates.io, npm, Homebrew and PyPI serve; the summary is written before the job fails on anything missing"
+purpose = "On workflow_run of Release (completed, any conclusion; tag pushes only): one summary per release named by the triggering run's id and head_sha (github.sha is main's there): the tag's commit, every job that did not succeed, the pypiindex.yml run of that commit, and what the GitHub release, crates.io, npm, Homebrew, PyPI, the release's .deb and .rpm, conda, scoop, COPR, Chocolatey and winget serve (a Chocolatey or winget version under review reads in moderation, not missing); the summary is written before the job fails on anything missing"
 links = ["tool/tasks/chanprobe.py", ".github/workflows/release.yml"]
 
 [[inventory.distribution]]
 path = "tool/tasks/chanprobe.py"
 kind = "python-source"
-purpose = "One probe per channel for one exact version (npm version document, crates.io sparse index without yanked lines, PyPI version JSON with files, the Homebrew formula, the GitHub release): wait (setuptest, bounded, before each registry leg) and report (runreport.yml)"
+purpose = "One probe per channel for one exact version (npm version document, crates.io sparse index without yanked lines, PyPI version JSON with files, the Homebrew formula, the GitHub release and its .deb and .rpm, the five conda platforms, the scoop bucket, COPR's last succeeded build, Chocolatey's package status, the winget-pkgs manifest or its open pull request): wait (setuptest, bounded, before each registry leg) and report (runreport.yml)"
 links = [".github/workflows/setuptest.yml", ".github/workflows/runreport.yml", "tool/tests/test_chanprobe.py"]
 
 [[inventory.distribution]]
@@ -3194,7 +3194,7 @@ links = [".github/workflows/tagverify.yml"]
 [[inventory.distribution]]
 path = ".github/workflows/setuptest.yml"
 kind = "ci-workflow"
-purpose = "Release gate, run inside the release once it is announced: `cli` installs the one-liner on 5 runner OSes (validate + doctor), `channels` installs the same binary through Homebrew, npm, bun, pnpm, yarn and binstall (11 legs, each ending in setup --yes + doctor + validate; the bun legs pass because the runners ship Node, which the npm launcher needs), `wheel` pip-installs the wheel on 4 and runs the uvx entry point"
+purpose = "Release gate, run inside the release once it is announced: `cli` installs the one-liner on 5 runner OSes (validate + doctor), `channels` installs the same binary through Homebrew, npm, bun, pnpm, yarn, binstall, conda, scoop and the release's .deb (15 legs, each ending in setup --yes, which must name the channel and its update command, + doctor + validate; the bun legs pass because the runners ship Node, which the npm launcher needs), `copr` does the same with dnf from COPR in a Fedora container, `wheel` pip-installs the wheel on 4 and runs the uvx entry point"
 links = [
     "tool/tasks/installer.sh",
     "tool/tasks/installer.ps1",

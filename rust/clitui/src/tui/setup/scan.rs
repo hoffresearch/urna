@@ -20,6 +20,13 @@ pub enum Channel {
     Npm,
     Cargo,
     OneLiner,
+    Conda,
+    Scoop,
+    Winget,
+    Chocolatey,
+    Nix,
+    Apt,
+    Dnf,
     Dev,
     Other,
 }
@@ -31,15 +38,65 @@ impl Channel {
             Channel::Npm => "npm",
             Channel::Cargo => "cargo",
             Channel::OneLiner => "install script",
+            Channel::Conda => "conda",
+            Channel::Scoop => "scoop",
+            Channel::Winget => "winget",
+            Channel::Chocolatey => "chocolatey",
+            Channel::Nix => "nix",
+            Channel::Apt => "apt",
+            Channel::Dnf => "dnf",
             Channel::Dev => "dev build",
             Channel::Other => "manual",
         }
     }
 
-    /// How the binary was installed, read off its own path.
+    /// The command that moves this install to the newest release, for the
+    /// channels that have one. A `.deb` installed by hand has none: no apt
+    /// source serves urna yet, so apt would answer that it is the newest.
+    pub fn update(self) -> Option<&'static str> {
+        Some(match self {
+            Channel::Homebrew => "brew upgrade urna",
+            Channel::Npm => "npm install -g @urna/cli@latest",
+            Channel::Cargo => "cargo install urna",
+            Channel::OneLiner => {
+                "curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh"
+            }
+            Channel::Conda => "conda update -c hoffresearch urna",
+            Channel::Scoop => "scoop update urna",
+            Channel::Winget => "winget upgrade HoffResearch.Urna",
+            Channel::Chocolatey => "choco upgrade urna",
+            Channel::Nix => "nix profile upgrade urna",
+            Channel::Dnf => "sudo dnf upgrade urna",
+            Channel::Apt | Channel::Dev | Channel::Other => return None,
+        })
+    }
+
+    /// How the binary was installed: a conda environment around it, then
+    /// its own path, then the system package database for `/usr/bin/urna`.
+    pub fn probe(exe: &Path) -> Channel {
+        if in_conda_env(exe) {
+            return Channel::Conda;
+        }
+        match Channel::of(exe) {
+            Channel::Other if exe == Path::new("/usr/bin/urna") => system_package(Path::new("/")),
+            c => c,
+        }
+    }
+
+    /// How the binary was installed, read off its own path. Windows
+    /// channels launch the real binary from a shim, so both paths count.
     pub fn of(exe: &Path) -> Channel {
         let s = exe.to_string_lossy().replace('\\', "/");
-        if s.contains("/Cellar/") || s.contains("/homebrew/") || s.contains("/linuxbrew/") {
+        let l = s.to_ascii_lowercase();
+        if l.contains("/scoop/apps/") || l.contains("/scoop/shims/") {
+            Channel::Scoop
+        } else if l.contains("/winget/packages/") || l.contains("/winget/links/") {
+            Channel::Winget
+        } else if l.contains("/chocolatey/lib/") || l.contains("/chocolatey/bin/") {
+            Channel::Chocolatey
+        } else if s.starts_with("/nix/store/") {
+            Channel::Nix
+        } else if s.contains("/Cellar/") || s.contains("/homebrew/") || s.contains("/linuxbrew/") {
             Channel::Homebrew
         } else if s.contains("/node_modules/") {
             Channel::Npm
@@ -52,6 +109,31 @@ impl Channel {
         } else {
             Channel::Other
         }
+    }
+}
+
+/// A conda environment keeps `conda-meta/` at its root, next to `bin/`
+/// (`Library/bin/` on Windows).
+fn in_conda_env(exe: &Path) -> bool {
+    exe.ancestors()
+        .skip(2)
+        .take(2)
+        .any(|root| root.join("conda-meta").is_dir())
+}
+
+/// Which package manager owns `/usr/bin/urna` under `root`: dpkg keeps a
+/// file list per package, rpm answers for its own database.
+fn system_package(root: &Path) -> Channel {
+    if root.join("var/lib/dpkg/info/urna.list").is_file() {
+        Channel::Apt
+    } else if Command::new("rpm")
+        .args(["-q", "--quiet", "urna"])
+        .status()
+        .is_ok_and(|s| s.success())
+    {
+        Channel::Dnf
+    } else {
+        Channel::Other
     }
 }
 
@@ -203,7 +285,7 @@ impl Scan {
                 .filter(|_| std::env::var_os("URNA_RELEASE_BASE").is_none_or(|b| b.is_empty()))
                 .map(Path::to_path_buf),
             target: format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS),
-            channel: Channel::of(&exe),
+            channel: Channel::probe(&exe),
             exe,
             payload: paths::urna_home().and_then(|h| Payload::read(&h)),
             home: paths::urna_home(),
@@ -257,8 +339,11 @@ impl Scan {
                 format!("{} · {}", self.channel.name(), tilde(&self.exe)),
                 Badge::Ok,
             ),
-            ("simd", self.simd.to_string(), Badge::Ok),
         ];
+        if let Some(cmd) = self.channel.update() {
+            v.push(("update", cmd.to_string(), Badge::Ok));
+        }
+        v.push(("simd", self.simd.to_string(), Badge::Ok));
         v.push(match &self.home {
             Some(h) => ("data dir", tilde(h), Badge::Ok),
             None => ("data dir", "no HOME, set URNA_DATA_DIR".into(), Badge::Fail),
@@ -371,6 +456,89 @@ mod tests {
         assert_eq!(c("/home/u/.local/bin/urna"), Channel::OneLiner);
         assert_eq!(c("/src/urna/target/release/urna"), Channel::Dev);
         assert_eq!(c("/usr/bin/urna"), Channel::Other);
+        assert_eq!(
+            c(r"C:\Users\u\scoop\apps\urna\current\urna.exe"),
+            Channel::Scoop
+        );
+        assert_eq!(c(r"C:\Users\u\scoop\shims\urna.exe"), Channel::Scoop);
+        assert_eq!(
+            c(
+                r"C:\Users\u\AppData\Local\Microsoft\WinGet\Packages\HoffResearch.Urna_Microsoft.Winget.Source_8wekyb3d8bbwe\urna.exe"
+            ),
+            Channel::Winget
+        );
+        assert_eq!(
+            c(r"C:\Users\u\AppData\Local\Microsoft\WinGet\Links\urna.exe"),
+            Channel::Winget
+        );
+        assert_eq!(
+            c(r"C:\ProgramData\chocolatey\lib\urna\tools\urna.exe"),
+            Channel::Chocolatey
+        );
+        assert_eq!(
+            c(r"C:\ProgramData\chocolatey\bin\urna.exe"),
+            Channel::Chocolatey
+        );
+        assert_eq!(
+            c("/nix/store/0c5ff8ss1yxbv6hy8n3jn2n1hzzb0l6m-urna-0.5.5/bin/urna"),
+            Channel::Nix
+        );
+    }
+
+    #[test]
+    fn channel_finds_a_conda_env_before_the_path() {
+        let d = std::env::temp_dir().join(format!("urna-conda-{}", std::process::id()));
+        // miniforge from a Homebrew cask: the path alone says homebrew.
+        let unix = d.join("homebrew/Caskroom/miniforge/base");
+        let win = d.join("miniforge3");
+        for root in [&unix, &win] {
+            std::fs::create_dir_all(root.join("conda-meta")).unwrap();
+        }
+        assert_eq!(Channel::of(&unix.join("bin/urna")), Channel::Homebrew);
+        assert_eq!(Channel::probe(&unix.join("bin/urna")), Channel::Conda);
+        assert_eq!(
+            Channel::probe(&win.join("Library/bin/urna.exe")),
+            Channel::Conda
+        );
+        assert_ne!(Channel::probe(&d.join("bin/urna")), Channel::Conda);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn channel_reads_the_dpkg_list_for_usr_bin() {
+        let d = std::env::temp_dir().join(format!("urna-dpkg-{}", std::process::id()));
+        let info = d.join("var/lib/dpkg/info");
+        std::fs::create_dir_all(&info).unwrap();
+        std::fs::write(info.join("urna.list"), b"/usr/bin/urna\n").unwrap();
+        assert_eq!(system_package(&d), Channel::Apt);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn every_channel_with_a_source_names_its_update() {
+        for c in [
+            Channel::Homebrew,
+            Channel::Npm,
+            Channel::Cargo,
+            Channel::OneLiner,
+            Channel::Conda,
+            Channel::Scoop,
+            Channel::Winget,
+            Channel::Chocolatey,
+            Channel::Nix,
+            Channel::Dnf,
+        ] {
+            assert!(
+                c.update()
+                    .is_some_and(|u| u.to_lowercase().contains("urna")),
+                "{}",
+                c.name()
+            );
+        }
+        assert_eq!(Channel::Apt.update(), None);
+        assert_eq!(Channel::Dev.update(), None);
+        assert_eq!(Channel::Other.update(), None);
+        assert_eq!(Channel::Scoop.update(), Some("scoop update urna"));
     }
 
     #[test]
