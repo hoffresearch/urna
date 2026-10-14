@@ -19,13 +19,16 @@ Docs  [docs.urna.dev](https://docs.urna.dev)
 ## Install
 
 ```sh
-brew tap hoffresearch/urna
-brew install urna
+brew install hoffresearch/urna/urna
 ```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-brew.svg" alt="brew install hoffresearch/urna/urna taps hoffresearch/homebrew-urna, trusts the formula and installs urna" width="100%">
 
 ```sh
 npm install -g @urna/cli
 ```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-npm.svg" alt="npm install -g @urna/cli fetches the release binary, then urna --version" width="100%">
 
 bun, pnpm and yarn install the same package: `bun add -g @urna/cli`, `pnpm add -g @urna/cli`, `yarn global add @urna/cli`.
 
@@ -78,9 +81,13 @@ To build a corpus, `demo/starter/` has twelve short paragraphs and the spec that
 urna build --spec demo/starter/corpus.toml
 ```
 
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-build.svg" alt="urna build writes quickstart.urna from the starter spec, then urna validate checks every hash in it" width="100%">
+
 ```sh
 urna ask demo/starter/out/quickstart.urna "can I use this offline" -k 1
 ```
+
+<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-ask.svg" alt="urna ask prints the closest passage and its urna:// citation, then urna cite resolves the citation to the stored text and its hashes" width="100%">
 
 ```sh
 urna retrieve demo/starter/out/quickstart.urna "how do citations work" -k 2 --format jsonl
