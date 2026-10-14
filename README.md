@@ -18,23 +18,22 @@ Docs  [docs.urna.dev](https://docs.urna.dev)
 
 ## Install
 
+Use a package manager:
+
 ```sh
+# Homebrew
 brew install hoffresearch/urna/urna
+
+# npm (bun, pnpm and yarn install the same package)
+npm install -g @urna/cli
+
+# Cargo
+cargo install urna
 ```
 
 <img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-brew.svg" alt="brew install hoffresearch/urna/urna taps hoffresearch/homebrew-urna, trusts the formula and installs urna" width="100%">
 
-```sh
-npm install -g @urna/cli
-```
-
-<img src="https://raw.githubusercontent.com/hoffresearch/urna/main/docs/img/urna-npm.svg" alt="npm install -g @urna/cli fetches the release binary, then urna --version" width="100%">
-
-bun, pnpm and yarn install the same package: `bun add -g @urna/cli`, `pnpm add -g @urna/cli`, `yarn global add @urna/cli`.
-
-```sh
-cargo install urna
-```
+Or download it: binaries for Linux, macOS and Windows are on the [releases](https://github.com/hoffresearch/urna/releases), each with its `.sha256`, and the one-line installer fetches the right one:
 
 ```sh
 curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh
