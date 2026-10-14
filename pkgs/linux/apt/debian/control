@@ -1,0 +1,16 @@
+Source: urna
+Section: utils
+Priority: optional
+Maintainer: Brenner Cruvinel <brenner@hoffresearch.com>
+Build-Depends: debhelper-compat (= 13), cargo-1.91, rustc-1.91
+Standards-Version: 4.7.0
+Rules-Requires-Root: no
+Homepage: https://urna.dev
+Vcs-Browser: https://github.com/hoffresearch/urna
+Vcs-Git: https://github.com/hoffresearch/urna.git
+
+Package: urna
+Architecture: amd64 arm64
+Depends: $${shlibs:Depends}, $${misc:Depends}
+Description: ${summary}
+${description}

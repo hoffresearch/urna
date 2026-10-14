@@ -2455,6 +2455,12 @@ purpose = "pkgrender.py against v0.5.4's archives, layout and hashes in a scratc
 links = ["tool/tasks/pkgrender.py"]
 
 [[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_ppasource.py"
+kind = "python-test"
+purpose = "ppasource.py with no network and no Debian tools: the repository's debian/ templates filled with the workspace texts, the long description in control syntax and ${shlibs:Depends} left for dpkg, a vendored crate's per-file sums cleared and its own checksum kept; a bad tag, a bad series, another version and an unknown placeholder refused before anything is written; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/ppasource.py"]
+
+[[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_aptserver.py"
 kind = "python-test"
 purpose = "aptserver.py against a recorder for the Cloudflare API: an empty account gets the bucket, the Worker with workers.dev off and the route urna.dev/apt/*, a second run keeps them; a wider route of the Worker, a route taken by another script and an API error are refused; worker.js is uploaded byte for byte as an ES module with the bucket bound as APT; in fullcheck.sh and gatecheck.yml"
@@ -3131,6 +3137,24 @@ path = ".github/coprtools.txt"
 kind = "lockfile"
 purpose = "copr-cli and its dependencies pinned by hash (uv pip compile --generate-hashes), installed with --require-hashes by coprbuild.yml, which holds the COPR credentials"
 links = [".github/workflows/coprbuild.yml"]
+
+[[inventory.distribution]]
+path = "tool/tasks/ppasource.py"
+kind = "python-source"
+purpose = "Builds the Debian source package a Launchpad PPA compiles from one tag: git archive of the tag as the orig tarball, every crate of Cargo.lock vendored as the orig-vendor tarball (Launchpad builds offline), pkgs/linux/apt/debian filled with the version, series, date and the texts of [workspace.metadata.pkgs], then dpkg-buildpackage -S; the tag must be the workspace version, and signing and upload are the caller's"
+links = ["pkgs/linux/apt/debian", ".github/workflows/ppaupload.yml", "tool/tests/test_ppasource.py", "Cargo.toml"]
+
+[[inventory.distribution]]
+path = "pkgs/linux/apt/debian"
+kind = "directory"
+purpose = "The debian/ directory of the PPA's source package: control (Build-Depends on Ubuntu's versioned cargo-1.91 and rustc-1.91, amd64 and arm64), rules (an offline cargo build of -p urna from vendor/, tests included, with URNA_RELEASE_TAG set), DEP-5 copyright, the changelog template and the 3.0 (quilt) format; ppasource.py fills changelog and control"
+links = ["tool/tasks/ppasource.py"]
+
+[[inventory.distribution]]
+path = ".github/workflows/ppaupload.yml"
+kind = "ci-workflow"
+purpose = "Manual dispatch with a tag: for each Ubuntu series of its matrix (noble), ppasource.py builds the source package, debsign signs it with PPA_SIGNING_KEY and PPA_SIGNING_FPR and dput uploads it to ppa:hoffresearch/urna, where Launchpad compiles it for amd64 and arm64; a version the PPA already publishes for a series is skipped"
+links = ["tool/tasks/ppasource.py", "pkgs/linux/apt/debian"]
 
 [[inventory.distribution]]
 path = ".github/workflows/aptsigner.yml"

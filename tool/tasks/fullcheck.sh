@@ -360,6 +360,12 @@ python_tests() {
   "$PY" tool/tests/test_pkgrender.py
   ok "pkgrender (3 cases)"
 
+  # the PPA's source package: debian/ filled from the workspace texts, the
+  # vendored crates' checksums, and a wrong tag refused before any write.
+  step "python tool/tests/test_ppasource.py"
+  "$PY" tool/tests/test_ppasource.py
+  ok "ppasource (4 cases)"
+
   # what serves urna.dev/apt: created once, kept on a second run, and no
   # route of the Worker beyond urna.dev/apt/*.
   step "python tool/tests/test_aptserver.py"
