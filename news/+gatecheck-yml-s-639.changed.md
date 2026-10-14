@@ -1,1 +1,0 @@
-`gatecheck.yml`'s 639-line guard lists the files with `find -exec wc -l {} +` instead of `find | xargs wc -l`, which shellcheck flags (SC2038) for file names with spaces. Same result on the current tree.
