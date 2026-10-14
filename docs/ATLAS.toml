@@ -3115,6 +3115,12 @@ purpose = "Renders each package channel's manifest (scoop, winget, conda, Chocol
 links = ["tool/tests/test_pkgrender.py", "pkgs/scoop/urna.json", "pkgs/wingt/HoffResearch.Urna.installer.yaml", "pkgs/conda/recipe.yaml", "pkgs/choco/urna.nuspec", "pkgs/linux/dnf/urna.spec", "pkgs/linux/nfpm.yaml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/condaship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/conda/recipe.yaml from the release's dist-manifest.json and sha256.sum, rattler-build (pinned by version and SHA-256) repackages the release binaries for linux-64, linux-aarch64, osx-64, osx-arm64 and win-64 on one Linux runner, and uploads them to the hoffresearch channel on anaconda.org with ANACONDA_ORG_TOKEN; a version the channel already serves is skipped"
+links = ["pkgs/conda/recipe.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"
