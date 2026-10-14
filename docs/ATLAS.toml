@@ -3121,6 +3121,12 @@ purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py render
 links = ["pkgs/conda/recipe.yaml", "tool/tasks/pkgrender.py", "Cargo.toml"]
 
 [[inventory.distribution]]
+path = ".github/workflows/scoopship.yml"
+kind = "ci-workflow"
+purpose = "Post-announce job, or manual dispatch with a tag: pkgrender.py renders pkgs/scoop/urna.json from the release's dist-manifest.json and sha256.sum and the job pushes it to the hoffresearch/scoop-urna bucket as bucket/urna.json with SCOOP_BUCKET_TOKEN (contents write on the bucket only), the same way the Homebrew job pushes the formula; a bucket already at that version is left alone"
+links = ["pkgs/scoop/urna.json", "tool/tasks/pkgrender.py", "Cargo.toml"]
+
+[[inventory.distribution]]
 path = ".github/workflows/pypiready.yml"
 kind = "ci-workflow"
 purpose = "Custom cargo-dist publish job: dispatches pypiindex.yml on the release tag with this run as the source (actions: write), follows the run id the dispatch returns (return_run_details: 200 with the id, not an empty 204) to completion within a deadline, cancels it on timeout, and fails when it fails, so the release is not announced"
