@@ -23,7 +23,7 @@ brew install hoffresearch/urna/urna
 urna setup
 ```
 
-Every channel installs the same release binary. `urna setup` then completes the install the same way on each: it downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask.
+Most channels install the release's own binary; `cargo install`, nix and the PPA build the same version from source. `urna setup` then completes the install the same way on each: it downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask.
 
 <details>
 <summary><strong>macOS and Linux</strong>: Homebrew, the one-line installer, nix</summary>
