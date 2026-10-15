@@ -1,5 +1,6 @@
 # static checks of the workflows themselves, on every pull request and on a
-# push to main that changes .github/workflows or .github/zizmor.yml. nothing
+# push to main that changes .github/workflows, .github/actions or
+# .github/zizmor.yml. nothing
 # here runs a job: both tools read the yaml. a pull request runs both jobs
 # whatever it changes, because the ruleset requires them: a required check
 # whose workflow a path filter skipped would wait forever and block the merge.
@@ -7,6 +8,8 @@
 # actionlint checks syntax, `${{ }}` expressions, `needs`, runner labels
 # and, through shellcheck, every `run:` script. it gates the pull request.
 # shellcheck reports warnings and errors only (info and style stay quiet).
+# actionlint does not read a composite action's action.yml, so the step
+# after it hands each bash `run:` of .github/actions to shellcheck itself.
 # one finding is ignored by name: release.yml reads
 # `steps.cargo-cyclonedx.output.paths` where the step has `outputs`, so the
 # sbom path comes out empty; that line is cargo-dist's template, regenerated
@@ -60,6 +63,33 @@ jobs:
         run: |
           "$RUNNER_TEMP/actionlint" -color \
             -ignore 'property "output" is not defined in object type'
+      # the runner's own python3 is externally managed (pep 668): pip
+      # installs into the setup-python one, as gatecheck.yml does.
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: shellcheck the composite actions
+        # line numbers count from the step's run script, not from action.yml.
+        run: |
+          set -eu
+          python -m pip install --quiet pyyaml
+          python - <<'PY'
+          import pathlib, subprocess, sys, tempfile, yaml
+          fail = 0
+          for action in sorted(pathlib.Path(".github/actions").glob("*/action.yml")):
+              steps = yaml.safe_load(action.read_text(encoding="utf-8"))["runs"].get("steps", [])
+              for i, step in enumerate(steps):
+                  if "run" not in step or step.get("shell") != "bash":
+                      continue
+                  with tempfile.NamedTemporaryFile("w", suffix=".sh", delete=False) as f:
+                      f.write("#!/usr/bin/env bash\n" + step["run"])
+                  r = subprocess.run(["shellcheck", "-S", "warning", f.name], capture_output=True, text=True)
+                  if r.returncode:
+                      fail = 1
+                      print(f"{action} step {i} '{step.get('name', '')}':")
+                      print(r.stdout.replace(f.name, str(action)))
+          sys.exit(fail)
+          PY
 
   zizmor:
     name: zizmor
