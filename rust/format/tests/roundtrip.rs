@@ -812,3 +812,67 @@ fn compressed_preset_chunks_canonical_decodes_identical_and_same_content_hash() 
         "compressed build is not deterministic"
     );
 }
+
+/// adding an optional section to a written file keeps every citation: the
+/// content_hash is unchanged, the old sections decode byte-identically, the
+/// new one reads back, and the manifest patch lands.
+#[test]
+fn add_sections_keeps_content_hash_and_reads_back() {
+    use urna_format::layout::{SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW};
+    use urna_format::sections::{
+        Column, ColumnData, ScalarTable, decode_chunk_scalars, encode_chunk_scalars,
+    };
+    let n = 3;
+    let original = UrnaFileBuilder::new(manifest(4, n as u64))
+        .add_chunk(chunk("alpha", "doc.txt", 0, 5, vec![1.0, 0.0, 0.0, 0.0]))
+        .add_chunk(chunk("beta", "doc.txt", 5, 9, vec![0.0, 1.0, 0.0, 0.0]))
+        .add_chunk(chunk("gamma", "doc.txt", 9, 14, vec![0.0, 0.0, 1.0, 0.0]))
+        .reproducible(true)
+        .build_bytes()
+        .unwrap();
+    let before = UrnaView::from_bytes(&original).unwrap();
+    let hash_before = before.content_hash_hex().unwrap();
+    let table = ScalarTable {
+        n_rows: n,
+        columns: vec![Column {
+            name: "year".into(),
+            validity: None,
+            data: ColumnData::Int((0..n as i64).map(|i| 2000 + i).collect()),
+        }],
+    };
+    let payload = encode_chunk_scalars(&table).unwrap();
+    let mut out = Vec::new();
+    let size = urna_format::add_sections(
+        &original,
+        &mut out,
+        vec![(SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW, payload)],
+        |m| {
+            let mut ext = m.capabilities_ext.take().unwrap_or_default();
+            ext.scalars_present = Some(true);
+            m.capabilities_ext = Some(ext);
+            m.title = Some("with scalars".into());
+        },
+    )
+    .unwrap();
+    assert_eq!(size as usize, out.len());
+    let after = UrnaView::from_bytes(&out).unwrap();
+    assert_eq!(after.content_hash_hex().unwrap(), hash_before);
+    assert_ne!(after.file_hash_hex(), before.file_hash_hex());
+    assert_eq!(after.manifest.title.as_deref(), Some("with scalars"));
+    assert_eq!(
+        after
+            .manifest
+            .capabilities_ext
+            .as_ref()
+            .and_then(|e| e.scalars_present),
+        Some(true)
+    );
+    for (id, _) in urna_format::layout::CANONICAL_SECTIONS {
+        assert_eq!(
+            after.decoded_section(*id).unwrap(),
+            before.decoded_section(*id).unwrap()
+        );
+    }
+    let bytes = after.decoded_section(SECTION_CHUNK_SCALARS).unwrap();
+    assert_eq!(decode_chunk_scalars(&bytes, n).unwrap(), table);
+}

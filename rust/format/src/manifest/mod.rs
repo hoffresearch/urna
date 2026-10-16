@@ -3,6 +3,7 @@
 //! `manifest::canonical`. This module owns the data shape only.
 
 mod canonical;
+pub mod schema;
 mod validate;
 
 pub use validate::{
@@ -70,6 +71,10 @@ pub struct CapabilitiesExt {
     /// open, exactly like `graph_present` gates 0x0C.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blobs_present: Option<bool>,
+    /// set when the file emits chunk_scalars (0x0D), the per-chunk columns
+    /// the manifest `schema` describes. gates the runtime open like the rest.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub scalars_present: Option<bool>,
 }
 
 /// JCS-canonical manifest for a .urna file.
@@ -128,6 +133,20 @@ pub struct Manifest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities_ext: Option<CapabilitiesExt>,
 
+    /// What each chunk_scalars (0x0D) column means and how an app shows
+    /// it: name, kind, label, unit, roles and search prefix. Additive and
+    /// optional; a file without columns serializes nothing here.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schema: Option<Vec<schema::SchemaField>>,
+    /// Where the corpus data came from: source, version, fetch date,
+    /// license and the hash of the bulk it was built from. Additive.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dataset: Option<schema::DatasetSource>,
+    /// How the stored media derives from the originals the blob_refs
+    /// hashes name: codec, profile, quality. Every loss is declared here.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub media: Option<schema::MediaDerivation>,
+
     #[serde(flatten)]
     pub extra: BTreeMap<String, serde_json::Value>,
 }
@@ -180,6 +199,9 @@ impl Default for Manifest {
             mrl_dim: None,
             full_dim: None,
             capabilities_ext: None,
+            schema: None,
+            dataset: None,
+            media: None,
             extra: BTreeMap::new(),
         }
     }

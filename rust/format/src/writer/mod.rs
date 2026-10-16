@@ -14,6 +14,7 @@
 //!   representation of the embeddings section. The runtime always
 //!   accumulates dot products in f32 regardless of dtype.
 
+mod append;
 mod build;
 mod encoding_choice;
 mod payload;
@@ -21,6 +22,7 @@ mod payload;
 mod tests;
 mod text_codec;
 
+pub use append::add_sections;
 pub use encoding_choice::{EmbeddingDType, REPRODUCIBLE_CREATED, SectionEncoding};
 
 use crate::chunk::ChunkInput;
@@ -57,6 +59,9 @@ pub struct UrnaFileBuilder {
     /// Optional space_table (0x15) payload, fully encoded by the caller
     /// (`encode_space_table`). additive, excluded from content_hash.
     pub(super) space_table: Option<Vec<u8>>,
+    /// Optional chunk_scalars (0x0D) payload, fully encoded by the caller
+    /// (`encode_chunk_scalars`). additive, excluded from content_hash.
+    pub(super) chunk_scalars: Option<Vec<u8>>,
     /// Per-space vector band payloads: (band section id, encoding,
     /// payload). section id is 0x20 + space_index; encoding is one of the
     /// dtype encodings (raw/f16/int8/int4), never zstd.
@@ -66,7 +71,7 @@ pub struct UrnaFileBuilder {
 crate::shape_debug!(UrnaFileBuilder {
     show reproducible, show text_encoding, show dtype, len chunks, skip manifest, skip provenance,
     skip hnsw_index, skip bm25_index, skip graph_adjacency, skip blob_refs, skip blob_data,
-    skip blob_span_overlay, skip space_table, len space_bands,
+    skip blob_span_overlay, skip space_table, skip chunk_scalars, len space_bands,
 });
 
 // counts only: a derived Debug would print every chunk and payload.
@@ -87,6 +92,7 @@ impl UrnaFileBuilder {
             blob_data: None,
             blob_span_overlay: None,
             space_table: None,
+            chunk_scalars: None,
             space_bands: Vec::new(),
         }
     }
@@ -217,6 +223,20 @@ impl UrnaFileBuilder {
         self.space_table = Some(payload);
         let mut ext = self.manifest.capabilities_ext.take().unwrap_or_default();
         ext.supports_multimodal = Some(true);
+        self.manifest.capabilities_ext = Some(ext);
+        self
+    }
+
+    /// Attach a chunk_scalars (0x0D) payload (already encoded by
+    /// `encode_chunk_scalars`): named typed columns parallel to chunk
+    /// order. Sets the additive `capabilities_ext.scalars_present` flag so
+    /// the runtime opens the section behind a capability, like the rest.
+    /// EXCLUDED from content_hash, so adding columns never moves a
+    /// citation. Emitted raw: the columns bitpack themselves.
+    pub fn chunk_scalars(mut self, payload: Vec<u8>) -> Self {
+        self.chunk_scalars = Some(payload);
+        let mut ext = self.manifest.capabilities_ext.take().unwrap_or_default();
+        ext.scalars_present = Some(true);
         self.manifest.capabilities_ext = Some(ext);
         self
     }

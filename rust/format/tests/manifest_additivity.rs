@@ -44,6 +44,9 @@ fn unset_additive_fields_are_omitted() {
         "mrl_dim",
         "full_dim",
         "capabilities_ext",
+        "schema",
+        "dataset",
+        "media",
     ] {
         assert!(
             !json.contains(&format!("\"{key}\"")),
