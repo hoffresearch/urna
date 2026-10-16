@@ -1,6 +1,6 @@
 [package]
 name = "urna-neural"
-version = "0.5.6"
+version.workspace = true
 edition.workspace = true
 rust-version = "1.88"
 license = "MIT"
