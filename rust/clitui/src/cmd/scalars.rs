@@ -31,7 +31,7 @@ pub fn run(
     dataset: Option<PathBuf>,
     media: Option<PathBuf>,
 ) -> Result<()> {
-    if out == file {
+    if same_file(&out, &file) {
         bail!("--out must be a different file: the corpus is rewritten, never edited in place");
     }
     let corpus = MmapUrnaFile::open(&file)?;
@@ -79,8 +79,9 @@ pub fn run(
 
     let src = File::open(&file)?;
     // SAFETY: the corpus is opened read-only and never rewritten in place by
-    // this tool (it refuses `--out` equal to the input), so no writer can
-    // truncate the mapping under us; the same model `MmapUrnaFile` uses.
+    // this tool (it refuses an `--out` that is the input, see same_file),
+    // so no writer can truncate the mapping under us; the same model
+    // `MmapUrnaFile` uses.
     let src = unsafe { memmap2::Mmap::map(&src)? };
     let dst =
         BufWriter::new(File::create(&out).with_context(|| format!("create {}", out.display()))?);
@@ -112,6 +113,28 @@ pub fn run(
         out.display()
     );
     Ok(())
+}
+
+/// `out` names the corpus itself: the same path, written another way
+/// (relative, through a symlink) or a hard link to it. Writing there would
+/// truncate the bytes the copy is still reading from the mapping.
+fn same_file(out: &Path, file: &Path) -> bool {
+    if out == file {
+        return true;
+    }
+    let (Ok(a), Ok(b)) = (std::fs::metadata(out), std::fs::metadata(file)) else {
+        return false;
+    };
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        a.dev() == b.dev() && a.ino() == b.ino()
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = (a, b);
+        std::fs::canonicalize(out).ok() == std::fs::canonicalize(file).ok()
+    }
 }
 
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
