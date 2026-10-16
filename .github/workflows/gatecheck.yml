@@ -87,7 +87,8 @@ jobs:
           URNA_MUTATION_ITERS=800 cargo test --release -p urna-engine --test mutation_fuzz
       - name: 639-line guard (rust/**/src)
         run: |
-          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' \
+          # rust/av1dec is the rav1d fork vendored whole; its files keep upstream's shape
+          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path 'rust/av1dec/*' \
             -exec wc -l {} + | awk '$1 > 639 {print}' | grep -v 'total$' || true)"
           if [ -n "$overlong" ]; then echo "$overlong"; exit 1; fi
       - name: rust/ingest (separate workspace)

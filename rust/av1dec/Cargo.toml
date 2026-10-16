@@ -1,7 +1,7 @@
 [package]
 name = "urna-av1dec"
 description = "The rav1d AV1 decoder carried in the urna tree: pure Rust, no asm, for the AVIF blobs a .urna file stores"
-version = "0.1.0"
+version.workspace = true
 edition = "2021"
 rust-version = "1.88"
 license = "BSD-2-Clause"

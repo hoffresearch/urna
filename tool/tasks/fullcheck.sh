@@ -198,8 +198,10 @@ cargo_fmt() {
 cached cargo-fmt "$RUST_IN" -- cargo_fmt
 
 # ---- 639-line guard ----
+# rust/av1dec is the rav1d fork, vendored whole: its files keep upstream's
+# shape so the diff against upstream stays readable, and the guard skips it.
 step "no Rust file in rust/**/src exceeds 639 lines"
-overlong="$(find rust -name '*.rs' -not -path '*/tests/*' \
+overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path '*/target/*' -not -path 'rust/av1dec/*' \
   | xargs wc -l \
   | awk '$1 > 639 {print}' \
   | grep -v 'total$' || true)"
