@@ -13,7 +13,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Instant;
 
-use ratatui_cheese::input::InputState;
+use crate::tui::widgets::InputState;
 use urna_engine::scalars::{Bitset, parse};
 
 use super::labels;

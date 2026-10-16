@@ -1,5 +1,5 @@
 //! `urna tui`: the corpus explorer, full screen. four tabs (home, corpus,
-//! ask, health), a file picker overlay, toasts, and tachyonfx on every
+//! ask, health), a file picker overlay, toasts, and an effect on every
 //! change of screen. slow work (opening a corpus, asking it, the doctor
 //! checks) runs on worker threads; this loop only draws and routes input.
 //! `s` hands the terminal to `urna setup` and comes back when it ends.
@@ -34,8 +34,6 @@ use std::time::{Duration, Instant};
 
 use ratatui::DefaultTerminal;
 use ratatui::layout::Rect;
-use ratatui_cheese::spinner::{SpinnerState, SpinnerType};
-use ratatui_explorer::FileExplorer;
 
 use crate::cmd::pyenv;
 use crate::cmd::tone::{self, Depth};
@@ -43,6 +41,7 @@ use crate::tui::fx::{self, Fx};
 use crate::tui::setup;
 use crate::tui::term::{self, Clock};
 use crate::tui::toast::{Kind, Toasts};
+use crate::tui::widgets::{Picker, Spinner};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tab {
@@ -99,7 +98,7 @@ struct App {
     sec_scroll: usize,
     ask: ask::Ask,
     health: health::Health,
-    picker: Option<FileExplorer>,
+    picker: Option<Picker>,
     picker_new: bool,
     files: Vec<(PathBuf, u64)>,
     cwd: PathBuf,
@@ -107,7 +106,7 @@ struct App {
     toasts: Toasts,
     fx: Fx,
     clock: Clock,
-    spinner: SpinnerState,
+    spinner: Spinner,
     depth: Depth,
     booted: bool,
     area: Rect,
@@ -138,7 +137,7 @@ impl App {
             toasts: Toasts::default(),
             fx: Fx::default(),
             clock: Clock::new(),
-            spinner: SpinnerState::new(SpinnerType::Dot),
+            spinner: Spinner::dots(),
             depth: tone::depth(),
             booted: false,
             area: Rect::default(),

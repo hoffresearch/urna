@@ -1,6 +1,6 @@
 //! The terminal ui (feature `tui`, on by default): the interactive
 //! installer (`urna setup`) and the corpus explorer (`urna tui`, also what a
-//! bare `urna` opens on a terminal). built on ratatui with tachyonfx for
+//! bare `urna` opens on a terminal). built on ratatui with its own widgets and effects for
 //! every transition; the look is urna.dev's (palette in `pal`, the symbol in
 //! `art`), the layout vocabulary is noble's hud (`hud`).
 //!
@@ -19,5 +19,6 @@ pub mod setup;
 pub mod term;
 pub mod toast;
 pub mod txt;
+pub mod widgets;
 #[cfg(feature = "window")]
 pub mod view;

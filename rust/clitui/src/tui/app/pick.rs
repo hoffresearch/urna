@@ -1,17 +1,17 @@
-//! The file picker overlay (ratatui-explorer), showing directories and
-//! `.urna` files only, themed with the palette. enter walks into a
-//! directory or opens the file; esc closes.
+//! The file picker overlay, showing directories and `.urna` files only,
+//! themed with the palette. enter walks into a directory or opens the
+//! file; esc closes.
 
 use std::path::{Path, PathBuf};
 
 use crossterm::event::{Event, KeyCode};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Widget, WidgetRef};
-use ratatui_explorer::{FileExplorer, FileExplorerBuilder, Theme};
+use ratatui::style::Style;
+use ratatui::widgets::{Clear, Widget};
 
 use crate::tui::pal;
+use crate::tui::widgets::Picker;
 
 pub enum Pick {
     Stay,
@@ -19,70 +19,36 @@ pub enum Pick {
     Open(PathBuf),
 }
 
-pub fn new(cwd: &Path) -> anyhow::Result<FileExplorer> {
-    let theme = Theme::default()
-        .with_block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .border_style(Style::new().fg(pal::GLOW))
-                .title(" open a .urna ")
-                .title_style(pal::title()),
-        )
-        .with_style(Style::new().fg(pal::INK).bg(pal::BG))
-        .with_item_style(Style::new().fg(pal::INK))
-        .with_dir_style(pal::accent())
-        .with_highlight_item_style(
-            Style::new()
-                .fg(pal::INK_HI)
-                .bg(pal::SURFACE)
-                .add_modifier(Modifier::BOLD),
-        )
-        .with_highlight_dir_style(
-            Style::new()
-                .fg(pal::TITLE_FROM)
-                .bg(pal::SURFACE)
-                .add_modifier(Modifier::BOLD),
-        )
-        .with_highlight_symbol("› ")
-        .with_title_bottom(|fe| format!(" {} ", fe.cwd().display()).into());
-    let fe = FileExplorerBuilder::default()
-        .working_dir(cwd)
-        .theme(theme)
-        .filter_map(|f| (f.is_dir || f.path.extension().is_some_and(|e| e == "urna")).then_some(f))
-        .build()?;
-    Ok(fe)
+pub fn new(cwd: &Path) -> anyhow::Result<Picker> {
+    let mut p = Picker::new(cwd, |e| {
+        e.is_dir || e.path.extension().is_some_and(|x| x == "urna")
+    })?;
+    land(&mut p);
+    Ok(p)
 }
 
 /// Routes one input event to the picker.
-pub fn handle(fe: &mut FileExplorer, ev: &Event) -> Pick {
+pub fn handle(fe: &mut Picker, ev: &Event) -> Pick {
     if let Event::Key(k) = ev {
         match k.code {
             KeyCode::Esc | KeyCode::Char('q') => return Pick::Close,
             KeyCode::Enter | KeyCode::Right | KeyCode::Char('l') => {
-                if let Some(f) = fe.files().get(fe.selected_idx())
-                    && f.is_file()
-                {
+                if let Some(f) = fe.selected().filter(|f| f.is_file()) {
                     return Pick::Open(f.path.clone());
                 }
             }
             _ => {}
         }
     }
-    // the explorer indexes `len() - 1`; an empty listing must not reach it.
-    if !fe.files().is_empty() {
-        let before = fe.cwd().clone();
-        let _ = fe.handle(ev);
-        if *fe.cwd() != before {
-            land(fe);
-        }
+    if fe.handle(ev) {
+        land(fe);
     }
     Pick::Stay
 }
 
 /// After a directory change, put the cursor on the first `.urna` there,
 /// else on the first entry that is not the parent link.
-fn land(fe: &mut FileExplorer) {
+fn land(fe: &mut Picker) {
     let files = fe.files();
     let urna = files.iter().position(|f| f.is_file());
     let first = files.iter().position(|f| f.name != "../");
@@ -103,7 +69,7 @@ pub fn rect(area: Rect) -> Rect {
     )
 }
 
-pub fn render(buf: &mut Buffer, area: Rect, fe: &FileExplorer) -> Rect {
+pub fn render(buf: &mut Buffer, area: Rect, fe: &Picker) -> Rect {
     // the screen behind the overlay recedes toward the ground.
     for y in area.top()..area.bottom() {
         for x in area.left()..area.right() {
@@ -115,7 +81,7 @@ pub fn render(buf: &mut Buffer, area: Rect, fe: &FileExplorer) -> Rect {
     let r = rect(area);
     Clear.render(r, buf);
     buf.set_style(r, Style::new().bg(pal::BG));
-    fe.widget().render_ref(r, buf);
+    fe.render(buf, r, " open a .urna ");
     r
 }
 
@@ -134,6 +100,7 @@ mod tests {
         let names: Vec<&str> = fe.files().iter().map(|f| f.name.as_str()).collect();
         assert!(names.iter().any(|n| n.contains("a.urna")));
         assert!(!names.iter().any(|n| n.contains("b.txt")));
+        assert_eq!(fe.selected().map(|f| f.name.as_str()), Some("a.urna"));
         let area = Rect::new(0, 0, 80, 24);
         let mut buf = Buffer::empty(area);
         render(&mut buf, area, &fe);

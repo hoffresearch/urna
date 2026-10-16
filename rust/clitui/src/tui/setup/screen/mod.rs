@@ -13,12 +13,11 @@ mod splash;
 
 use std::time::Duration;
 
+use crate::tui::widgets::{Binding, Help, HelpStyles};
 use ratatui::Frame;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::Widget;
-use ratatui_cheese::help::{Binding, Help, HelpStyles};
 
 use super::ui::{Step, Ui};
 use crate::tui::hud::{self};
@@ -68,7 +67,7 @@ pub fn draw(f: &mut Frame<'_>, ui: &mut Ui, dt: Duration) {
             ui.fx.cancel_unique_effect("shimmer");
         }
     }
-    ui.fx.process_effects(dt.into(), buf, area);
+    ui.fx.process_effects(dt, buf, area);
     pal::fit(buf, area, ui.depth);
 }
 
@@ -177,19 +176,13 @@ fn footer(buf: &mut Buffer, area: Rect, step: Step) {
         Step::Done => vec![b("enter", "finish"), b("m", "add models")],
     };
     let styles = HelpStyles {
+        key: pal::key(),
+        desc: pal::faint(),
+        separator: Style::new().fg(pal::LINE),
         ellipsis: pal::faint(),
-        short_key: pal::key(),
-        short_desc: pal::faint(),
-        short_separator: Style::new().fg(pal::LINE),
-        full_key: pal::key(),
-        full_desc: pal::faint(),
-        full_separator: Style::new().fg(pal::LINE),
     };
-    let help = Help::default()
-        .bindings(keys)
-        .styles(styles)
-        .short_separator(" · ");
-    (&help).render(
+    let help = Help::new(keys).styles(styles).separator(" · ");
+    help.render(
         Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1),
         buf,
     );

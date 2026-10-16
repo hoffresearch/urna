@@ -112,7 +112,7 @@ impl App {
                 self.fx.add_effect(fx::boot(area));
                 self.fx.add_unique_effect("mark", fx::shimmer(mark));
             }
-            self.fx.process_effects(dt.into(), buf, area);
+            self.fx.process_effects(dt, buf, area);
             pal::fit(buf, area, self.depth);
         })?;
         Ok(())

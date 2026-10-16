@@ -7,10 +7,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Paragraph, StatefulWidget, Widget, Wrap};
-use ratatui_cheese::input::{Input, InputStyles};
-use tui_scrollbar::{ScrollBar, ScrollLengths};
 
 use super::ask::Ask;
+use crate::tui::widgets::{Input, InputStyles, ScrollBar};
 use crate::tui::{hud, pal};
 
 pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
@@ -21,8 +20,6 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
         text: Style::new().fg(pal::INK_HI),
         placeholder: pal::faint(),
         cursor: Style::new().fg(pal::BG).bg(pal::TITLE_FROM),
-        validation_error: pal::err(),
-        validation_success: pal::ok(),
     };
     let qrect = Rect::new(body.x + 2, body.y, body.width.saturating_sub(4), 3);
     let input = Input::new("ask")
@@ -292,14 +289,11 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
     ask.scroll = ask.scroll.min(total.saturating_sub(text_rect.height));
     para.scroll((ask.scroll, 0)).render(text_rect, buf);
     if total > text_rect.height {
-        ScrollBar::vertical(ScrollLengths {
-            content_len: total as usize,
-            viewport_len: text_rect.height as usize,
-        })
-        .offset(ask.scroll as usize)
-        .track_style(Style::new().fg(pal::SURFACE))
-        .thumb_style(Style::new().fg(pal::GLOW))
-        .render(Rect::new(inner.right(), inner.y, 1, text_rect.height), buf);
+        ScrollBar::vertical(total as usize, text_rect.height as usize)
+            .offset(ask.scroll as usize)
+            .track_style(Style::new().fg(pal::SURFACE))
+            .thumb_style(Style::new().fg(pal::GLOW))
+            .render(Rect::new(inner.right(), inner.y, 1, text_rect.height), buf);
     }
     let cy = inner.bottom() - 2;
     let w = inner.width.saturating_sub(8) as usize;

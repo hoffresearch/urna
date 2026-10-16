@@ -10,13 +10,12 @@ use anyhow::Result;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::Widget;
-use tui_scrollbar::{ScrollBar, ScrollLengths};
 
 use super::session::Session;
 use crate::cmd::util::encoding_name;
 use crate::tui::hud::{self, Badge};
 use crate::tui::pal;
+use crate::tui::widgets::ScrollBar;
 
 pub struct Section {
     pub id: u64,
@@ -244,17 +243,14 @@ fn sections(buf: &mut Buffer, area: Rect, corpus: &Corpus, scroll: usize) {
         }
     }
     if corpus.sections.len() > rows {
-        ScrollBar::vertical(ScrollLengths {
-            content_len: corpus.sections.len(),
-            viewport_len: rows,
-        })
-        .offset(start)
-        .track_style(Style::new().fg(pal::SURFACE))
-        .thumb_style(Style::new().fg(pal::GLOW))
-        .render(
-            Rect::new(inner.right(), inner.y + 1, 1, inner.height - 1),
-            buf,
-        );
+        ScrollBar::vertical(corpus.sections.len(), rows)
+            .offset(start)
+            .track_style(Style::new().fg(pal::SURFACE))
+            .thumb_style(Style::new().fg(pal::GLOW))
+            .render(
+                Rect::new(inner.right(), inner.y + 1, 1, inner.height - 1),
+                buf,
+            );
     }
 }
 
