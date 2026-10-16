@@ -1,0 +1,21 @@
+[package]
+name = "urna-infer"
+version = "0.5.6"
+edition.workspace = true
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "urna's inference runtime: the models we ship, built on a backend trait, native CPU first"
+
+[lints]
+workspace = true
+
+[dependencies]
+half = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+urna-engine = { workspace = true }

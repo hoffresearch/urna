@@ -3229,6 +3229,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "urna-infer"
+version = "0.5.6"
+dependencies = [
+ "half",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokenizers",
+ "urna-engine",
+]
+
+[[package]]
 name = "utf8parse"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
