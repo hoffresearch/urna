@@ -1,25 +1,22 @@
 //! Type-ahead for the ask tab over the corpus's own labels: the first line
 //! of each chunk's stored text (a card name, a title, a diagnosis), or the
 //! card names, English and Portuguese, when the corpus carries fields.
-//! Ranked by tier first (the whole label, a prefix of it, a prefix of one
-//! of its words, then a fuzzy match), then by the matcher's score, then
+//! The engine's label index folds, stores and matches them; this module
+//! ranks the hits by tier first (the whole label, a prefix of it, a prefix
+//! of one of its words, then a fuzzy match), then by the score, then
 //! shorter. With fields, the playable card leads its art-series twin, the
 //! more played card (EDHREC rank) leads inside a name tier, and the many
 //! tokens that share a name collapse into one line.
 
 use std::collections::HashSet;
-use std::sync::Mutex;
 
-use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
-use nucleo_matcher::{Config, Matcher, Utf32String};
+use urna_engine::labels::Index;
+pub use urna_engine::labels::{alias, fold, tier};
 
 use super::fields::{Card, Kind};
 
 struct Label {
     text: String,
-    /// lowercase, accents dropped, for the tiers.
-    folded: String,
-    hay: Utf32String,
     /// the chunk the label names, for the caller's filter.
     ordinal: usize,
     /// what one line stands for: the card's name, so its twins collapse.
@@ -33,48 +30,9 @@ struct Label {
 type Rank = (bool, u8, u32, u32, i64);
 
 pub struct Labels {
+    /// in the index's order: a hit's id is a position here.
     items: Vec<Label>,
-    matcher: Mutex<Matcher>,
-}
-
-/// `Relâmpago Vivo` -> `relampago vivo`.
-pub fn fold(s: &str) -> String {
-    s.chars()
-        .map(nucleo_matcher::chars::normalize)
-        .flat_map(char::to_lowercase)
-        .collect()
-}
-
-/// The trailing `(…)` of a label: `Lightning Bolt (Raio)` -> `Raio`.
-pub fn alias(label: &str) -> Option<&str> {
-    label
-        .strip_suffix(')')
-        .and_then(|l| l.rfind(" (").map(|i| &l[i + 2..]))
-        .filter(|a| !a.is_empty())
-}
-
-/// How well a folded label answers a folded query: 3 the whole label or its
-/// alias (a trailing `(…)`, like a translated name), 2 a prefix of either,
-/// 1 a prefix of one of its words, 0 nothing of the kind.
-pub fn tier(label: &str, q: &str) -> u8 {
-    let alias = alias(label).unwrap_or("");
-    // the name without its alias: `lightning bolt (raio)` -> `lightning bolt`.
-    let name = if alias.is_empty() {
-        label
-    } else {
-        label.get(..label.len() - alias.len() - 3).unwrap_or(label)
-    };
-    if q.is_empty() {
-        0
-    } else if label == q || alias == q || name == q {
-        3
-    } else if label.starts_with(q) || (!alias.is_empty() && alias.starts_with(q)) {
-        2
-    } else if label.split([' ', ',', '-', '(']).any(|w| w.starts_with(q)) {
-        1
-    } else {
-        0
-    }
+    index: Index,
 }
 
 impl Labels {
@@ -83,18 +41,21 @@ impl Labels {
     /// in `texts`, so the caller passes them in the order of the chunks.
     pub fn new<'a>(texts: impl Iterator<Item = &'a str>) -> Self {
         let mut seen = HashSet::new();
-        let items: Vec<Label> = texts
+        let items = texts
             .enumerate()
             .filter_map(|(i, t)| t.lines().next().map(|l| (i, l.trim())))
             .filter(|(_, l)| !l.is_empty() && seen.insert(l.to_string()))
-            .map(|(i, l)| Label {
-                text: l.to_string(),
-                folded: fold(l),
-                hay: Utf32String::from(l),
-                ordinal: i,
-                key: l.to_string(),
-                playable: true,
-                popularity: 0,
+            .map(|(i, l)| {
+                (
+                    fold(l),
+                    Label {
+                        text: l.to_string(),
+                        ordinal: i,
+                        key: l.to_string(),
+                        playable: true,
+                        popularity: 0,
+                    },
+                )
             })
             .collect();
         Self::build(items)
@@ -115,25 +76,29 @@ impl Labels {
             };
             let names = std::iter::once(c.name.as_str()).chain(c.pt_name.as_deref());
             for name in names {
-                items.push(Label {
-                    text: shown.clone(),
-                    folded: fold(name),
-                    hay: Utf32String::from(name),
-                    ordinal: c.ordinal,
-                    key: c.name.clone(),
-                    playable: c.playable(),
-                    popularity: c.edhrec_rank.map_or(0, |r| u32::MAX - r),
-                });
+                items.push((
+                    fold(name),
+                    Label {
+                        text: shown.clone(),
+                        ordinal: c.ordinal,
+                        key: c.name.clone(),
+                        playable: c.playable(),
+                        popularity: c.edhrec_rank.map_or(0, |r| u32::MAX - r),
+                    },
+                ));
             }
         }
         Self::build(items)
     }
 
-    fn build(mut items: Vec<Label>) -> Self {
-        items.sort_by(|a, b| a.text.cmp(&b.text).then(a.ordinal.cmp(&b.ordinal)));
+    fn build(mut items: Vec<(String, Label)>) -> Self {
+        items.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.ordinal.cmp(&b.1.ordinal)));
+        // sorted just above, so the index cannot refuse it.
+        let index = Index::from_sorted(items.iter().map(|(f, l)| (f.as_str(), l.ordinal)))
+            .unwrap_or_default();
         Self {
-            items,
-            matcher: Mutex::new(Matcher::new(Config::DEFAULT)),
+            items: items.into_iter().map(|(_, l)| l).collect(),
+            index,
         }
     }
 
@@ -149,29 +114,36 @@ impl Labels {
         k: usize,
         keep: &dyn Fn(usize) -> bool,
     ) -> Vec<String> {
-        let q = fold(query.trim());
-        if q.is_empty() || k == 0 {
+        if k == 0 {
             return Vec::new();
         }
-        let pattern = Pattern::parse(&q, CaseMatching::Ignore, Normalization::Smart);
-        let mut matcher = match self.matcher.lock() {
-            Ok(m) => m,
-            Err(poisoned) => poisoned.into_inner(),
+        let rank = |h: &urna_engine::labels::Hit| {
+            let l = self.items.get(h.id)?;
+            let popularity = if h.tier > 0 { l.popularity } else { 0 };
+            let len = i64::try_from(h.len).unwrap_or(i64::MAX);
+            Some(((l.playable, h.tier, popularity, h.score, -len), l))
         };
-        let mut scored: Vec<(Rank, &Label)> = self
-            .items
+        let exact = self.index.exact(query, keep);
+        let mut scored: Vec<(Rank, &Label)> = exact.iter().filter_map(rank).collect();
+        // a playable label that q is a prefix of, or of one of its words,
+        // outranks every subsequence match: with k of them the scan over
+        // all the labels has nothing to add.
+        let mut names: HashSet<&str> = HashSet::new();
+        let enough = scored
             .iter()
-            .filter(|l| keep(l.ordinal))
-            .filter_map(|l| {
-                let score = pattern.score(l.hay.slice(..), &mut matcher)?;
-                let t = tier(&l.folded, &q);
-                let popularity = if t > 0 { l.popularity } else { 0 };
-                Some((
-                    (l.playable, t, popularity, score, -(l.folded.len() as i64)),
-                    l,
-                ))
-            })
-            .collect();
+            .filter(|(r, l)| r.0 && r.1 > 0 && names.insert(l.key.as_str()))
+            .count()
+            >= k;
+        if !enough {
+            let seen: HashSet<usize> = exact.iter().map(|h| h.id).collect();
+            let fuzzy = self.index.fuzzy(query, keep);
+            scored.extend(
+                fuzzy
+                    .iter()
+                    .filter(|h| !seen.contains(&h.id))
+                    .filter_map(rank),
+            );
+        }
         scored.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.ordinal.cmp(&b.1.ordinal)));
         let mut seen: HashSet<&str> = HashSet::new();
         scored
@@ -199,6 +171,11 @@ mod tests {
         assert_eq!(l.suggest("lightning", 1), vec!["Lightning"]);
         assert_eq!(l.suggest("relampago", 1), vec!["Relâmpago Vivo"]);
         assert_eq!(l.suggest("raio", 1), vec!["Lightning Bolt (Raio)"]);
+        assert_eq!(l.suggest("bolt light", 1), vec!["Bolt of Light"]);
+        assert_eq!(
+            l.suggest("bolt", 2),
+            vec!["Bolt of Light", "Lightning Bolt (Raio)"]
+        );
         assert_eq!(tier("lightning bolt (raio)", "raio"), 3);
         assert_eq!(tier("lightning bolt (raio)", "lightning"), 2);
         assert_eq!(tier("lightning bolt (raio)", "lightning bolt"), 3);
@@ -210,6 +187,55 @@ mod tests {
         assert_eq!(
             l.suggest_where("lightning", 5, &|o| o != 1),
             vec!["Lightning Bolt (Raio)"]
+        );
+    }
+
+    #[test]
+    fn cards_offer_both_names_once_with_the_played_one_first() {
+        let card = |ordinal: usize, name: &str, pt: Option<&str>, kind: &str, rank: Option<u32>| {
+            let pt = pt.map_or("null".to_string(), |p| format!("\"{p}\""));
+            let rank = rank.map_or("null".to_string(), |r| r.to_string());
+            let json = format!(
+                r#"{{"ordinal":{ordinal},"name":"{name}","pt_name":{pt},"type_line":"Instant",
+                "kind":"{kind}","cmc":1.0,"power":null,"toughness":null,"loyalty":null,
+                "legal":{{}},"edhrec_rank":{rank}}}"#
+            );
+            serde_json::from_str::<Card>(&json).ok()
+        };
+        let cards: Vec<Card> = [
+            card(0, "Lightning Bolt", Some("Raio"), "card", Some(10)),
+            card(1, "Lightning Bolt", None, "art_series", None),
+            card(
+                2,
+                "Lightning Helix",
+                Some("Hélice de Raios"),
+                "card",
+                Some(300),
+            ),
+            card(3, "Lightning Greaves", None, "card", Some(1)),
+            card(4, "Lightning", None, "token", None),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let l = Labels::from_cards(&cards);
+        assert_eq!(
+            l.suggest("lightn", 5),
+            vec![
+                "Lightning Greaves",
+                "Lightning Bolt (Raio)",
+                "Lightning Helix (Hélice de Raios)",
+                "Lightning",
+            ]
+        );
+        assert_eq!(l.suggest("raio", 1), vec!["Lightning Bolt (Raio)"]);
+        assert_eq!(
+            l.suggest("helice", 1),
+            vec!["Lightning Helix (Hélice de Raios)"]
+        );
+        assert_eq!(
+            l.suggest_where("lightning bolt", 5, &|o| o != 0),
+            Vec::<String>::new()
         );
     }
 }

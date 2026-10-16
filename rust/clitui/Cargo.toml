@@ -93,8 +93,6 @@ image = { version = "0.25", default-features = false, optional = true }
 # window at full resolution (sdl2, a system library), for terminals with no
 # graphics protocol. off by default: a local tool, not a shipped dependency.
 sdl2 = { version = "0.38", default-features = false, features = ["use-pkgconfig"], optional = true }
-# type-ahead over the corpus labels on the ask tab.
-nucleo-matcher = { version = "0.3", optional = true }
 hyperrat = { version = "0.1.3", optional = true }
 tui-scrollbar = { version = "0.2.8", optional = true }
 flate2 = { version = "1.1", optional = true }
@@ -127,7 +125,6 @@ tui = [
     "dep:ratatui-image",
     "dep:avif-decode",
     "dep:image",
-    "dep:nucleo-matcher",
 ]
 
 window = ["tui", "dep:sdl2"]

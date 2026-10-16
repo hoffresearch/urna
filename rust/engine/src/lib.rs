@@ -39,6 +39,7 @@ mod dtype;
 pub mod error;
 pub mod graph;
 mod inspect;
+pub mod labels;
 mod materialize;
 mod mmap_cold;
 mod mmap_file;
