@@ -8,6 +8,7 @@
 
 pub mod backend;
 pub mod model;
+pub mod potion;
 pub mod quant;
 pub mod registry;
 pub mod safetensors;
@@ -15,6 +16,7 @@ pub mod tokenizer;
 
 pub use backend::{Backend, Native, Op};
 pub use model::StaticModel;
+pub use potion::Potion;
 pub use registry::{Graph, ModelSpec, Registry, TokenizerKind};
 pub use safetensors::SafeTensors;
 pub use tokenizer::Tokenizer;

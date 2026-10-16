@@ -3050,6 +3050,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "urna-ffi"
+version = "0.5.6"
+dependencies = [
+ "serde_json",
+ "urna-engine",
+ "urna-infer",
+]
+
+[[package]]
 name = "urna-format"
 version = "0.5.6"
 dependencies = [
@@ -3071,8 +3080,10 @@ name = "urna-infer"
 version = "0.5.6"
 dependencies = [
  "half",
+ "hex",
  "serde",
  "serde_json",
+ "sha2 0.11.0",
  "thiserror 2.0.20",
 ]
 

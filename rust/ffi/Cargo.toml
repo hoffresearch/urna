@@ -1,0 +1,19 @@
+[package]
+name = "urna-ffi"
+version = "0.5.6"
+edition.workspace = true
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "The C ABI over urna's engine and inference runtime, for the native apps"
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[dependencies]
+urna-engine = { path = "../engine" }
+urna-infer = { path = "../infer" }
+serde_json = { workspace = true }
