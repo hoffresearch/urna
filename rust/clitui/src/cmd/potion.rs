@@ -1,17 +1,17 @@
-//! The potion query embedder in process (#205): tokenize with the vendored
-//! `tokenizer.json` (no special tokens), gather the rows of the vendored
-//! `model.safetensors`, mean pool, l2 normalize. The recipe and the
-//! `model_hash` are `python/urna/embed/potiontab.py`'s, field for field, so
-//! the manifest gate accepts the vector exactly as it accepts the script's.
-//! The table loads once per process (~30 MB, ~90 ms) and every query after
-//! is a table lookup.
+//! The potion query embedder in process (#205), on urna's own runtime:
+//! the vendored `tokenizer.json` through `urna_infer`'s WordPiece, the
+//! rows of the vendored `model.safetensors` gathered, mean pooled and l2
+//! normalized by the native backend. The recipe and the `model_hash` are
+//! `python/urna/embed/potiontab.py`'s, field for field, so the manifest
+//! gate accepts the vector exactly as it accepts the script's. The table
+//! loads once per process and every query after is a table lookup.
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Context, Result, anyhow, bail};
 use sha2::{Digest, Sha256};
-use tokenizers::Tokenizer;
+use urna_infer::{Native, SafeTensors, StaticModel, Tokenizer};
 
 const MODEL_ID: &str = "minishlab/potion-base-8M";
 const POTION_VERSION: &str = "1";
@@ -20,17 +20,14 @@ const RELEVANT_FILES: [&str; 3] = ["config.json", "tokenizer.json", "model.safet
 
 pub struct Potion {
     tok: Tokenizer,
-    table: Vec<f32>,
-    dim: usize,
-    unk: u32,
+    model: StaticModel<Native>,
     model_hash: String,
 }
 
 impl std::fmt::Debug for Potion {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Potion")
-            .field("dim", &self.dim)
-            .field("rows", &(self.table.len() / self.dim.max(1)))
+            .field("model", &self.model)
             .field("model_hash", &self.model_hash)
             .finish_non_exhaustive()
     }
@@ -63,16 +60,20 @@ pub fn shared(dir: &Path) -> Result<Arc<Potion>> {
 
 impl Potion {
     pub fn open(dir: &Path) -> Result<Self> {
-        let tok = Tokenizer::from_file(dir.join("tokenizer.json"))
-            .map_err(|e| anyhow!("{}: {e}", dir.join("tokenizer.json").display()))?;
-        let (table, dim) = read_table(&dir.join("model.safetensors"))?;
+        let tok = Tokenizer::from_file(&dir.join("tokenizer.json"))?;
+        let path = dir.join("model.safetensors");
+        let st = SafeTensors::open(&path)?;
+        let dim = st
+            .shape("embeddings")
+            .and_then(|s| s.get(1).copied())
+            .ok_or_else(|| anyhow!("{}: no [rows, dim] embeddings tensor", path.display()))?;
+        let table = st.tensor_f32("embeddings")?;
         let unk = tok.token_to_id("[UNK]").unwrap_or(1);
+        let model = StaticModel::new(Native::detect(), table, dim, unk)?;
         let model_hash = model_hash(dir, dim)?;
         Ok(Self {
             tok,
-            table,
-            dim,
-            unk,
+            model,
             model_hash,
         })
     }
@@ -82,83 +83,15 @@ impl Potion {
     }
 
     pub fn dim(&self) -> usize {
-        self.dim
+        self.model.dim()
     }
 
+    /// The query's vector: the token rows' mean, unit norm; an empty text
+    /// embeds as the unk row, like the script.
     pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        let enc = self
-            .tok
-            .encode(text, false)
-            .map_err(|e| anyhow!("tokenize: {e}"))?;
-        // an empty text embeds as the unk row, like the script.
-        let ids: &[u32] = if enc.get_ids().is_empty() {
-            std::slice::from_ref(&self.unk)
-        } else {
-            enc.get_ids()
-        };
-        let mut v = vec![0f32; self.dim];
-        for &id in ids {
-            let start = id as usize * self.dim;
-            let row = self
-                .table
-                .get(start..start + self.dim)
-                .ok_or_else(|| anyhow!("token id {id} past the table"))?;
-            v.iter_mut().zip(row).for_each(|(a, b)| *a += b);
-        }
-        let n = ids.len() as f32;
-        v.iter_mut().for_each(|a| *a /= n);
-        let norm = v.iter().map(|a| a * a).sum::<f32>().sqrt();
-        if norm > 0.0 {
-            v.iter_mut().for_each(|a| *a /= norm);
-        }
-        Ok(v)
+        let ids = self.tok.encode(text);
+        Ok(self.model.embed_ids(&ids)?)
     }
-}
-
-/// The single F32 `embeddings` tensor: 8-byte header length, json header,
-/// little-endian payload.
-fn read_table(path: &Path) -> Result<(Vec<f32>, usize)> {
-    let bytes = std::fs::read(path).with_context(|| path.display().to_string())?;
-    if bytes.starts_with(b"version https://git-lfs") {
-        bail!(
-            "{} is a git-lfs pointer; run `git lfs pull`",
-            path.display()
-        );
-    }
-    let head: [u8; 8] = bytes
-        .get(..8)
-        .and_then(|b| b.try_into().ok())
-        .ok_or_else(|| anyhow!("{}: truncated", path.display()))?;
-    let n = u64::from_le_bytes(head) as usize;
-    let header: serde_json::Value = serde_json::from_slice(
-        bytes
-            .get(8..8 + n)
-            .ok_or_else(|| anyhow!("{}: truncated header", path.display()))?,
-    )?;
-    let t = &header["embeddings"];
-    if t["dtype"] != "F32" {
-        bail!("{}: embeddings is not F32", path.display());
-    }
-    let num = |v: &serde_json::Value| {
-        v.as_u64()
-            .map(|x| x as usize)
-            .ok_or_else(|| anyhow!("{}: bad header", path.display()))
-    };
-    let (dim, a, b) = (
-        num(&t["shape"][1])?,
-        num(&t["data_offsets"][0])?,
-        num(&t["data_offsets"][1])?,
-    );
-    let data = bytes
-        .get(8 + n + a..8 + n + b)
-        .ok_or_else(|| anyhow!("{}: data out of range", path.display()))?;
-    let table = data
-        .as_chunks::<4>()
-        .0
-        .iter()
-        .map(|c| f32::from_le_bytes(*c))
-        .collect();
-    Ok((table, dim))
 }
 
 fn sha256_file(path: &Path) -> Result<String> {
@@ -192,8 +125,102 @@ fn model_hash(dir: &Path, dim: usize) -> Result<String> {
         "tokenizer_hash": format!("sha256:{}", sha256_file(&dir.join("tokenizer.json"))?),
         "version": POTION_VERSION,
     });
+    if dim == 0 {
+        bail!("potion table has no columns");
+    }
     Ok(format!(
         "sha256:{}",
         hex::encode(Sha256::digest(fp.to_string().as_bytes()))
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    //! parity against the reference embedder script, run when a python with
+    //! numpy and tokenizers is around (the repo venv, then `python3`), and
+    //! skipped with a note otherwise.
+
+    use super::*;
+    use std::process::Command;
+
+    fn root() -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
+    }
+
+    fn table() -> Option<PathBuf> {
+        let dir = root().join("rust/bridge/python/urna/model/potionb8m");
+        let bytes = std::fs::read(dir.join("model.safetensors")).ok()?;
+        (!bytes.starts_with(b"version https://git-lfs")).then_some(dir)
+    }
+
+    fn python() -> Option<String> {
+        let venv = root().join(".venv/bin/python");
+        let candidates = [venv.to_string_lossy().into_owned(), "python3".into()];
+        candidates.into_iter().find(|py| {
+            Command::new(py)
+                .args(["-c", "import numpy, tokenizers"])
+                .output()
+                .is_ok_and(|o| o.status.success())
+        })
+    }
+
+    fn reference(py: &str, text: &str) -> (String, Vec<f32>) {
+        let out = Command::new(py)
+            .arg(root().join("rust/bridge/python/urna/embed/potionqry.py"))
+            .arg("potion-base-8M")
+            .arg(text)
+            .output()
+            .expect("spawn the reference embedder");
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        let v: serde_json::Value = serde_json::from_slice(&out.stdout).expect("json");
+        let hash = v["model_hash"].as_str().expect("model_hash").to_string();
+        let vector = v["vector"]
+            .as_array()
+            .expect("vector")
+            .iter()
+            .map(|x| x.as_f64().expect("f64") as f32)
+            .collect();
+        (hash, vector)
+    }
+
+    #[test]
+    fn vectors_and_model_hash_match_the_reference_script() {
+        let (Some(dir), Some(py)) = (table(), python()) else {
+            eprintln!("skip potion parity: no table or no python with numpy+tokenizers");
+            return;
+        };
+        let potion = Potion::open(&dir).expect("potion opens");
+        let long_word = "x".repeat(150);
+        let texts = [
+            "Lightning Bolt deals 3 damage to any target.",
+            "Relâmpago: cause 3 pontos de dano a qualquer alvo.",
+            &long_word,
+            "😀 日本語 한국어 Ωμέγα",
+            "zzzzzq qqqzz",
+            "hello,world!!!don't(stop)",
+        ];
+        let mut worst = 0f32;
+        for text in texts {
+            let (hash, theirs) = reference(&py, text);
+            assert_eq!(potion.model_hash(), hash, "model_hash on {text:?}");
+            let ours = potion.embed(text).expect("embed");
+            assert_eq!(ours.len(), theirs.len(), "dim on {text:?}");
+            for (a, b) in ours.iter().zip(&theirs) {
+                worst = worst.max((a - b).abs());
+            }
+            assert!(
+                ours.iter().zip(&theirs).all(|(a, b)| (a - b).abs() <= 1e-6),
+                "{text:?} differs from the reference beyond 1e-6"
+            );
+        }
+        eprintln!("potion parity: worst component difference {worst:e}");
+        // the script refuses an empty query before embedding, so the empty
+        // text's contract (the unk row, as `embed_texts` maps it) is checked
+        // against the unk token itself.
+        assert_eq!(potion.embed("").expect("empty"), potion.embed("[UNK]").expect("unk"));
+    }
 }

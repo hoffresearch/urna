@@ -1,0 +1,22 @@
+[package]
+name = "urna-infer-parity"
+version = "0.5.6"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "parity of urna-infer's tokenizers against the reference library; a workspace of its own so the reference never enters urna's build or its gates"
+
+# its own workspace, like rust/ingest: the reference tokenizer library (and
+# the `paste` advisory it drags in) stays out of the urna workspace build,
+# the lock and the cargo-deny gates. run: `cargo test` here, with
+# URNA_CARDS_CORPUS set for the corpus pass.
+[workspace]
+
+[dependencies]
+urna-infer = { path = ".." }
+urna-engine = { path = "../../engine" }
+tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+
+[lib]
+path = "lib.rs"

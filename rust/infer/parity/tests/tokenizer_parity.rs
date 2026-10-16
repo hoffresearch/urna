@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 fn potion_tokenizer() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../bridge/python/urna/model/potionb8m/tokenizer.json")
+        .join("../../bridge/python/urna/model/potionb8m/tokenizer.json")
 }
 
 fn reference() -> tokenizers::Tokenizer {

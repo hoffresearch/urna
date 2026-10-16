@@ -69,9 +69,9 @@ hex = "0.4"
 sha2 = { workspace = true }
 # rgb -> xterm-256 for terminals without truecolor (Terminal.app); no deps.
 coolor = "1.1"
-# the potion query embedder in process (#205): the wordpiece tokenizer the
-# table was built with; fancy-regex keeps it pure rust, no oniguruma.
-tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
+# the potion query embedder in process (#205): urna's own runtime, with the
+# wordpiece tokenizer and the native backend the table is read through.
+urna-infer = { workspace = true }
 
 # the terminal ui: `urna setup` (the interactive installer every channel
 # ends in) and `urna tui` (the corpus explorer). on by default so brew, npm,
