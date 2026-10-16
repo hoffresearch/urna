@@ -1,22 +1,24 @@
 //! `urna doctor` - post-install health check (issue #75).
 //!
-//! validates the whole install surface a user/agent depends on and exits
-//! with a TYPED code so installers, CI, and support can branch on the
-//! failure class instead of parsing text:
+//! validates the surface `ask` depends on and exits with a TYPED code so
+//! installers, CI, and support can branch on the failure class instead of
+//! parsing text:
 //!
 //!   0  ok (scalar simd still exits 0, printed as a warning)
-//!   2  python interpreter missing or not runnable
-//!   3  python deps missing (numpy / tokenizers, needed by the embedder)
-//!   4  potion embedder script not found (repo layout or data dir)
+//!   4  potion embedder payload not found (repo layout or data dir)
 //!   5  potion model table missing or still a git-lfs pointer
-//!   6  embedder run failed (non-zero exit or invalid json contract)
+//!   6  the in-process embed failed
 //!
-//! checks: urna/format versions, simd backend, python interpreter, python
-//! deps, potion embedder presence, potion table presence, and one real
-//! offline embed of a fixed probe string. the embedder opens no socket, so
-//! doctor itself stays offline-by-construction. the checks live in
-//! `health` (shared with the terminal ui); this module only prints them,
-//! colored on a terminal and plain when piped.
+//! python is the corpus-building toolchain, not the query's: the doctor
+//! reports it as a warning, and `urna doctor --build` turns a missing
+//! interpreter or missing deps into the typed failures 2 and 3 and runs the
+//! embedder script under it.
+//!
+//! checks: urna/format versions, simd backend, the potion payload and
+//! table, one real embed in process (urna's own runtime, no interpreter),
+//! then python and its deps. nothing here opens a socket. the checks live
+//! in `health` (shared with the terminal ui); this module only prints
+//! them, colored on a terminal and plain when piped.
 
 use super::health::{self, Level};
 use super::tone::{self, Tone};
@@ -30,10 +32,14 @@ pub mod codes {
     pub const EMBEDDER_FAILED: i32 = 6;
 }
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run(build: bool) -> anyhow::Result<()> {
     let t = Tone::stdout();
     println!("{}", t.bold("urna doctor"));
-    let rows = health::collect();
+    let rows = if build {
+        health::collect_build()
+    } else {
+        health::collect()
+    };
     for row in &rows {
         if let Some(err) = &row.stderr {
             eprintln!("  embedder stderr: {err}");
@@ -50,14 +56,15 @@ pub fn run() -> anyhow::Result<()> {
         println!("urna doctor: {}", t.fg("ok", tone::HIGH));
     } else {
         println!("urna doctor: {}", t.fg("failed", tone::LOW));
-        if code != codes::EMBEDDER_FAILED {
-            println!(
-                "  {}",
-                t.fg(
-                    "next: `urna setup` lays down the embedder and a python env",
-                    tone::TEAL
-                )
-            );
+        let next = match code {
+            codes::PYTHON_MISSING | codes::PYTHON_DEPS_MISSING => {
+                Some("next: only corpus builds need python; `urna setup --python` builds its env")
+            }
+            codes::EMBEDDER_FAILED => None,
+            _ => Some("next: `urna setup` lays down the embedder payload"),
+        };
+        if let Some(next) = next {
+            println!("  {}", t.fg(next, tone::TEAL));
         }
     }
     std::process::exit(code);

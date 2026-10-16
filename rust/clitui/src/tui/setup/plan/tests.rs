@@ -32,9 +32,43 @@ fn bare() -> Scan {
     }
 }
 
+/// the env step is asked for: querying embeds in process, so setup builds
+/// the python env only with `--python` or for a chosen model.
+fn with_python() -> Opts {
+    Opts {
+        python: true,
+        ..Opts::default()
+    }
+}
+
+#[test]
+fn the_env_is_off_unless_asked_for_or_a_model_needs_it() {
+    let s = bare();
+    let p = plan(&s, &Opts::default());
+    assert!(
+        !p[1].runs(),
+        "no --python and no model: the env step stays off"
+    );
+    assert!(
+        p[0].runs() && p[3].runs(),
+        "the payload and the verify still run"
+    );
+    assert!(plan(&s, &with_python())[1].runs());
+    let (s, o) = with_models(&["minilm-multilingual"], &[]);
+    assert!(
+        plan(&s, &o)[1].runs(),
+        "a chosen model needs the managed env"
+    );
+    let off = Opts {
+        no_python: true,
+        ..with_python()
+    };
+    assert!(!plan(&s, &off)[1].runs());
+}
+
 #[test]
 fn a_fresh_brew_install_plans_everything() {
-    let p = plan(&bare(), &Opts::default());
+    let p = plan(&bare(), &with_python());
     assert!(p.iter().filter(|i| i.task != Task::Models).all(Item::runs));
     assert!(!p[2].runs(), "models are opt-in");
     // no uv on the machine: the payload's catalogue names the one to fetch.
@@ -46,11 +80,7 @@ fn a_fresh_brew_install_plans_everything() {
     );
     let mut no_curl = bare();
     no_curl.curl = None;
-    assert!(
-        plan(&no_curl, &Opts::default())[1]
-            .detail
-            .contains("via pip")
-    );
+    assert!(plan(&no_curl, &with_python())[1].detail.contains("via pip"));
 }
 
 /// `bare` with a payload whose catalogue names uv and the python range.
@@ -84,7 +114,7 @@ fn with_upstreams() -> Scan {
 fn the_env_is_planned_on_the_catalogue_uv_and_range() {
     let mut s = with_upstreams();
     s.deps = false;
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     assert!(p[1].runs());
     assert!(
         p[1].detail
@@ -95,7 +125,7 @@ fn the_env_is_planned_on_the_catalogue_uv_and_range() {
     // a platform the catalogue has no uv for falls back to pip.
     s.target = "riscv64-linux".into();
     assert!(
-        plan(&s, &Opts::default())[1]
+        plan(&s, &with_python())[1]
             .detail
             .contains("via pip on python 3.10 to 3.14")
     );
@@ -106,7 +136,7 @@ fn an_env_on_a_python_outside_the_range_is_rebuilt() {
     let mut s = with_upstreams();
     s.venv = true;
     s.venv_version = Some((3, 15));
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     assert!(p[1].runs(), "a ready env on 3.15 still has to move");
     assert!(
         p[1].detail.contains(
@@ -118,13 +148,13 @@ fn an_env_on_a_python_outside_the_range_is_rebuilt() {
     assert!(p[1].detail.contains("cached get their packages back"));
     s.venv_version = Some((3, 14));
     assert!(
-        !plan(&s, &Opts::default())[1].runs(),
+        !plan(&s, &with_python())[1].runs(),
         "inside the range it stays"
     );
     s.venv_version = Some((3, 15));
     s.pinned_python = Some("/opt/py/bin/python".into());
     assert!(
-        !plan(&s, &Opts::default())[1].detail.contains("deleted"),
+        !plan(&s, &with_python())[1].detail.contains("deleted"),
         "URNA_PYTHON wins: setup does not touch an env queries do not run"
     );
 }
@@ -254,12 +284,12 @@ fn a_pinned_interpreter_without_deps_blocks_the_python_step() {
     // holds whatever the gate exports.
     let mut s = bare();
     s.pinned_python = Some("/opt/py/bin/python".into());
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     assert!(p[1].blocked.as_deref().unwrap().contains("URNA_PYTHON"));
     assert!(p[1].detail.contains("/opt/py/bin/python"));
     assert_eq!(blocked_code(&p), 14);
     s.deps = true;
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     assert!(p[1].blocked.is_none());
     assert!(!p[1].runs());
     assert_eq!(blocked_code(&p), 0);
@@ -292,7 +322,7 @@ fn pip_needs_a_base_python_inside_the_catalogue_range() {
     s.deps = false;
     s.curl = None;
     s.base_python = None;
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     let why = p[1].blocked.clone().unwrap();
     assert!(why.contains("no python 3.10 to 3.14 is on PATH"), "{why}");
     assert!(
@@ -306,7 +336,7 @@ fn pip_needs_a_base_python_inside_the_catalogue_range() {
         p[1].detail
     );
     s.base_python = Some("/usr/bin/python3.12".into());
-    let p = plan(&s, &Opts::default());
+    let p = plan(&s, &with_python());
     assert!(p[1].runs(), "{:?}", p[1].blocked);
     assert!(
         p[1].detail.contains("via pip on python 3.10 to 3.14"),

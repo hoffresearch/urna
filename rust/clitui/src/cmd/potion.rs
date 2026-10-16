@@ -221,6 +221,9 @@ mod tests {
         // the script refuses an empty query before embedding, so the empty
         // text's contract (the unk row, as `embed_texts` maps it) is checked
         // against the unk token itself.
-        assert_eq!(potion.embed("").expect("empty"), potion.embed("[UNK]").expect("unk"));
+        assert_eq!(
+            potion.embed("").expect("empty"),
+            potion.embed("[UNK]").expect("unk")
+        );
     }
 }

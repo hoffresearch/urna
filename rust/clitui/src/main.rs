@@ -20,6 +20,14 @@ fn main() -> Result<()> {
         Commands::Inspect { file, json } => cmd::inspect::run(file, json),
         Commands::Validate { file } => cmd::validate::run(file),
         Commands::Media { file, export } => cmd::media::run(file, export),
+        Commands::Scalars {
+            file,
+            rows,
+            schema,
+            out,
+            dataset,
+            media,
+        } => cmd::scalars::run(file, rows, schema, out, dataset, media),
         Commands::Search { file, query, k } => cmd::search::run(file, query, k),
         Commands::SearchText {
             file,
@@ -102,13 +110,14 @@ fn main() -> Result<()> {
             candidates,
             model_path,
         } => cmd::agent::retrieve::run(file, query, k, format, embedder, candidates, model_path),
-        Commands::Doctor => cmd::doctor::run(),
+        Commands::Doctor { build } => cmd::doctor::run(build),
         #[cfg(feature = "tui")]
         Commands::Setup {
             yes,
             version,
             force,
             no_payload,
+            python,
             no_python,
             no_sample,
             models,
@@ -123,6 +132,7 @@ fn main() -> Result<()> {
                     version,
                     force,
                     no_payload,
+                    python,
                     no_python,
                     no_sample,
                     models,

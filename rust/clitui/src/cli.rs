@@ -76,6 +76,27 @@ pub enum Commands {
         #[arg(long)]
         export: Option<PathBuf>,
     },
+    /// [engine] Write per-chunk columns (chunk_scalars, 0x0D) and their schema into a
+    /// corpus, additively: every citation stays the same. ROWS is a JSON array of
+    /// objects, one per chunk; SCHEMA names and types the columns.
+    #[command(display_order = 4)]
+    Scalars {
+        file: PathBuf,
+        /// Rows to write; without it the columns already in FILE stay and only
+        /// the schema, dataset and media are declared again.
+        #[arg(long, value_name = "ROWS")]
+        rows: Option<PathBuf>,
+        #[arg(long, value_name = "SCHEMA")]
+        schema: PathBuf,
+        #[arg(long, value_name = "OUT")]
+        out: PathBuf,
+        /// JSON with the dataset's `name`, `version`, `url`, `fetched`, `license`, `sha256`.
+        #[arg(long, value_name = "JSON")]
+        dataset: Option<PathBuf>,
+        /// JSON with the media derivation: `codec`, `profile`, `quality`, `lossy`.
+        #[arg(long, value_name = "JSON")]
+        media: Option<PathBuf>,
+    },
     /// [engine] Search a `.urna` file with a JSON-array query vector (exact path).
     #[command(display_order = 5)]
     Search {
@@ -286,12 +307,18 @@ pub enum Commands {
         #[arg(long)]
         model_path: Option<PathBuf>,
     },
-    /// [engine] Post-install health check: versions, simd backend, python deps, and
-    /// one real offline potion embed. exits with a typed code (0 ok, 2 python
-    /// missing, 3 python deps missing, 4 embedder missing, 5 potion table
-    /// missing, 6 embedder run failed).
+    /// [engine] Post-install health check: versions, simd backend, the potion
+    /// payload and table, one real embed in process. exits with a typed code
+    /// (0 ok, 4 embedder payload missing, 5 potion table missing, 6 embed
+    /// failed). python is only reported; --build makes it count.
     #[command(display_order = 12)]
-    Doctor,
+    Doctor {
+        /// Also require the corpus-building toolchain: python with numpy and
+        /// tokenizers, and the embedder script running under it (exit 2 when
+        /// python is missing, 3 when its deps are).
+        #[arg(long)]
+        build: bool,
+    },
     /// [setup] Interactive installer: the offline embedder payload and a
     /// python env (numpy + tokenizers), proven by the doctor checks. plain
     /// output with --yes or without a terminal; --model adds catalog models.
@@ -312,8 +339,13 @@ pub enum Commands {
         /// Skip the embedder payload step.
         #[arg(long)]
         no_payload: bool,
-        /// Skip the python env step (bring your own via URNA_PYTHON).
+        /// Build the python env for corpus builds (numpy, tokenizers; the
+        /// models' packages go there). Querying needs none of it, so the
+        /// step is off unless asked for or a model is chosen.
         #[arg(long)]
+        python: bool,
+        /// Skip the python env step even when a model was chosen.
+        #[arg(long, hide = true)]
         no_python: bool,
         /// Skip the sample corpus setup downloads to try urna on
         /// (Brazilian Portuguese news, true and fake).
@@ -331,7 +363,7 @@ pub enum Commands {
         allow_remote_code: Vec<String>,
         /// Remove the payload and the env setup created (never the binary;
         /// the hugging face cache is shared and stays).
-        #[arg(long, conflicts_with_all = ["force", "no_payload", "no_python", "no_sample", "version", "models"])]
+        #[arg(long, conflicts_with_all = ["force", "no_payload", "python", "no_python", "no_sample", "version", "models"])]
         uninstall: bool,
     },
     /// [setup] Terminal explorer: open a .urna, read its sections, ask it,

@@ -49,11 +49,17 @@ fn run_capture(cmd: &mut ProcCommand) -> Option<std::process::Output> {
     cmd.output().ok().filter(|o| o.status.success())
 }
 
-/// Every check, in order. A missing interpreter or a missing embedder stops
-/// the list there (the later checks need them). The embedder is the one
-/// `ask` resolves from here (`embed_gate`'s ladder: the checkout first).
+/// Every check, in order. A missing embedder stops the list there (the
+/// later checks need it). The embedder is the one `ask` resolves from here
+/// (`embed_gate`'s ladder: the checkout first).
 pub fn collect() -> Vec<Row> {
-    collect_with(None)
+    collect_with(None, false)
+}
+
+/// The checks plus the corpus-building toolchain (python with numpy and
+/// tokenizers, the embedder script under it): `urna doctor --build`.
+pub fn collect_build() -> Vec<Row> {
+    collect_with(None, true)
 }
 
 /// The same checks on the payload installed in `home` (`<root>/urna`), the
@@ -62,10 +68,14 @@ pub fn collect() -> Vec<Row> {
 /// serve `ask`.
 #[cfg(feature = "tui")]
 pub fn collect_installed(home: &Path) -> Vec<Row> {
-    collect_with(Some(home))
+    collect_with(Some(home), false)
 }
 
-fn collect_with(installed: Option<&Path>) -> Vec<Row> {
+/// The query surface first: the payload, the potion table and one real
+/// embed in process, which is what `ask` needs and all it needs. Python
+/// comes after as the corpus-building toolchain: a warning when it is
+/// missing, a failure with codes 2 and 3 only when `build` asks for it.
+fn collect_with(installed: Option<&Path>, build: bool) -> Vec<Row> {
     let mut rows = Vec::new();
     rows.push(Row::new(
         Level::Ok,
@@ -104,50 +114,6 @@ fn collect_with(installed: Option<&Path>) -> Vec<Row> {
         });
     }
 
-    let interpreter = super::pyenv::resolve_interpreter();
-    if !super::pyenv::may_run(&interpreter) {
-        rows.push(Row::new(
-            Level::Fail(codes::PYTHON_MISSING),
-            "python",
-            super::pyenv::stub_hint(&interpreter),
-        ));
-        return rows;
-    }
-    let py_ver = run_capture(ProcCommand::new(&interpreter).arg("--version"))
-        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
-        .filter(|s| !s.is_empty());
-    match py_ver {
-        Some(ver) => rows.push(Row::new(
-            Level::Ok,
-            "python",
-            format!("{interpreter} ({ver})"),
-        )),
-        None => {
-            rows.push(Row::new(
-                Level::Fail(codes::PYTHON_MISSING),
-                "python",
-                format!("not runnable: {interpreter} (set URNA_PYTHON, or run `urna setup`)"),
-            ));
-            return rows;
-        }
-    }
-
-    let deps_ok = run_capture(
-        ProcCommand::new(&interpreter)
-            .arg("-c")
-            .arg("import numpy, tokenizers"),
-    )
-    .is_some();
-    if deps_ok {
-        rows.push(Row::new(Level::Ok, "python deps", "numpy, tokenizers"));
-    } else {
-        rows.push(Row::new(
-            Level::Fail(codes::PYTHON_DEPS_MISSING),
-            "python deps",
-            "numpy and/or tokenizers missing (run `urna setup`, or uv pip install numpy tokenizers)",
-        ));
-    }
-
     let embedder = match installed {
         Some(home) => ["python", "urna", "embed", "potionqry.py"]
             .iter()
@@ -177,17 +143,112 @@ fn collect_with(installed: Option<&Path>) -> Vec<Row> {
         embedder.display().to_string(),
     ));
 
-    rows.push(potion_table(&embedder));
+    let table = potion_table(&embedder);
+    let table_ok = table.level == Level::Ok;
+    rows.push(table);
+    if table_ok {
+        rows.push(potion_run(&embedder));
+    }
+
+    // the corpus-building toolchain. `ask` never needs it, so the rows warn
+    // unless the doctor was asked about building.
+    let level = |code: i32| {
+        if build {
+            Level::Fail(code)
+        } else {
+            Level::Warn
+        }
+    };
+    let was_quiet = super::pyenv::is_quiet();
+    super::pyenv::set_quiet(true);
+    let interpreter = super::pyenv::resolve_interpreter();
+    super::pyenv::set_quiet(was_quiet);
+    if !super::pyenv::may_run(&interpreter) {
+        rows.push(Row::new(
+            level(codes::PYTHON_MISSING),
+            "python (build)",
+            super::pyenv::stub_hint(&interpreter),
+        ));
+        return rows;
+    }
+    let py_ver = run_capture(ProcCommand::new(&interpreter).arg("--version"))
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+    match py_ver {
+        Some(ver) => rows.push(Row::new(
+            Level::Ok,
+            "python (build)",
+            format!("{interpreter} ({ver})"),
+        )),
+        None => {
+            rows.push(Row::new(
+                level(codes::PYTHON_MISSING),
+                "python (build)",
+                format!(
+                    "not runnable: {interpreter}; only corpus builds need it (set URNA_PYTHON, or run `urna setup --python`)"
+                ),
+            ));
+            return rows;
+        }
+    }
+
+    let deps_ok = run_capture(
+        ProcCommand::new(&interpreter)
+            .arg("-c")
+            .arg("import numpy, tokenizers"),
+    )
+    .is_some();
     if deps_ok {
-        rows.push(embedder_run(&interpreter, &embedder));
+        rows.push(Row::new(
+            Level::Ok,
+            "python deps (build)",
+            "numpy, tokenizers",
+        ));
     } else {
         rows.push(Row::new(
-            Level::Warn,
-            "embedder run",
-            "skipped (python deps missing)",
+            level(codes::PYTHON_DEPS_MISSING),
+            "python deps (build)",
+            "numpy and/or tokenizers missing; only corpus builds need them (run `urna setup --python`, or uv pip install numpy tokenizers)",
         ));
     }
+    if build {
+        if deps_ok {
+            rows.push(embedder_run(&interpreter, &embedder));
+        } else {
+            rows.push(Row::new(
+                Level::Warn,
+                "embedder run (build)",
+                "skipped (python deps missing)",
+            ));
+        }
+    }
     rows
+}
+
+/// one real embed in process: the potion table through urna's own runtime,
+/// exactly the way `ask`, `retrieve` and the ask tab embed a query.
+fn potion_run(embedder: &Path) -> Row {
+    let fail = |d: String| Row::new(Level::Fail(codes::EMBEDDER_FAILED), "embed run", d);
+    let Some(dir) = super::potion::table_dir(embedder) else {
+        return fail("the potion table dir is not beside the embedder script".into());
+    };
+    let potion = match super::potion::shared(&dir) {
+        Ok(p) => p,
+        Err(e) => return fail(format!("{e:#}")),
+    };
+    match potion.embed("urna doctor probe") {
+        Ok(v) if v.len() == potion.dim() && potion.model_hash().starts_with("sha256:") => Row::new(
+            Level::Ok,
+            "embed run",
+            format!(
+                "in process, dim={} model_hash={}",
+                potion.dim(),
+                potion.model_hash()
+            ),
+        ),
+        Ok(v) => fail(format!("vector of {} for dim {}", v.len(), potion.dim())),
+        Err(e) => fail(format!("{e:#}")),
+    }
 }
 
 /// the potion table dir lives in the same package as the embedder script
@@ -217,8 +278,9 @@ fn potion_table(embedder: &Path) -> Row {
     }
 }
 
-/// one real offline embed: the fixed probe exercises numpy + tokenizers +
-/// the table load exactly the way `ask`/`retrieve` do.
+/// one real embed through the python script, the corpus-building path:
+/// the fixed probe exercises numpy + tokenizers + the table under the
+/// interpreter a build would use.
 fn embedder_run(interpreter: &str, embedder: &Path) -> Row {
     let out = ProcCommand::new(interpreter)
         .arg(embedder)
@@ -234,7 +296,13 @@ fn embedder_run(interpreter: &str, embedder: &Path) -> Row {
             None
         }
     });
-    let fail = |d: &str| Row::new(Level::Fail(codes::EMBEDDER_FAILED), "embedder run", d);
+    let fail = |d: &str| {
+        Row::new(
+            Level::Fail(codes::EMBEDDER_FAILED),
+            "embedder run (build)",
+            d,
+        )
+    };
     let Some(v) = payload else {
         let mut row = fail("embedder exited non-zero or emitted invalid json");
         row.stderr = stderr;
@@ -246,7 +314,7 @@ fn embedder_run(interpreter: &str, embedder: &Path) -> Row {
     if dim > 0 && dim == vec_len && hash.starts_with("sha256:") {
         Row::new(
             Level::Ok,
-            "embedder run",
+            "embedder run (build)",
             format!("dim={dim} model_hash={hash}"),
         )
     } else {

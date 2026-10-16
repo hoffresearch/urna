@@ -39,6 +39,9 @@ pub struct Opts {
     /// reinstall the payload even when one is present.
     pub force: bool,
     pub no_payload: bool,
+    /// build the python env (`--python`); only corpus builds need it.
+    pub python: bool,
+    /// skip the python env even when a chosen model would want it.
     pub no_python: bool,
     /// skip the sample corpus the catalogue names.
     pub no_sample: bool,
@@ -214,7 +217,10 @@ pub fn plan(scan: &Scan, opts: &Opts) -> Vec<Item> {
                 None => "needs uv (or curl to download it) or python3 with venv".into(),
             },
         };
-        let proposed = !scan.deps || for_models || stale.is_some();
+        // querying embeds in process, so the env is a build-time choice:
+        // proposed when asked for (`--python`) or when a chosen model needs it.
+        let wanted = opts.python || for_models;
+        let proposed = wanted && (!scan.deps || for_models || stale.is_some());
         Item {
             task: Task::Python,
             proposed,
