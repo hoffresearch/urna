@@ -3168,6 +3168,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "urna-av1"
+version = "0.1.0"
+dependencies = [
+ "assert_matches",
+ "atomig",
+ "bitflags 2.13.1",
+ "cfg-if",
+ "libc",
+ "parking_lot",
+ "raw-cpuid",
+ "strum 0.26.3",
+ "zerocopy 0.7.35",
+]
+
+[[package]]
+name = "urna-avif"
+version = "0.1.0"
+dependencies = [
+ "avif-decode",
+ "rav1d",
+ "thiserror 2.0.20",
+ "urna-av1",
+ "urna-engine",
+]
+
+[[package]]
 name = "urna-bridge"
 version = "0.5.6"
 dependencies = [

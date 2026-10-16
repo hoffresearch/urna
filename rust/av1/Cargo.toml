@@ -1,0 +1,57 @@
+[package]
+name = "urna-av1"
+description = "The rav1d AV1 decoder carried in the urna tree: pure Rust, no asm, for the AVIF blobs a .urna file stores"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.88"
+license = "BSD-2-Clause"
+repository.workspace = true
+publish = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+[lib]
+name = "urna_av1"
+path = "lib.rs"
+
+[features]
+default = ["bitdepth_8"]
+# the corpora urna builds are 8-bit AVIF; the 16-bit paths stay available
+# for a file that needs them, at the cost of compile time.
+bitdepth_8 = []
+bitdepth_16 = []
+
+[dependencies]
+assert_matches = "1.5.0"
+atomig = { version = "0.4.0", features = ["derive"] }
+bitflags = "2.4.0"
+cfg-if = "1.0.0"
+libc = "0.2"
+parking_lot = "0.12.2"
+raw-cpuid = "11.0.1"
+strum = { version = "0.26", features = ["derive"] }
+zerocopy = { version = "0.7.32", features = ["derive"] }
+
+# embedded upstream code (see UPSTREAM): the workspace's deny lints that
+# would mean editing 54 thousand lines are relaxed here and only here; the
+# unsafe ones stay, rav1d denies them itself in lib.rs.
+[lints.rust]
+unsafe_op_in_unsafe_fn = "deny"
+# the asm-only code stays as upstream wrote it, behind features this crate does not declare
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(feature, values("asm", "asm_arm64_dotprod", "asm_arm64_i8mm", "asm_arm64_sve2"))'] }
+missing_debug_implementations = "allow"
+# upstream code: fn-pointer comparisons in the dsp tables, elided lifetimes, a struct the C port keeps
+unpredictable_function_pointer_comparisons = "allow"
+mismatched_lifetime_syntaxes = "allow"
+dead_code = "allow"
+rust_2018_idioms = { level = "allow", priority = -1 }
+
+[lints.clippy]
+unwrap_used = "allow"
+expect_used = "allow"
+undocumented_unsafe_blocks = "deny"
+dbg_macro = "deny"
+todo = "deny"
