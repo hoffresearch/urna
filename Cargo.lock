@@ -2371,17 +2371,17 @@ dependencies = [
  "sysinfo",
  "tar",
  "tempfile",
- "urna-avif",
  "urna-engine",
  "urna-format",
- "urna-infer",
+ "urna-images",
+ "urna-neural",
  "vergen-gitcl",
  "zip",
  "zstd",
 ]
 
 [[package]]
-name = "urna-av1"
+name = "urna-av1dec"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
@@ -2396,14 +2396,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "urna-avif"
-version = "0.1.0"
-dependencies = [
- "thiserror 2.0.20",
- "urna-av1",
-]
-
-[[package]]
 name = "urna-bridge"
 version = "0.5.6"
 dependencies = [
@@ -2414,6 +2406,15 @@ dependencies = [
  "serde_json",
  "urna-engine",
  "urna-format",
+]
+
+[[package]]
+name = "urna-cbinds"
+version = "0.5.6"
+dependencies = [
+ "serde_json",
+ "urna-engine",
+ "urna-neural",
 ]
 
 [[package]]
@@ -2434,15 +2435,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "urna-ffi"
-version = "0.5.6"
-dependencies = [
- "serde_json",
- "urna-engine",
- "urna-infer",
-]
-
-[[package]]
 name = "urna-format"
 version = "0.5.6"
 dependencies = [
@@ -2460,7 +2452,15 @@ dependencies = [
 ]
 
 [[package]]
-name = "urna-infer"
+name = "urna-images"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.20",
+ "urna-av1dec",
+]
+
+[[package]]
+name = "urna-neural"
 version = "0.5.6"
 dependencies = [
  "half",

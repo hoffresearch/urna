@@ -179,4 +179,4 @@ if __name__ == "__main__":
     test_build_writes_columns_schema_dataset_and_media_without_moving_the_content_hash()
     test_rows_and_schema_go_together_and_bad_values_are_refused()
     test_spec_declares_scalars_and_dataset_and_refuses_a_nameless_field()
-    print("test_scalars: ok")
+    print("test_chunkcols: ok")

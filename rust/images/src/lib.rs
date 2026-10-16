@@ -1,5 +1,5 @@
 //! An AVIF still image to RGBA pixels: the ISOBMFF container is read here
-//! (`boxes`), the AV1 payload is decoded by `urna-av1`, and the planes are
+//! (`boxes`), the AV1 payload is decoded by `urna-av1dec`, and the planes are
 //! converted here (`color`). What a `.urna` file stores as an inlined blob
 //! is one primary item, optionally one alpha item; that is what this
 //! decodes, with every length checked against the bytes given before any

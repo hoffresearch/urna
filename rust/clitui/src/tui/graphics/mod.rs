@@ -31,7 +31,7 @@ impl Rgba {
         })
     }
 
-    pub fn from_avif(img: urna_avif::Image) -> Option<Self> {
+    pub fn from_avif(img: urna_images::Image) -> Option<Self> {
         Self::new(img.width, img.height, img.rgba)
     }
 

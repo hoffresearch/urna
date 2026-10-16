@@ -20,11 +20,11 @@ fn reference() -> tokenizers::Tokenizer {
     tokenizers::Tokenizer::from_file(potion_tokenizer()).expect("reference tokenizer loads")
 }
 
-fn ours() -> urna_infer::Tokenizer {
-    urna_infer::Tokenizer::from_file(&potion_tokenizer()).expect("our tokenizer loads")
+fn ours() -> urna_neural::Tokenizer {
+    urna_neural::Tokenizer::from_file(&potion_tokenizer()).expect("our tokenizer loads")
 }
 
-fn same(ours: &urna_infer::Tokenizer, theirs: &tokenizers::Tokenizer, text: &str) -> bool {
+fn same(ours: &urna_neural::Tokenizer, theirs: &tokenizers::Tokenizer, text: &str) -> bool {
     let a = ours.encode(text);
     let b = theirs
         .encode(text, false)

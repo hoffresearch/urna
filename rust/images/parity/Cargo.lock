@@ -673,7 +673,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 
 [[package]]
-name = "urna-av1"
+name = "urna-av1dec"
 version = "0.1.0"
 dependencies = [
  "assert_matches",
@@ -685,24 +685,6 @@ dependencies = [
  "raw-cpuid",
  "strum",
  "zerocopy 0.7.35",
-]
-
-[[package]]
-name = "urna-avif"
-version = "0.1.0"
-dependencies = [
- "thiserror",
- "urna-av1",
-]
-
-[[package]]
-name = "urna-avif-parity"
-version = "0.1.0"
-dependencies = [
- "avif-decode",
- "rav1d",
- "urna-avif",
- "urna-engine",
 ]
 
 [[package]]
@@ -734,6 +716,24 @@ dependencies = [
  "sha2",
  "thiserror",
  "zstd",
+]
+
+[[package]]
+name = "urna-images"
+version = "0.1.0"
+dependencies = [
+ "thiserror",
+ "urna-av1dec",
+]
+
+[[package]]
+name = "urna-images-parity"
+version = "0.1.0"
+dependencies = [
+ "avif-decode",
+ "rav1d",
+ "urna-engine",
+ "urna-images",
 ]
 
 [[package]]

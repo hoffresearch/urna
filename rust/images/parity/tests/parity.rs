@@ -88,7 +88,7 @@ fn every_blob_of_the_corpus_decodes_like_avif_decode() {
     for &i in &avif {
         let bytes = rt.blob_bytes(i).expect("blob bytes");
         let t = Instant::now();
-        let ours = urna_avif::decode(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
+        let ours = urna_images::decode(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
         ours_ms += t.elapsed().as_secs_f64() * 1e3;
         let t = Instant::now();
         let (w, h, theirs) = reference(bytes);

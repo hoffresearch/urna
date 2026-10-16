@@ -1,5 +1,5 @@
 [package]
-name = "urna-av1"
+name = "urna-av1dec"
 description = "The rav1d AV1 decoder carried in the urna tree: pure Rust, no asm, for the AVIF blobs a .urna file stores"
 version = "0.1.0"
 edition = "2021"
@@ -14,7 +14,7 @@ autotests = false
 autobenches = false
 
 [lib]
-name = "urna_av1"
+name = "urna_av1dec"
 path = "lib.rs"
 
 [features]

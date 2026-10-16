@@ -1,4 +1,4 @@
-//! The potion query embedder in process (#205): `urna_infer::Potion` found
+//! The potion query embedder in process (#205): `urna_neural::Potion` found
 //! through the same ladder as the script, loaded once per process and
 //! shared by every query after.
 
@@ -7,7 +7,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 use anyhow::{Result, anyhow};
 
-pub use urna_infer::Potion;
+pub use urna_neural::Potion;
 
 /// The table dir next to the potion script: `<pkg>/embed/potionqry.py` ->
 /// `<pkg>/model/potionb8m`.

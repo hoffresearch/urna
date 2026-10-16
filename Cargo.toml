@@ -1,10 +1,10 @@
 [workspace]
 members = ["rust/*"]
-# rust/ingest, rust/infer/parity and rust/avif/parity are workspaces of their
+# rust/ingest, rust/neural/parity and rust/images/parity are workspaces of their
 # own (forge ingestion deps, the reference tokenizer and the reference
 # decoders stay out of the sovereign crates); they share the directory, not
 # the lockfile or the build.
-exclude = ["rust/ingest", "rust/infer/parity", "rust/avif/parity"]
+exclude = ["rust/ingest", "rust/neural/parity", "rust/images/parity"]
 resolver = "3"
 
 [workspace.package]
@@ -88,7 +88,7 @@ bytemuck = { version = "1", features = ["derive"] }
 # path and keeps the version, so both move with every release bump.
 urna-format = { path = "rust/format", version = "0.5.6" }
 urna-engine = { path = "rust/engine", version = "0.5.6" }
-urna-infer = { path = "rust/infer", version = "0.5.6" }
+urna-neural = { path = "rust/neural", version = "0.5.6" }
 
 # distribution backbone for the `urna` cli binary (issue #75): per-platform
 # tarballs + sha256 checksums + the homebrew tap formula, the npm package

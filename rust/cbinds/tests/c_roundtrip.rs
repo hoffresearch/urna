@@ -76,14 +76,14 @@ fn have(cmd: &str) -> bool {
 }
 
 fn staticlib() -> PathBuf {
-    let lib = target_dir().join("liburna_ffi.a");
+    let lib = target_dir().join("liburna_cbinds.a");
     if !lib.is_file() {
         let status = Command::new(env!("CARGO"))
-            .args(["build", "-p", "urna-ffi"])
+            .args(["build", "-p", "urna-cbinds"])
             .current_dir(root())
             .status()
             .expect("cargo build");
-        assert!(status.success(), "cargo build -p urna-ffi");
+        assert!(status.success(), "cargo build -p urna-cbinds");
     }
     assert!(lib.is_file(), "{} missing", lib.display());
     lib
@@ -104,7 +104,7 @@ fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
     }
     let corpus = root().join("demo/starter/out/quickstart.urna");
     assert!(corpus.is_file(), "{} missing", corpus.display());
-    let dir = std::env::temp_dir().join(format!("urna-ffi-c-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("urna-cbinds-c-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let src = dir.join("main.c");
     std::fs::write(&src, PROGRAM).unwrap();
@@ -115,7 +115,7 @@ fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
         .arg("-Wall")
         .arg("-Werror")
         .arg("-I")
-        .arg(root().join("rust/ffi/include"))
+        .arg(root().join("rust/cbinds/include"))
         .arg(&src)
         .arg(&lib)
         .arg("-o")

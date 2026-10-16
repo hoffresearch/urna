@@ -1,6 +1,6 @@
 [package]
-name = "urna-avif"
-description = "AVIF container parser and still-image decoder of the Urna vector database: ISOBMFF boxes to the AV1 payload, pixels through urna-av1"
+name = "urna-images"
+description = "AVIF container parser and still-image decoder of the Urna vector database: ISOBMFF boxes to the AV1 payload, pixels through urna-av1dec"
 version = "0.1.0"
 edition.workspace = true
 rust-version = "1.88"
@@ -9,7 +9,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-urna-av1 = { path = "../av1" }
+urna-av1dec = { path = "../av1dec" }
 thiserror = { workspace = true }
 
 [lints]

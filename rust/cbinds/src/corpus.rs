@@ -9,7 +9,7 @@ use std::sync::OnceLock;
 
 use urna_engine::MmapUrnaFile;
 use urna_engine::scalars::parse;
-use urna_infer::Potion;
+use urna_neural::Potion;
 
 use crate::hits::{Hit, Hits};
 use crate::{arg_str, give_string, guarded, set_error};

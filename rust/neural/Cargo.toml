@@ -1,5 +1,5 @@
 [package]
-name = "urna-infer"
+name = "urna-neural"
 version = "0.5.6"
 edition.workspace = true
 rust-version = "1.88"

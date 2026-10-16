@@ -71,7 +71,7 @@ sha2 = { workspace = true }
 coolor = "1.1"
 # the potion query embedder in process (#205): urna's own runtime, with the
 # wordpiece tokenizer and the native backend the table is read through.
-urna-infer = { workspace = true }
+urna-neural = { workspace = true }
 
 # the terminal ui: `urna setup` (the interactive installer every channel
 # ends in) and `urna tui` (the corpus explorer). on by default so brew, npm,
@@ -81,9 +81,9 @@ urna-infer = { workspace = true }
 # system `curl`, so the binary itself never links a network stack.
 ratatui = { version = "0.30.2", optional = true }
 crossterm = { version = "0.29", optional = true }
-# the ask tab's image pane: avif decoded by urna-avif (the AV1 decoder
+# the ask tab's image pane: avif decoded by urna-images (the AV1 decoder
 # carried in the tree); the terminal protocols are written in tui/graphics.
-urna-avif = { path = "../avif", optional = true }
+urna-images = { path = "../images", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
 # the machine's total ram, for the model screen's fit mark; only its memory
@@ -106,7 +106,7 @@ tui = [
     "dep:tar",
     "dep:zip",
     "dep:sysinfo",
-    "dep:urna-avif",
+    "dep:urna-images",
 ]
 
 [build-dependencies]

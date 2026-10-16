@@ -1,19 +1,19 @@
-//! One AV1 temporal unit in, one picture out, through `urna-av1`'s
+//! One AV1 temporal unit in, one picture out, through `urna-av1dec`'s
 //! dav1d-shaped API. The picture's planes are copied out into `Frame`, so
 //! the decoder can be reused for the alpha item and dropped freely.
 
 use std::ptr::NonNull;
 
-use urna_av1::include::dav1d::data::Dav1dData;
-use urna_av1::include::dav1d::dav1d::{Dav1dContext, Dav1dSettings};
-use urna_av1::include::dav1d::headers::{
+use urna_av1dec::include::dav1d::data::Dav1dData;
+use urna_av1dec::include::dav1d::dav1d::{Dav1dContext, Dav1dSettings};
+use urna_av1dec::include::dav1d::headers::{
     DAV1D_MC_BT470BG, DAV1D_MC_BT601, DAV1D_MC_BT709, DAV1D_MC_BT2020_NCL, DAV1D_MC_FCC,
     DAV1D_MC_IDENTITY, DAV1D_MC_SMPTE_YCGCO, DAV1D_MC_SMPTE240, DAV1D_MC_UNKNOWN,
     DAV1D_PIXEL_LAYOUT_I400, DAV1D_PIXEL_LAYOUT_I420, DAV1D_PIXEL_LAYOUT_I422,
     DAV1D_PIXEL_LAYOUT_I444,
 };
-use urna_av1::include::dav1d::picture::Dav1dPicture;
-use urna_av1::src::lib::{
+use urna_av1dec::include::dav1d::picture::Dav1dPicture;
+use urna_av1dec::src::lib::{
     dav1d_close, dav1d_data_create, dav1d_data_unref, dav1d_default_settings, dav1d_get_picture,
     dav1d_open, dav1d_picture_unref, dav1d_send_data,
 };
@@ -65,7 +65,7 @@ impl std::fmt::Debug for Decoder {
     }
 }
 
-fn ok(res: urna_av1::Dav1dResult) -> Result<()> {
+fn ok(res: urna_av1dec::Dav1dResult) -> Result<()> {
     if res.0 == 0 {
         Ok(())
     } else {

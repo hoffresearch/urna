@@ -1,4 +1,4 @@
-# urna-av1
+# urna-av1dec
 
 The [rav1d](https://github.com/memorysafety/rav1d) AV1 decoder, the Rust
 port of dav1d, carried in the urna tree as the decoder of the AVIF blobs a

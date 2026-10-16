@@ -223,7 +223,7 @@ pub fn lines(session: &Session, row: usize, text: &str, width: u16) -> Vec<Line<
             }
             (_, _) => {
                 for v in values_at(s, &f.name, row) {
-                    out.push(Line::from(Span::styled(v, Style::new().fg(pal::INK))));
+                    out.extend(v.lines().filter(|l| l.trim() != "//").map(rich_line));
                 }
             }
         }

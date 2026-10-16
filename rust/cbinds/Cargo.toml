@@ -1,5 +1,5 @@
 [package]
-name = "urna-ffi"
+name = "urna-cbinds"
 version = "0.5.6"
 edition.workspace = true
 rust-version = "1.88"
@@ -15,5 +15,5 @@ crate-type = ["rlib", "cdylib", "staticlib"]
 
 [dependencies]
 urna-engine = { path = "../engine" }
-urna-infer = { path = "../infer" }
+urna-neural = { path = "../neural" }
 serde_json = { workspace = true }

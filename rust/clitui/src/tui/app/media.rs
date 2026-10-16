@@ -1,7 +1,7 @@
 //! The ask tab's image pane. The terminal says once, at start, what it
 //! can draw (kitty, sixel, iterm2, from its environment); without a
 //! protocol it gets quadrant characters, which every font has. The
-//! selected hit's image blob is sliced off the mmap, decoded by `urna-avif`
+//! selected hit's image blob is sliced off the mmap, decoded by `urna-images`
 //! (the AV1 decoder carried in the tree, pure rust) and fitted to the pane
 //! with its aspect kept. Pixels go out after the frame, as the escape
 //! bytes of the protocol written at the image's anchor cell.
@@ -252,7 +252,7 @@ fn fit(area: Rect, size: (u32, u32), font: (u16, u16)) -> Rect {
 
 fn decode(session: &Session, blob: usize) -> Result<Rgba> {
     let bytes = session.rt.blob_bytes(blob)?;
-    let img = urna_avif::decode(bytes).map_err(|e| anyhow!("{e}"))?;
+    let img = urna_images::decode(bytes).map_err(|e| anyhow!("{e}"))?;
     Rgba::from_avif(img).ok_or_else(|| anyhow!("avif: the pixels do not match the size"))
 }
 

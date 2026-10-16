@@ -23,7 +23,7 @@ use rav1d::src::lib::{
 /// Decodes one item with the crates.io rav1d and returns its planes as the
 /// embedded decoder's `Frame` lays them out: `w` samples per row, no stride.
 fn upstream_planes(av1: &[u8]) -> (usize, usize, [Vec<u16>; 3]) {
-    // SAFETY: the dav1d C-shaped API, driven the way `urna_avif::decoder`
+    // SAFETY: the dav1d C-shaped API, driven the way `urna_images::decoder`
     // drives the embedded copy: every pointer is a live local, every
     // picture and buffer is unreferenced once, the context closed once.
     unsafe {
@@ -102,17 +102,17 @@ fn the_embedded_decoder_produces_the_upstream_planes() {
         .map(|(i, _)| i)
         .take(limit)
         .collect();
-    let mut dec = urna_avif::Decoder::open().expect("decoder");
+    let mut dec = urna_images::Decoder::open().expect("decoder");
     let mut equal = 0usize;
     for &i in &avif {
         let bytes = rt.blob_bytes(i).expect("blob bytes");
-        let container = urna_avif::parse(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
+        let container = urna_images::parse(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
         let ours = dec
             .decode(container.primary)
             .unwrap_or_else(|e| panic!("blob {i}: {e}"));
         assert_eq!(
             ours.chroma,
-            urna_avif::Chroma::C420,
+            urna_images::Chroma::C420,
             "blob {i}: the corpus is 4:2:0"
         );
         let (w, h, theirs) = upstream_planes(container.primary);
