@@ -1,9 +1,8 @@
 [workspace]
 members = ["rust/*"]
-# rust/ingest and rust/pasta are workspaces of their own (forge ingestion
-# deps and the card-search app stay out of the sovereign crates); they share
-# the directory, not the lockfile or the build.
-exclude = ["rust/ingest", "rust/pasta"]
+# rust/ingest is a workspace of its own (forge ingestion deps stay out of
+# the sovereign crates); it shares the directory, not the lockfile or the build.
+exclude = ["rust/ingest"]
 resolver = "3"
 
 [workspace.package]
