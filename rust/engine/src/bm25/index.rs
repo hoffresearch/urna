@@ -102,6 +102,17 @@ impl Bm25Index {
     /// Score `query_text` against the corpus, return the top-k `(doc, score)`
     /// pairs. Empty query returns an empty vec.
     pub fn search(&self, query_text: &str, k: usize) -> Vec<(usize, f32)> {
+        self.search_where(query_text, k, &|_| true)
+    }
+
+    /// `search` over the documents `keep` accepts: a dropped document's
+    /// postings are skipped, so the top-k is over the kept set alone.
+    pub fn search_where(
+        &self,
+        query_text: &str,
+        k: usize,
+        keep: &dyn Fn(usize) -> bool,
+    ) -> Vec<(usize, f32)> {
         if k == 0 || self.n_docs == 0 {
             return Vec::new();
         }
@@ -117,6 +128,9 @@ impl Bm25Index {
             let idf =
                 ((self.n_docs as f32 - entry.df as f32 + 0.5) / (entry.df as f32 + 0.5) + 1.0).ln();
             for p in &entry.postings {
+                if !keep(p.doc as usize) {
+                    continue;
+                }
                 // the codec rejects out-of-range doc ids at open; `get` keeps
                 // this loop panic-free even so.
                 let dl = self.doc_lengths.get(p.doc as usize).copied().unwrap_or(0) as f32;

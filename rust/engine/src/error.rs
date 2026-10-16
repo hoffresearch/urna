@@ -18,6 +18,8 @@ pub enum RuntimeError {
     InvalidQueryValue,
     #[error("embedding space not found: {0}")]
     SpaceNotFound(String),
+    #[error("filter: {0}")]
+    Filter(String),
     #[error(
         "blob {index} is not inlined in this file: open the media sidecar \
          named by its blob_refs uri, or rebuild with [output] embed_media"

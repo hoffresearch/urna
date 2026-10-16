@@ -70,6 +70,10 @@ pub struct MmapUrnaFile {
     /// additive `supports_multimodal` capability. each space's band slab
     /// is scored by the per-space exact search, never by the text path.
     pub(crate) spaces: Option<Vec<crate::spaces::OpenSpace>>,
+    /// Optional chunk_scalars (0x0D) columns with their schema, opened
+    /// behind the additive `scalars_present` capability. the filters a
+    /// search applies before scoring come from here.
+    pub(crate) scalars: Option<crate::scalars::Scalars>,
     /// What the manifest says the search path is. The runtime honors
     /// this at search time.
     pub(crate) declared_index_type: String,
@@ -80,7 +84,7 @@ crate::shape_debug!(MmapUrnaFile {
     show n_embeddings, show embedding_dim, show dtype, show embedding_model, show full_dim, show chunker_version, show model_hash,
     show file_hash, show content_hash, show declared_index_type, show declared_score_type,
     some ann_index, some bm25_index, some graph_index, some embeddings_fp, some blob_refs,
-    some blob_data, some spaces, len chunk_ids, len spans, skip _mmap, skip embeddings_offset,
+    some blob_data, some spaces, some scalars, len chunk_ids, len spans, skip _mmap, skip embeddings_offset,
     skip embeddings_size,
 });
 
@@ -186,6 +190,7 @@ impl MmapUrnaFile {
         // Optional multimodal spaces (0x15 + bands): opens behind the
         // additive `supports_multimodal` capability. see spaces.rs.
         let spaces = crate::spaces::open_space_sections(&view)?;
+        let scalars = crate::scalars::open_scalars(&view, n)?;
         let embedding_model = view.manifest.embedding_model.clone();
         let full_dim = view.manifest.full_dim;
         let chunker_version = view.manifest.chunker_version.clone();
@@ -218,6 +223,7 @@ impl MmapUrnaFile {
             blob_refs,
             blob_data,
             spaces,
+            scalars,
             declared_index_type,
             declared_score_type,
         })
