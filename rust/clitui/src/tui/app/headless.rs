@@ -23,7 +23,7 @@ const ROWS: u16 = 40;
 /// and the caller exits 2.
 fn open(file: &Path) -> Result<Result<Arc<Session>, i32>> {
     let c = corpus::load(file)?;
-    if c.session.label(0).is_none() && c.session.scalars().is_none() {
+    if super::session::label_fields(c.session.schema()).is_empty() {
         eprintln!(
             "{}: the corpus carries no chunk_scalars with a label column (see `urna scalars`)",
             file.display()
@@ -97,6 +97,13 @@ pub fn eval(file: &Path, want: usize) -> Result<i32> {
     let want = want.max(1);
     let stride = (all.len() / want).max(1);
     let names: Vec<(usize, String)> = all.into_iter().step_by(stride).collect();
+    if names.is_empty() {
+        eprintln!(
+            "{}: no chunk carries both a label and a rank to evaluate",
+            file.display()
+        );
+        return Ok(2);
+    }
     let keep = |_: usize| true;
     let (mut full_top1, mut search_top1, mut keys_to_top5) = (0usize, 0usize, Vec::new());
     let mut lat = Vec::new();

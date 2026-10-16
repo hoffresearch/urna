@@ -30,6 +30,8 @@
 #                    the hugging face cache; tool/tasks/benchdata.py fetches it, only with
 #                    URNA_ALLOW_DOWNLOAD=1, and checks its sha-256)
 #   URNA_FRESH     - 1 runs every step, ignoring what passed before (default: 0)
+#   URNA_CARDS_CORPUS - the cards corpus the tokenizer and av1 parity compare on
+#                    (default: unset, the parity step is reported skipped)
 #
 # Before any step: exit 3 when the default corpus is not cached and downloads
 # were not confirmed (6 when the cached file is not the pinned one), exit 9
@@ -89,7 +91,7 @@ TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
   "$PY" -c 'import importlib.metadata as m
 print("\n".join(sorted(d.metadata["Name"] + "==" + d.version for d in m.distributions())))'
   printf 'queries=%s k=%s corpus=%s\n' "$QUERIES" "$K" "$CORPUS"
-  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' | sort || true)"
+  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' | sort || true)"
 STAMPS="$ROOT/target/fullcheck"
 mkdir -p "$STAMPS"
 
@@ -170,12 +172,35 @@ cached bridge-so "$RUST_IN" --output rust/bridge/python/urna/_urna.so -- bridge_
 # ---- cargo test (release) ----
 cargo_test() {
   step "cargo test --release --workspace"
-  cargo test --release --workspace 2>&1 \
+  URNA_REQUIRE_PARITY=1 cargo test --release --workspace 2>&1 \
     | grep -E "^(test result|running [0-9]+ tests)" \
     | awk '/^test result/ { passed += $4; failed += $6; ignored += $8 } END { printf "  passed=%d failed=%d ignored=%d\n", passed, failed, ignored; if (failed > 0) exit 1 }'
   ok "all tests"
 }
 cached cargo-test "$ALL_IN" -- cargo_test
+
+# ---- parity of the in-tree tokenizer and av1 decoder ----
+# rust/neural/parity and rust/images/parity are workspaces of their own (the
+# reference crates stay out of urna's lock and cargo-deny), so the workspace
+# test above never runs them. their corpus pass reads the cards corpus named
+# by URNA_CARDS_CORPUS; without it the step says so and is not marked passed.
+parity() {
+  step "cargo test --release in rust/neural/parity and rust/images/parity"
+  URNA_PARITY_LIMIT="${URNA_PARITY_LIMIT:-2000}" cargo test --release \
+    --manifest-path rust/neural/parity/Cargo.toml 2>&1 \
+    | grep -E "^test result|panicked|FAILED"
+  URNA_PARITY_LIMIT="${URNA_PARITY_LIMIT:-2000}" cargo test --release \
+    --manifest-path rust/images/parity/Cargo.toml 2>&1 \
+    | grep -E "^test result|panicked|FAILED"
+  ok "tokenizer and av1 parity on $URNA_CARDS_CORPUS"
+}
+if [[ -n "${URNA_CARDS_CORPUS:-}" ]]; then
+  cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format" \
+    --file "$URNA_CARDS_CORPUS" -- parity
+else
+  step "parity"
+  printf '\033[1;33m  SKIP:\033[0m URNA_CARDS_CORPUS unset: no cards corpus to compare on\n' >&2
+fi
 
 # ---- cargo clippy ----
 cargo_clippy() {
