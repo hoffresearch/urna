@@ -109,7 +109,7 @@ pub fn load(path: &Path) -> Result<Corpus> {
         sections,
         content_hash: s(&info["content_hash"]),
         valid,
-        session: Arc::new(Session::from_runtime(rt)?),
+        session: Arc::new(Session::from_runtime(rt, path)?),
     })
 }
 

@@ -3,7 +3,10 @@
 //! on a worker thread, against the corpus the loader opened once; hits come
 //! back with their stored canonical text (tier-1, the bytes `cite` returns)
 //! and, when their source is an image blob, the image. Typing offers the
-//! corpus's labels; tab takes one and asks for it, that label first.
+//! corpus's labels; tab takes one and asks for it, that label first. A
+//! corpus with card fields takes deck filters after `|` (`format=pauper
+//! id=UB cmc<=3 type=creature all`): they narrow the suggestions and the
+//! hits, and with no text they browse the most played cards.
 
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
@@ -11,6 +14,8 @@ use std::time::Instant;
 
 use ratatui_cheese::input::InputState;
 
+use super::fields::Kind;
+use super::filter::Filter;
 use super::labels;
 use super::media::Media;
 use super::offer::{Need, Offer};
@@ -28,6 +33,11 @@ pub struct Answer {
     pub image: Option<usize>,
     /// found by its label, not by the search: `score` is not a cosine.
     pub by_name: bool,
+    /// the chunk's index in the file, the card's ordinal in the fields.
+    pub chunk: usize,
+    /// `hybrid` from the search, `name` from the label, `browse` from the
+    /// most played under the filters.
+    pub via: &'static str,
 }
 
 /// A failed query: the words for the toast, and the model to install when
@@ -60,6 +70,8 @@ pub struct Ask {
     pub sug_sel: usize,
     /// the input changed since the last ask: the list shows suggestions.
     pub typing: bool,
+    /// how long the last type-ahead took.
+    pub typed_ms: f64,
     /// a label taken with tab: hits whose first line is it go first.
     pinned: Option<String>,
 }
@@ -83,6 +95,7 @@ impl Default for Ask {
             suggestions: Vec::new(),
             sug_sel: 0,
             typing: false,
+            typed_ms: 0.0,
             pinned: None,
         }
     }
@@ -93,21 +106,25 @@ impl Ask {
         self.pending.is_some()
     }
 
-    /// Starts a query against the opened corpus on a worker thread.
+    /// Starts a query against the opened corpus on a worker thread. With
+    /// card fields, no text and only filters browses the most played.
     pub fn submit(&mut self, session: Arc<Session>) {
-        let q = self.input.value().trim().to_string();
-        if q.is_empty() || self.busy() {
+        let input = self.input.value().trim().to_string();
+        let (query, filter) = Filter::split(&input);
+        if (query.is_empty() && session.cards.is_none()) || self.busy() {
             return;
         }
         let (tx, rx) = channel();
-        let query = q.clone();
+        let query = query.to_string();
         let s = Arc::clone(&session);
         std::thread::spawn(move || {
             let t0 = Instant::now();
-            let _ = tx.send(run_query(&s, &query).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)));
+            let _ = tx.send(
+                run_query(&s, &query, &filter).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)),
+            );
         });
         self.session = Some(session);
-        self.asked = Some(q);
+        self.asked = Some(input);
         self.typing = false;
         self.pending = Some((rx, Instant::now()));
     }
@@ -120,22 +137,32 @@ impl Ask {
         self.submit(session);
     }
 
-    /// The input changed: offer the labels that match it.
+    /// The input changed: offer the labels that match it, under the filters.
     pub fn retype(&mut self, session: Option<&Session>) {
         self.typing = true;
         self.pinned = None;
         self.sug_sel = 0;
+        let (q, filter) = Filter::split(self.input.value());
+        let t0 = Instant::now();
         self.suggestions = session
-            .map(|s| s.labels.suggest(self.input.value(), 30))
+            .map(|s| s.labels.suggest_where(q, 30, &|i| s.keeps(i, &filter)))
             .unwrap_or_default();
+        self.typed_ms = t0.elapsed().as_secs_f64() * 1e3;
     }
 
-    /// Tab: the pointed label becomes the query, asked with it first.
+    /// Tab: the pointed label becomes the query, asked with it first; the
+    /// filters typed after `|` stay.
     pub fn take_suggestion(&mut self, session: Arc<Session>) {
         let Some(label) = self.suggestions.get(self.sug_sel).cloned() else {
             return;
         };
-        self.input.set_value(label.clone());
+        let filters = self
+            .input
+            .value()
+            .split_once('|')
+            .map(|(_, f)| format!(" |{f}"))
+            .unwrap_or_default();
+        self.input.set_value(format!("{label}{filters}"));
         self.input.end();
         self.pinned = Some(label);
         self.submit(session);
@@ -163,16 +190,20 @@ impl Ask {
             // holds inside each.
             // in a card corpus the art-series stand-ins go last.
             let pinned = self.pinned.take();
-            let q = labels::fold(self.asked.as_deref().unwrap_or(""));
-            let cards = self
-                .session
-                .as_ref()
-                .is_some_and(|s| super::card::knows(&s.chunker));
+            let (asked, _) = Filter::split(self.asked.as_deref().unwrap_or(""));
+            let q = labels::fold(asked);
+            let session = self.session.as_deref();
+            let template = session.is_some_and(|s| super::card::knows(&s.chunker));
             answers.sort_by_key(|a| {
                 let first = a.text.lines().next().map(str::trim).unwrap_or("");
                 let by_tab = pinned.as_deref() == Some(first);
                 let t = labels::tier(&labels::fold(first), &q);
-                let real = !(cards && super::card::placeholder(&a.text));
+                // with fields the kind says what is a card; without them
+                // the template's placeholder rows are told from the text.
+                let real = match session.and_then(|s| s.card(a.chunk)) {
+                    Some(c) => c.kind != Kind::ArtSeries,
+                    None => !(template && super::card::placeholder(&a.text)),
+                };
                 std::cmp::Reverse((real, by_tab, if t >= 2 { t } else { 0 }))
             });
             self.answers = answers;
@@ -184,42 +215,55 @@ impl Ask {
     }
 }
 
-fn run_query(session: &Session, query: &str) -> Result<Vec<Answer>, Failure> {
-    embed_gate::embed_and_search(&session.rt, query, 20, None, None, None)
+/// How many hits to show.
+const K: usize = 20;
+/// How many of the most played to browse with no text.
+const BROWSE: usize = 60;
+
+pub(super) fn run_query(
+    session: &Session,
+    query: &str,
+    filter: &Filter,
+) -> Result<Vec<Answer>, Failure> {
+    if query.is_empty() {
+        return Ok(browse(session, filter));
+    }
+    // filters drop hits after the rerank, so a narrow filter fetches more;
+    // without fields nothing is dropped, whatever was typed after `|`.
+    let plain = filter.is_default() || session.cards.is_none();
+    let fetch = if plain { K } else { (K * 40).max(400) };
+    let cand = (!plain).then_some(fetch.min(256));
+    embed_gate::embed_and_search(&session.rt, query, fetch as i32, cand, None, None)
         .map(|result| {
-            let mut answers: Vec<Answer> = result
-                .hits
-                .iter()
-                .map(|h| Answer {
-                    citation: h.citation_id.clone(),
-                    source: h.source_uri.clone(),
-                    score: h.score,
-                    text: session.texts.get(&h.chunk_id).cloned().unwrap_or_default(),
-                    image: session.image_of(&h.source_uri),
-                    by_name: false,
-                })
-                .collect();
-            // a label spelled out that the search ranked below k still shows.
-            let found: std::collections::HashSet<&str> =
-                result.hits.iter().map(|h| h.chunk_id.as_str()).collect();
-            let ids = session.rt.chunk_ids();
-            let extra: Vec<Answer> = session
+            // a label the text spells out answers by name, first, wherever
+            // the search ranked it; the search's hits follow in rank order.
+            let mut answers: Vec<Answer> = session
                 .named(query)
                 .iter()
-                .filter_map(|&i| {
-                    let id = ids.get(i).filter(|id| !found.contains(id.as_str()))?;
-                    let span = session.rt.span(i)?;
-                    Some(Answer {
-                        citation: format!("urna://{}/{id}", session.rt.content_hash()),
-                        image: session.image_of(&span.source_uri),
-                        source: span.source_uri.clone(),
-                        score: 0.0,
-                        text: session.texts.get(id).cloned().unwrap_or_default(),
-                        by_name: true,
-                    })
-                })
+                .filter(|&&i| session.keeps(i, filter))
+                .filter_map(|&i| answer_at(session, i, 1.0, true, "name"))
                 .collect();
-            answers.splice(0..0, extra);
+            let named: std::collections::HashSet<usize> = answers.iter().map(|a| a.chunk).collect();
+            let index = index_of(session);
+            answers.extend(
+                result
+                    .hits
+                    .iter()
+                    .filter_map(|h| {
+                        let chunk = index(&h.chunk_id)?;
+                        (!named.contains(&chunk) && session.keeps(chunk, filter)).then(|| Answer {
+                            citation: h.citation_id.clone(),
+                            source: h.source_uri.clone(),
+                            score: h.score,
+                            text: session.texts.get(&h.chunk_id).cloned().unwrap_or_default(),
+                            image: session.image_of(&h.source_uri),
+                            by_name: false,
+                            chunk,
+                            via: "hybrid",
+                        })
+                    })
+                    .take(K),
+            );
             answers
         })
         .map_err(|e| {
@@ -234,6 +278,58 @@ fn run_query(session: &Session, query: &str) -> Result<Vec<Answer>, Failure> {
                 need: need(&e, manifest.as_ref()),
             }
         })
+}
+
+/// chunk_id -> chunk index: a map when the corpus has fields (every hit
+/// needs its card), a scan of the ids otherwise.
+fn index_of(session: &Session) -> impl Fn(&str) -> Option<usize> + '_ {
+    let ids = session.rt.chunk_ids();
+    let map: Option<std::collections::HashMap<&str, usize>> = session.cards.is_some().then(|| {
+        ids.iter()
+            .enumerate()
+            .map(|(i, id)| (id.as_str(), i))
+            .collect()
+    });
+    move |id: &str| match &map {
+        Some(m) => m.get(id).copied(),
+        None => ids.iter().position(|x| x == id),
+    }
+}
+
+/// The hit for chunk `i` as the file stores it.
+fn answer_at(
+    session: &Session,
+    i: usize,
+    score: f32,
+    by_name: bool,
+    via: &'static str,
+) -> Option<Answer> {
+    let id = session.rt.chunk_ids().get(i)?;
+    let span = session.rt.span(i)?;
+    Some(Answer {
+        citation: format!("urna://{}/{id}", session.rt.content_hash()),
+        image: session.image_of(&span.source_uri),
+        source: span.source_uri.clone(),
+        score,
+        text: session.texts.get(id).cloned().unwrap_or_default(),
+        by_name,
+        chunk: i,
+        via,
+    })
+}
+
+/// No text: the most played cards (EDHREC rank, unranked last) the filter
+/// keeps.
+fn browse(session: &Session, filter: &Filter) -> Vec<Answer> {
+    let Some(cards) = &session.cards else {
+        return Vec::new();
+    };
+    let mut kept: Vec<_> = cards.iter().filter(|c| filter.keeps(c)).collect();
+    kept.sort_by_key(|c| (c.edhrec_rank.unwrap_or(u32::MAX), c.ordinal));
+    kept.into_iter()
+        .take(BROWSE)
+        .filter_map(|c| answer_at(session, c.ordinal, 0.0, false, "browse"))
+        .collect()
 }
 
 /// The corpus model to offer for install: only for the two failures an
@@ -281,6 +377,8 @@ mod tests {
                 text: format!("hit number {i}"),
                 image: None,
                 by_name: false,
+                chunk: i,
+                via: "hybrid",
             })
             .collect();
         let mut ask = Ask {

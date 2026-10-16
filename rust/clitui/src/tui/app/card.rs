@@ -1,7 +1,9 @@
 //! Laying out a hit's stored text by the template that rendered it. The
 //! manifest names that template (`chunker_version`); a known one is drawn as
 //! what it describes, anything else stays plain wrapped text. Only the
-//! layout changes: every character shown is the stored canonical text.
+//! layout changes: every character shown is the stored canonical text, or
+//! a field of the card when the corpus carries them (#625, until #208 puts
+//! them in the file): cmc, popularity, stats and the formats it is legal in.
 //!
 //! `mtgdataset/1` renders a card as
 //!
@@ -15,6 +17,7 @@
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 
+use super::fields::{self, Kind};
 use crate::tui::pal;
 
 /// Whether `chunker` is a template this module lays out.
@@ -153,10 +156,30 @@ fn chip(text: &str, fg: Color) -> Span<'static> {
     Span::styled(format!(" {text} "), Style::new().fg(fg).bg(pal::RAISED))
 }
 
-/// The card's lines, `width` cells wide (for the rules divider).
-pub fn lines(text: &str, width: u16) -> Vec<Line<'static>> {
+/// What a row that is not a playable card is, for a chip: by its kind when
+/// the corpus carries fields, by the template's placeholder text otherwise.
+pub fn stand_in(text: &str, card: Option<&fields::Card>) -> Option<&'static str> {
+    match card {
+        Some(c) => match c.kind {
+            Kind::Card => None,
+            Kind::ArtSeries => Some("art series"),
+            Kind::Token => Some("token"),
+            Kind::Emblem => Some("emblem"),
+            Kind::Alchemy => Some("alchemy"),
+            Kind::Unsanctioned => Some("unsanctioned"),
+        },
+        None => placeholder(text).then_some("art series"),
+    }
+}
+
+/// The card's lines, `width` cells wide (for the rules divider); `card`
+/// adds the fields the text does not carry.
+pub fn lines(text: &str, width: u16, card: Option<&fields::Card>) -> Vec<Line<'static>> {
     let c = parse(text);
-    let art_series = c.type_line == "Card // Card" || c.type_line == "Card";
+    let art_series = match card {
+        Some(f) => f.kind == Kind::ArtSeries,
+        None => c.type_line == "Card // Card" || c.type_line == "Card",
+    };
     let mut out = Vec::new();
     out.push(Line::from(Span::styled(
         c.name.to_string(),
@@ -182,8 +205,8 @@ pub fn lines(text: &str, width: u16) -> Vec<Line<'static>> {
         )));
     }
     let mut tags = Vec::new();
-    if art_series {
-        tags.push(chip("art series", Color::Rgb(0xc4, 0x8c, 0xd8)));
+    if let Some(kind) = stand_in(text, card) {
+        tags.push(chip(kind, Color::Rgb(0xc4, 0x8c, 0xd8)));
         tags.push(Span::raw(" "));
     }
     if !c.rarity.is_empty() {
@@ -194,6 +217,9 @@ pub fn lines(text: &str, width: u16) -> Vec<Line<'static>> {
         tags.push(chip(&c.set.to_uppercase(), pal::DIM));
     }
     out.push(Line::from(tags));
+    if let Some(f) = card {
+        out.extend(facts(f, width));
+    }
     if !c.rules.is_empty() {
         out.push(Line::raw(""));
         out.push(Line::from(Span::styled(
@@ -207,6 +233,45 @@ pub fn lines(text: &str, width: u16) -> Vec<Line<'static>> {
             }
             out.push(rules_line(l));
         }
+    }
+    out
+}
+
+/// The fields as a line of facts and a line of formats: `cmc 1 · 3/3 ·
+/// edhrec #12` and `legal  pauper, modern, …`, the latter cut to `width`.
+fn facts(f: &fields::Card, width: u16) -> Vec<Line<'static>> {
+    let mut parts = Vec::new();
+    if let Some(v) = f.cmc {
+        parts.push(format!("cmc {v}"));
+    }
+    match (&f.power, &f.toughness, &f.loyalty) {
+        (Some(p), Some(t), _) => parts.push(format!("{p}/{t}")),
+        (_, _, Some(l)) => parts.push(format!("loyalty {l}")),
+        _ => {}
+    }
+    if let Some(r) = f.edhrec_rank {
+        parts.push(format!("edhrec #{r}"));
+    }
+    let mut out = Vec::new();
+    if !parts.is_empty() {
+        out.push(Line::from(Span::styled(parts.join(" · "), pal::dim())));
+    }
+    let formats = f.formats().collect::<Vec<_>>().join(", ");
+    if !formats.is_empty() {
+        let room = usize::from(width).saturating_sub(7);
+        let shown: String = if formats.chars().count() > room {
+            formats
+                .chars()
+                .take(room.saturating_sub(1))
+                .collect::<String>()
+                + "…"
+        } else {
+            formats
+        };
+        out.push(Line::from(vec![
+            Span::styled("legal  ", pal::faint()),
+            Span::styled(shown, Style::new().fg(pal::HIGH)),
+        ]));
     }
     out
 }
@@ -232,5 +297,50 @@ mod tests {
         let art = parse("Sol Ring // Sol Ring\n// ; Card // Card\n[common, acmm]\n//");
         assert_eq!((art.type_line, art.rules.len()), ("Card // Card", 0));
         assert!(knows("mtgdataset/1") && !knows("other/1"));
+    }
+
+    #[test]
+    fn the_fields_add_facts_and_formats_and_name_the_stand_ins() {
+        let json = r#"{"ordinal":0,"oracle_id":"o","name":"Grizzly Bears","pt_name":null,
+            "mana_cost":"{1}{G}","type_line":"Creature — Bear","rarity":"common","set_code":"lea",
+            "oracle_text":"","kind":"token","cmc":2.0,"power":"2","toughness":"2","loyalty":null,
+            "layout":"token","legal":{"pauper":"legal","modern":"banned","legacy":"restricted"},
+            "edhrec_rank":7}"#;
+        let f: fields::Card = serde_json::from_str(json).expect("card");
+        let text = "Grizzly Bears
+{1}{G}; Creature — Bear
+[common, lea]
+";
+        let plain: Vec<String> = lines(text, 40, Some(&f))
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
+            .collect();
+        assert!(
+            plain.iter().any(|l| l == "cmc 2 · 2/2 · edhrec #7"),
+            "{plain:?}"
+        );
+        assert!(
+            plain.iter().any(|l| l == "legal  legacy, pauper"),
+            "{plain:?}"
+        );
+        assert!(plain.iter().any(|l| l.contains(" token ")), "{plain:?}");
+        assert_eq!(stand_in(text, Some(&f)), Some("token"));
+        assert_eq!(stand_in(text, None), None);
+        assert_eq!(
+            stand_in(
+                "Sol Ring // Sol Ring
+// ; Card // Card
+[common, acmm]
+//",
+                None
+            ),
+            Some("art series")
+        );
+        // the cut keeps the line one row: `legal  ` and the ellipsis fit 12 cells.
+        let narrow: Vec<String> = lines(text, 12, Some(&f))
+            .iter()
+            .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
+            .collect();
+        assert!(narrow.iter().any(|l| l == "legal  lega…"), "{narrow:?}");
     }
 }

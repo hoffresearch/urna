@@ -16,6 +16,8 @@ mod card;
 mod chrome;
 pub mod corpus;
 mod draw;
+pub mod fields;
+pub mod filter;
 mod health;
 mod hits;
 mod home;

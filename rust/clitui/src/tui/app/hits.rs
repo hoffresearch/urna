@@ -41,8 +41,18 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
             format!("ask failed: {}", ask.failed.as_deref().unwrap_or(""))
         }
         (None, Some(_)) if ask.suggesting() => format!(
-            "{} labels match · ↑↓ points · tab asks for it · enter asks the text",
-            ask.suggestions.len()
+            "{} labels match · {:.1} ms · ↑↓ points · tab asks for it · enter asks the text",
+            ask.suggestions.len(),
+            ask.typed_ms
+        ),
+        (None, Some(_)) if ask.answers.first().is_some_and(|a| a.via == "browse") => format!(
+            "{} most played under the filters · {:.0} ms{}",
+            ask.answers.len(),
+            ask.took_ms,
+            ask.media
+                .decode_ms()
+                .map(|ms| format!(" · image {ms:.1} ms ({})", ask.media.mode()))
+                .unwrap_or_default()
         ),
         (None, Some(q)) => format!(
             "{} hits for \"{q}\" · {:.0} ms{}",
@@ -54,8 +64,9 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
                 .unwrap_or_default()
         ),
         (None, None) if ask.suggesting() => format!(
-            "{} labels match · ↑↓ points · tab asks for it · enter asks the text",
-            ask.suggestions.len()
+            "{} labels match · {:.1} ms · ↑↓ points · tab asks for it · enter asks the text",
+            ask.suggestions.len(),
+            ask.typed_ms
         ),
         (None, None) => "enter asks · ↑↓ picks a hit · pgup/pgdn scrolls the text".into(),
     };
@@ -140,26 +151,31 @@ fn hits(buf: &mut Buffer, area: Rect, ask: &Ask) {
             Style::new().fg(pal::INK)
         };
         let first = a.text.lines().next().unwrap_or("");
+        let card = ask.session.as_ref().and_then(|s| s.card(a.chunk));
+        let kind = super::card::stand_in(&a.text, card)
+            .map(|k| format!("  {k}"))
+            .unwrap_or_default();
         hud::spans(
             buf,
             list.x,
             y,
             &[
                 (if sel { "› " } else { "  " }, pal::key()),
-                // a hit found by its label has no cosine to show.
+                // a hit found by its label or browsed has no cosine to show.
                 (
-                    &if a.by_name {
-                        "name  ".to_string()
-                    } else {
-                        format!("{:.3} ", a.score)
+                    &match a.via {
+                        "name" => "name  ".to_string(),
+                        "browse" => "most  ".to_string(),
+                        _ => format!("{:.3} ", a.score),
                     },
                     pal::accent(),
                 ),
                 (first, st),
+                (&kind, pal::faint()),
             ],
             list.width,
         );
-        let ratio = if a.by_name {
+        let ratio = if a.via != "hybrid" {
             0.0
         } else {
             (a.score / top).clamp(0.0, 1.0) as f64
@@ -200,14 +216,15 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
         );
         return;
     };
+    let card = ask.session.as_ref().and_then(|s| s.card(a.chunk)).cloned();
     let as_card = ask
         .session
         .as_ref()
         .is_some_and(|s| super::card::knows(&s.chunker));
-    let (title, note) = if as_card {
-        ("card", "laid out from the stored text")
-    } else {
-        ("text", "tier-1 · stored canonical")
+    let (title, note) = match (as_card, card.is_some()) {
+        (true, true) => ("card", "stored text · fields beside the file"),
+        (true, false) => ("card", "laid out from the stored text"),
+        _ => ("text", "tier-1 · stored canonical"),
     };
     let inner = hud::panel(buf, drect, title, note, false);
     if inner.height < 3 {
@@ -236,7 +253,7 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
         inner.height.saturating_sub(3),
     );
     let (para, total) = if as_card {
-        let lines = super::card::lines(&a.text, text_rect.width);
+        let lines = super::card::lines(&a.text, text_rect.width, card.as_ref());
         let plain: String = lines
             .iter()
             .map(|l| {

@@ -3157,12 +3157,14 @@ dependencies = [
  "sysinfo",
  "tachyonfx",
  "tar",
+ "tempfile",
  "tokenizers",
  "tui-scrollbar",
  "urna-engine",
  "urna-format",
  "vergen-gitcl",
  "zip",
+ "zstd",
 ]
 
 [[package]]
