@@ -1,0 +1,23 @@
+[package]
+name = "urna-avif"
+description = "AVIF container parser and still-image decoder of the Urna vector database: ISOBMFF boxes to the AV1 payload, pixels through urna-av1"
+version = "0.1.0"
+edition.workspace = true
+rust-version = "1.88"
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+urna-av1 = { path = "../av1" }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+# the parity test only: the decoder the explorer used before this crate.
+avif-decode = { version = "3", default-features = false }
+# the plane parity test only: the same decoder from crates.io, no asm.
+rav1d = { version = "1.1", default-features = false, features = ["bitdepth_8"] }
+urna-engine = { path = "../engine" }
+
+[lints]
+workspace = true
