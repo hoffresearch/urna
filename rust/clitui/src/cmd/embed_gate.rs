@@ -1,6 +1,6 @@
 //! The ONE copy of the query-embedder spawn protocol and the three-layer
-//! model gate (name -> dim -> model_hash). `search-text`, `ask` and
-//! `retrieve` all come through here.
+//! model gate (name -> dim -> model_hash). `search-text`, `ask`,
+//! `retrieve` and the tui all come through `embed_and_route`.
 //!
 //! Routing: a manifest whose `embedding_model` starts with the potion
 //! prefix keeps the offline potion script; any other model routes to
@@ -8,7 +8,7 @@
 //! `--mrl-dim` when the manifest records a truncated default space
 //! (`full_dim` present).
 
-use anyhow::{Result, bail};
+use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcCommand;
 
@@ -31,13 +31,6 @@ pub struct EmbedderOutput {
 
 pub const PLACEHOLDER_MODEL_HASH: &str =
     "sha256:0000000000000000000000000000000000000000000000000000000000000000";
-
-/// Find the sentence-transformers embedder (`urna/embed/searchtxt.py`, the
-/// path `search-text` keeps as its default): repo layout, then the data
-/// roots, where the payload lays it down beside the potion one.
-pub fn default_embedder_path() -> PathBuf {
-    installed_script("searchtxt.py")
-}
 
 /// Find the OFFLINE potion embedder (`urna/embed/potionqry.py`):
 /// repo layout, then the installed data dir, then `<exe>/../share` (the
@@ -230,8 +223,7 @@ pub fn validate_gate(
 
 /// Embed `query` offline, gate it against the manifest, route by what the
 /// file carries (`MmapUrnaFile::search_routed`), search. Shared by `ask`
-/// and `retrieve`; `search-text` uses the pieces directly (it keeps
-/// `--skip-model-hash-check`).
+/// and `retrieve`.
 pub fn embed_and_search(
     runtime: &MmapUrnaFile,
     query: &str,
@@ -254,6 +246,25 @@ pub fn embed_and_search_where(
     model_path: Option<PathBuf>,
     keep: Option<&urna_engine::scalars::Bitset>,
 ) -> Result<SearchResult> {
+    embed_and_route(
+        runtime, query, k, candidates, embedder, model_path, keep, false,
+    )
+}
+
+/// The one embed, gate and route every query command runs; only
+/// `search-text` may pass `skip_model_hash_check`, for a legacy corpus
+/// that carries the placeholder model_hash.
+#[allow(clippy::too_many_arguments)]
+pub fn embed_and_route(
+    runtime: &MmapUrnaFile,
+    query: &str,
+    k: i32,
+    candidates: Option<usize>,
+    embedder: Option<PathBuf>,
+    model_path: Option<PathBuf>,
+    keep: Option<&urna_engine::scalars::Bitset>,
+    skip_model_hash_check: bool,
+) -> Result<SearchResult> {
     // the manifest fields the open already parsed: no second pass over the
     // file (inspect_json re-verifies every checksum, ~1 s on a 1 GB corpus).
     let model = runtime.embedding_model().to_string();
@@ -275,17 +286,22 @@ pub fn embed_and_search_where(
         let table = super::potion::table_dir(&default_potion_embedder_path());
         if let Some(dir) = table {
             let p = super::potion::shared(&dir)?;
-            if p.model_hash() != declared_model_hash {
-                bail!(
-                    "model_hash mismatch: corpus was built with {declared_model_hash}, embedder reports {}",
-                    p.model_hash()
-                );
-            }
-            if p.dim() != declared_dim {
-                bail!("dim mismatch: corpus {declared_dim}, embedder {}", p.dim());
-            }
-            let vector = p.embed(query)?;
-            return Ok(runtime.search_routed_where(&vector, Some(query), k, cand, keep)?);
+            let payload = EmbedderOutput {
+                model_hash: p.model_hash().to_string(),
+                // the table was chosen by the manifest's model name.
+                embedding_model: model.clone(),
+                embedding_dim: p.dim(),
+                vector: p.embed(query)?,
+                fingerprint: serde_json::Value::Null,
+            };
+            validate_gate(
+                &payload,
+                &model,
+                declared_dim,
+                &declared_model_hash,
+                skip_model_hash_check,
+            )?;
+            return Ok(runtime.search_routed_where(&payload.vector, Some(query), k, cand, keep)?);
         }
     }
 
@@ -304,7 +320,13 @@ pub fn embed_and_search_where(
         extra.push(declared_dim.to_string());
     }
     let payload = spawn_embedder(&embedder, model_path.as_ref(), &extra, &model, query)?;
-    validate_gate(&payload, &model, declared_dim, &declared_model_hash, false)?;
+    validate_gate(
+        &payload,
+        &model,
+        declared_dim,
+        &declared_model_hash,
+        skip_model_hash_check,
+    )?;
 
     // route by capability (bm25 -> hybrid, hnsw -> ann, else exact), not by
     // the declared `index_type`: a `hybrid` preset file declares "hnsw" and
