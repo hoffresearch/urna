@@ -376,11 +376,12 @@ pub enum Commands {
         #[arg(long, value_name = "QUERY")]
         ask: Option<String>,
         /// No terminal: ask QUERY, draw one 120x40 frame of the ask tab as
-        /// text and exit. needs the card fields beside FILE.
+        /// text and exit. needs chunk_scalars with a label column.
         #[arg(long, value_name = "QUERY", conflicts_with = "ask", requires = "file")]
         snapshot: Option<String>,
-        /// No terminal: type N playable cards' names key by key and search
-        /// each, report the ranks and latencies, exit. needs the card fields.
+        /// No terminal: type N ranked chunks' labels key by key and search
+        /// each, report the ranks and latencies, exit. needs chunk_scalars
+        /// with label and rank columns.
         #[arg(long, value_name = "N", conflicts_with_all = ["ask", "snapshot"], requires = "file")]
         eval: Option<usize>,
     },
