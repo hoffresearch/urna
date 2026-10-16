@@ -21,6 +21,7 @@ pub mod paths;
 pub mod payload;
 pub mod potion;
 pub mod pyenv;
+pub mod scalars;
 pub mod search;
 pub mod search_ann;
 pub mod search_graph;

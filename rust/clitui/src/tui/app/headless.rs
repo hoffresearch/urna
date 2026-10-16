@@ -1,8 +1,8 @@
 //! The ask tab without a terminal, for checking the screen and the
 //! type-ahead from a script: `--snapshot QUERY` asks and prints one frame
-//! as text; `--eval N` types N playable cards' names key by key and
+//! as text; `--eval N` types N ranked chunks' labels key by key and
 //! searches each, and reports where the card lands and how long each
-//! keystroke took. Both need the card fields beside the corpus.
+//! keystroke took. Both need chunk_scalars with label and rank columns.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -14,20 +14,19 @@ use ratatui::layout::Rect;
 use ratatui_image::picker::{Picker, ProtocolType};
 
 use super::ask::{self, Ask};
-use super::filter::Filter;
 use super::session::Session;
 use super::{corpus, hits};
 
 const COLS: u16 = 120;
 const ROWS: u16 = 40;
 
-/// Opens `file` for the headless modes; without card fields it says so
+/// Opens `file` for the headless modes; without labels in the file it says so
 /// and the caller exits 2.
 fn open(file: &Path) -> Result<Result<Arc<Session>, i32>> {
     let c = corpus::load(file)?;
-    if c.session.cards.is_none() {
+    if c.session.label(0).is_none() && c.session.scalars().is_none() {
         eprintln!(
-            "{}: no card fields beside the corpus (`<stem>.fields.json.zst` or URNA_FIELDS)",
+            "{}: the corpus carries no chunk_scalars with a label column (see `urna scalars`)",
             file.display()
         );
         return Ok(Err(2));
@@ -92,17 +91,15 @@ pub fn eval(file: &Path, want: usize) -> Result<i32> {
         Ok(s) => s,
         Err(code) => return Ok(code),
     };
-    let cards = session.cards.as_deref().unwrap_or_default();
-    let all: Vec<(usize, &str)> = cards
-        .iter()
-        .filter(|c| c.playable())
-        .map(|c| (c.ordinal, c.name.as_str()))
+    let n_chunks = session.rt.chunk_ids().len();
+    let all: Vec<(usize, String)> = (0..n_chunks)
+        .filter(|&i| session.rank(i).is_some())
+        .filter_map(|i| session.label(i).map(|l| (i, l.to_string())))
         .collect();
     let want = want.max(1);
     let stride = (all.len() / want).max(1);
-    let names: Vec<(usize, &str)> = all.into_iter().step_by(stride).collect();
+    let names: Vec<(usize, String)> = all.into_iter().step_by(stride).collect();
     let keep = |_: usize| true;
-    let filter = Filter::default();
     let (mut full_top1, mut search_top1, mut keys_to_top5) = (0usize, 0usize, Vec::new());
     let mut lat = Vec::new();
     for (ord, name) in &names {
@@ -127,7 +124,7 @@ pub fn eval(file: &Path, want: usize) -> Result<i32> {
         {
             full_top1 += 1;
         }
-        let hits = match ask::run_query(&session, name, &filter) {
+        let hits = match ask::run_query(&session, name, None) {
             Ok(h) => h,
             Err(f) => {
                 eprintln!("search failed: {}", f.text);
@@ -136,7 +133,7 @@ pub fn eval(file: &Path, want: usize) -> Result<i32> {
         };
         if hits
             .first()
-            .is_some_and(|h| h.chunk == *ord || cards.get(h.chunk).is_some_and(|c| c.name == *name))
+            .is_some_and(|h| h.chunk == *ord || session.label(h.chunk) == Some(name.as_str()))
         {
             search_top1 += 1;
         }
@@ -151,7 +148,7 @@ pub fn eval(file: &Path, want: usize) -> Result<i32> {
     reached.sort_unstable();
     let at = |v: &[usize], i: usize| v.get(i).copied().unwrap_or(0);
     let lat_at = |i: usize| lat.get(i).copied().unwrap_or(0.0);
-    println!("playable cards evaluated: {n} (stride {stride})");
+    println!("ranked chunks evaluated: {n} (stride {stride})");
     println!(
         "full name -> 1st suggestion: {full_top1} ({:.4})",
         full_top1 as f64 / n as f64

@@ -1,17 +1,20 @@
 //! One corpus opened for the life of the explorer: the mmap the queries run
 //! on, the stored text of every chunk, the image blobs by uri, the labels
-//! the type-ahead offers and, when the corpus carries them beside it, the
-//! card fields the deck filters read. Opening hashes the whole file, so it
-//! happens once, on the loader thread, and every query after reuses it.
+//! the type-ahead offers and, when the file carries chunk_scalars, the
+//! columns its manifest schema describes. Opening hashes the whole file,
+//! so it happens once, on the loader thread, and every query after reuses
+//! it.
 
 use std::collections::HashMap;
+#[cfg(test)]
 use std::path::Path;
 
 use anyhow::Result;
 use urna_engine::MmapUrnaFile;
+use urna_engine::scalars::Scalars;
+use urna_format::manifest::schema::SchemaField;
+use urna_format::sections::ColumnData;
 
-use super::fields::{self, Card};
-use super::filter::Filter;
 use super::labels::{Labels, alias, fold};
 
 /// The image formats the ask tab can draw, by the blob uri's extension.
@@ -24,10 +27,6 @@ pub struct Session {
     /// blob uri -> blob index, for the inlined blobs that are images.
     pub images: HashMap<String, usize>,
     pub labels: Labels,
-    /// the template the stored text follows (`card::knows`).
-    pub chunker: String,
-    /// one card per chunk ordinal, when the fields file sits beside the corpus.
-    pub cards: Option<Vec<Card>>,
     /// folded label and folded alias -> the chunk indices that carry it, so
     /// a query that spells a label finds it even when it ranks low.
     names: HashMap<String, Vec<usize>>,
@@ -38,7 +37,7 @@ impl std::fmt::Debug for Session {
         f.debug_struct("Session")
             .field("texts", &self.texts.len())
             .field("images", &self.images.len())
-            .field("cards", &self.cards.as_ref().map(Vec::len))
+            .field("columns", &self.scalars().map(|s| s.table.columns.len()))
             .finish_non_exhaustive()
     }
 }
@@ -46,12 +45,10 @@ impl std::fmt::Debug for Session {
 impl Session {
     #[cfg(test)]
     pub fn open(path: &Path) -> Result<Self> {
-        Self::from_runtime(MmapUrnaFile::open(path)?, path)
+        Self::from_runtime(MmapUrnaFile::open(path)?)
     }
 
-    /// `corpus_path` is where the fields file is looked for; a file beside
-    /// the corpus that does not belong to it is an error, not a silent skip.
-    pub fn from_runtime(rt: MmapUrnaFile, corpus_path: &Path) -> Result<Self> {
+    pub fn from_runtime(rt: MmapUrnaFile) -> Result<Self> {
         let texts: HashMap<String, String> = rt
             .chunk_ids()
             .iter()
@@ -66,13 +63,9 @@ impl Session {
             .filter(|(_, r)| r.inlined && IMAGE_EXT.iter().any(|e| r.original_uri.ends_with(e)))
             .map(|(i, r)| (r.original_uri.clone(), i))
             .collect();
-        let cards = match &fields::locate(corpus_path) {
-            Some(p) => Some(fields::read(p, rt.content_hash(), rt.chunk_ids().len())?),
-            None => None,
-        };
-        let labels = match &cards {
-            Some(cards) => Labels::from_cards(cards),
-            None => Labels::new(
+        let labels = match rt.scalars() {
+            Some(s) if !label_fields(&s.schema).is_empty() => Labels::from_scalars(s),
+            _ => Labels::new(
                 rt.chunk_ids()
                     .iter()
                     .map(|id| texts.get(id).map_or("", String::as_str)),
@@ -98,21 +91,19 @@ impl Session {
                 }
                 name(folded, i);
             }
-            if let Some(c) = cards.as_ref().and_then(|c| c.get(i)) {
-                name(fold(&c.name), i);
-                if let Some(pt) = &c.pt_name {
-                    name(fold(pt), i);
+            if let Some(s) = rt.scalars() {
+                for f in label_fields(&s.schema) {
+                    if let Some(v) = text_at(s, &f.name, i) {
+                        name(fold(v), i);
+                    }
                 }
             }
         }
-        let chunker = rt.chunker_version().to_string();
         Ok(Self {
             rt,
             texts,
             images,
             labels,
-            chunker,
-            cards,
             names,
         })
     }
@@ -130,14 +121,108 @@ impl Session {
         self.images.get(source_uri).copied()
     }
 
-    /// The card at chunk ordinal `chunk`, when the corpus carries fields.
-    pub fn card(&self, chunk: usize) -> Option<&Card> {
-        self.cards.as_ref()?.get(chunk)
+    /// The per-chunk columns and schema, when the file carries them.
+    pub fn scalars(&self) -> Option<&Scalars> {
+        self.rt.scalars()
     }
 
-    /// Whether `filter` keeps chunk `chunk`; a corpus without fields keeps
-    /// everything.
-    pub fn keeps(&self, chunk: usize, filter: &Filter) -> bool {
-        self.card(chunk).is_none_or(|c| filter.keeps(c))
+    pub fn schema(&self) -> &[SchemaField] {
+        self.scalars().map_or(&[], |s| s.schema.as_slice())
+    }
+
+    /// The first label-role text of chunk `i`: its name.
+    pub fn label(&self, i: usize) -> Option<&str> {
+        let s = self.scalars()?;
+        label_fields(&s.schema)
+            .into_iter()
+            .find_map(|f| text_at(s, &f.name, i))
+    }
+
+    /// The rank of chunk `i` by the rank-role column (lower is more
+    /// played, cited, read); `None` when unranked or without a column.
+    pub fn rank(&self, i: usize) -> Option<i64> {
+        let s = self.scalars()?;
+        let f = s.schema.iter().find(|f| f.has_role("rank"))?;
+        let c = s.table.column(&f.name)?;
+        match &c.data {
+            ColumnData::Int(v) if c.present(i) => v.get(i).copied(),
+            ColumnData::Real(v) if c.present(i) => v.get(i).map(|x| *x as i64),
+            _ => None,
+        }
+    }
+
+    /// The tag-role values of chunk `i`, for a chip beside its name.
+    pub fn tags(&self, i: usize) -> Vec<String> {
+        let Some(s) = self.scalars() else {
+            return Vec::new();
+        };
+        s.schema
+            .iter()
+            .filter(|f| f.has_role("tag"))
+            .flat_map(|f| values_at(s, &f.name, i))
+            .collect()
+    }
+}
+
+/// The schema fields that name a chunk, in schema order.
+pub fn label_fields(schema: &[SchemaField]) -> Vec<&SchemaField> {
+    schema
+        .iter()
+        .filter(|f| f.has_role("label") && f.kind == "text")
+        .collect()
+}
+
+/// A text column's value at `row`, when present.
+pub fn text_at<'a>(s: &'a Scalars, column: &str, row: usize) -> Option<&'a str> {
+    let c = s.table.column(column)?;
+    if !c.present(row) {
+        return None;
+    }
+    match &c.data {
+        ColumnData::Text(v) => v.get(row).map(String::as_str),
+        _ => None,
+    }
+}
+
+/// Every value of a column at `row` as text: one for a scalar, each entry
+/// of a list, nothing when absent.
+pub fn values_at(s: &Scalars, column: &str, row: usize) -> Vec<String> {
+    let Some(c) = s.table.column(column) else {
+        return Vec::new();
+    };
+    if !c.present(row) {
+        return Vec::new();
+    }
+    match &c.data {
+        ColumnData::Int(v) => v.get(row).map(|x| x.to_string()).into_iter().collect(),
+        ColumnData::Real(v) => v
+            .get(row)
+            .map(|x| {
+                if x.fract() == 0.0 {
+                    format!("{}", *x as i64)
+                } else {
+                    x.to_string()
+                }
+            })
+            .into_iter()
+            .collect(),
+        ColumnData::Bool(v) => v.get(row).map(|b| b.to_string()).into_iter().collect(),
+        ColumnData::Text(v) => v
+            .get(row)
+            .filter(|t| !t.is_empty())
+            .cloned()
+            .into_iter()
+            .collect(),
+        ColumnData::Uuid(v) => v
+            .get(row)
+            .map(|u| u.iter().map(|b| format!("{b:02x}")).collect())
+            .into_iter()
+            .collect(),
+        ColumnData::Enum { dict, .. } | ColumnData::EnumList { dict, .. } => c
+            .data
+            .codes_at(row)
+            .iter()
+            .filter_map(|&code| dict.values.get(code as usize).cloned())
+            .collect(),
     }
 }

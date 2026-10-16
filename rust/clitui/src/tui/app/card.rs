@@ -1,74 +1,21 @@
-//! Laying out a hit's stored text by the template that rendered it. The
-//! manifest names that template (`chunker_version`); a known one is drawn as
-//! what it describes, anything else stays plain wrapped text. Only the
-//! layout changes: every character shown is the stored canonical text, or
-//! a field of the card when the corpus carries them (#625, until #208 puts
-//! them in the file): cmc, popularity, stats and the formats it is legal in.
-//!
-//! `mtgdataset/1` renders a card as
-//!
-//! ```text
-//! Name (Nome em português)
-//! {cost}; Type line
-//! [rarity, set]
-//! rules text, any number of lines
-//! ```
+//! Laying out a hit from the manifest schema: each field says how it is
+//! drawn (`text`, `chip`, `symbols`, `number`), the label fields head the
+//! view, a `chunk` field takes its lines from the stored canonical text,
+//! and an `enum_map` group becomes one line of the keys that hold. No
+//! field name lives here: another corpus with a schema gets its own view,
+//! and a corpus without one stays plain wrapped text. Every character
+//! shown comes from the file.
 
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
+use urna_engine::scalars::Scalars;
 
-use super::fields::{self, Kind};
+use super::session::{Session, label_fields, values_at};
 use crate::tui::pal;
 
-/// Whether `chunker` is a template this module lays out.
-pub fn knows(chunker: &str) -> bool {
-    chunker == "mtgdataset/1"
-}
-
-/// A row that stands in for a card without being one: an art-series card,
-/// a full-art print with no name, cost or rules.
-pub fn placeholder(text: &str) -> bool {
-    matches!(parse(text).type_line, "Card // Card" | "Card")
-}
-
-struct Card<'a> {
-    name: &'a str,
-    alias: Option<&'a str>,
-    cost: &'a str,
-    type_line: &'a str,
-    rarity: &'a str,
-    set: &'a str,
-    rules: Vec<&'a str>,
-}
-
-fn parse(text: &str) -> Card<'_> {
-    let mut lines = text.lines();
-    let head = lines.next().unwrap_or("").trim();
-    let (name, alias) = match head
-        .strip_suffix(')')
-        .and_then(|h| h.rfind(" (").map(|i| (i, h)))
-    {
-        Some((i, h)) => (&h[..i], Some(&h[i + 2..])),
-        None => (head, None),
-    };
-    let ct = lines.next().unwrap_or("");
-    let (cost, type_line) = ct.split_once("; ").unwrap_or(("", ct));
-    let tags = lines
-        .next()
-        .unwrap_or("")
-        .trim()
-        .trim_start_matches('[')
-        .trim_end_matches(']');
-    let (rarity, set) = tags.split_once(", ").unwrap_or((tags, ""));
-    Card {
-        name,
-        alias,
-        cost: cost.trim().trim_start_matches(';').trim(),
-        type_line: type_line.trim().trim_start_matches(';').trim(),
-        rarity: rarity.trim(),
-        set: set.trim(),
-        rules: lines.filter(|l| l.trim() != "//").collect(),
-    }
+/// Whether the session carries a schema this module can lay out.
+pub fn knows(session: &Session) -> bool {
+    session.schema().iter().any(|f| f.has_role("display"))
 }
 
 fn pip_color(sym: &str) -> Color {
@@ -85,35 +32,46 @@ fn pip_color(sym: &str) -> Color {
     }
 }
 
-/// `{2}{U}{R}` as pips: each symbol on a dark chip in its color.
-fn pips(cost: &str) -> Vec<Span<'static>> {
+fn pip(sym: &str) -> Span<'static> {
+    Span::styled(
+        format!(" {sym} "),
+        Style::new()
+            .fg(pip_color(sym))
+            .bg(pal::RAISED)
+            .add_modifier(Modifier::BOLD),
+    )
+}
+
+/// `{2}{U}{R}` as pips, or bare values (`R`, `G`) each as one pip.
+fn symbols(values: &[String]) -> Vec<Span<'static>> {
     let mut out = Vec::new();
-    for part in cost.split_inclusive('}') {
-        match part
-            .trim()
-            .strip_prefix('{')
-            .and_then(|p| p.strip_suffix('}'))
-        {
-            Some(sym) => out.push(Span::styled(
-                format!(" {sym} "),
-                Style::new()
-                    .fg(pip_color(sym))
-                    .bg(pal::RAISED)
-                    .add_modifier(Modifier::BOLD),
-            )),
-            None if part.trim() == "//" => out.push(Span::styled("  //  ", pal::faint())),
-            None if !part.trim().is_empty() => {
-                out.push(Span::styled(part.trim().to_string(), pal::dim()))
+    for v in values {
+        if v.contains('{') {
+            for part in v.split_inclusive('}') {
+                match part
+                    .trim()
+                    .strip_prefix('{')
+                    .and_then(|p| p.strip_suffix('}'))
+                {
+                    Some(sym) => out.push(pip(sym)),
+                    None if part.trim() == "//" => out.push(Span::styled("  //  ", pal::faint())),
+                    None if !part.trim().is_empty() => {
+                        out.push(Span::styled(part.trim().to_string(), pal::dim()))
+                    }
+                    None => {}
+                }
+                out.push(Span::raw(" "));
             }
-            None => {}
+        } else {
+            out.push(pip(v));
+            out.push(Span::raw(" "));
         }
-        out.push(Span::raw(" "));
     }
     out
 }
 
-/// A rules line with its `{…}` symbols as pips and the rest as text.
-fn rules_line(line: &str) -> Line<'static> {
+/// A text line with its `{…}` symbols as pips and the rest as text.
+fn rich_line(line: &str) -> Line<'static> {
     let mut spans = Vec::new();
     let mut rest = line;
     while let Some(open) = rest.find('{') {
@@ -126,14 +84,7 @@ fn rules_line(line: &str) -> Line<'static> {
                 Style::new().fg(pal::INK),
             ));
         }
-        let sym = &rest[open + 1..open + close];
-        spans.push(Span::styled(
-            sym.to_string(),
-            Style::new()
-                .fg(pip_color(sym))
-                .bg(pal::RAISED)
-                .add_modifier(Modifier::BOLD),
-        ));
+        spans.push(pip(&rest[open + 1..open + close]));
         rest = &rest[open + close + 1..];
     }
     if !rest.is_empty() {
@@ -142,137 +93,151 @@ fn rules_line(line: &str) -> Line<'static> {
     Line::from(spans)
 }
 
-fn rarity_color(r: &str) -> Color {
-    match r {
+fn chip_color(value: &str) -> Color {
+    match value {
         "mythic" => Color::Rgb(0xec, 0x86, 0x3c),
         "rare" => Color::Rgb(0xd8, 0xb4, 0x5c),
         "uncommon" => Color::Rgb(0xa8, 0xbe, 0xcc),
-        "special" | "bonus" => Color::Rgb(0xc4, 0x8c, 0xd8),
+        "special" | "bonus" | "art_series" | "token" | "emblem" => Color::Rgb(0xc4, 0x8c, 0xd8),
         _ => pal::DIM,
     }
 }
 
-fn chip(text: &str, fg: Color) -> Span<'static> {
-    Span::styled(format!(" {text} "), Style::new().fg(fg).bg(pal::RAISED))
+fn chip(text: &str) -> Span<'static> {
+    Span::styled(
+        format!(" {} ", text.replace('_', " ")),
+        Style::new().fg(chip_color(text)).bg(pal::RAISED),
+    )
 }
 
-/// What a row that is not a playable card is, for a chip: by its kind when
-/// the corpus carries fields, by the template's placeholder text otherwise.
-pub fn stand_in(text: &str, card: Option<&fields::Card>) -> Option<&'static str> {
-    match card {
-        Some(c) => match c.kind {
-            Kind::Card => None,
-            Kind::ArtSeries => Some("art series"),
-            Kind::Token => Some("token"),
-            Kind::Emblem => Some("emblem"),
-            Kind::Alchemy => Some("alchemy"),
-            Kind::Unsanctioned => Some("unsanctioned"),
-        },
-        None => placeholder(text).then_some("art series"),
+/// The keys of an `enum_map` group that hold for `row`: `legal.pauper`
+/// with value `legal` or `restricted` yields `pauper`.
+fn map_keys(s: &Scalars, group: &str, row: usize) -> Vec<String> {
+    let prefix = format!("{group}.");
+    s.table
+        .columns
+        .iter()
+        .filter(|c| c.name.starts_with(&prefix) && c.present(row))
+        .filter(|c| {
+            values_at(s, &c.name, row)
+                .first()
+                .is_some_and(|v| v == "legal" || v == "restricted" || v == "true")
+        })
+        .map(|c| c.name[prefix.len()..].to_string())
+        .collect()
+}
+
+fn cut(text: String, width: usize) -> String {
+    if text.chars().count() > width {
+        text.chars()
+            .take(width.saturating_sub(1))
+            .collect::<String>()
+            + "…"
+    } else {
+        text
     }
 }
 
-/// The card's lines, `width` cells wide (for the rules divider); `card`
-/// adds the fields the text does not carry.
-pub fn lines(text: &str, width: u16, card: Option<&fields::Card>) -> Vec<Line<'static>> {
-    let c = parse(text);
-    let art_series = match card {
-        Some(f) => f.kind == Kind::ArtSeries,
-        None => c.type_line == "Card // Card" || c.type_line == "Card",
+/// The lines of chunk `row`: the schema's view when the corpus has one,
+/// else the stored text. `width` bounds the long lines.
+pub fn lines(session: &Session, row: usize, text: &str, width: u16) -> Vec<Line<'static>> {
+    let Some(s) = session.scalars().filter(|_| knows(session)) else {
+        return text
+            .lines()
+            .map(|l| Line::from(Span::styled(l.to_string(), Style::new().fg(pal::INK))))
+            .collect();
     };
+    let w = usize::from(width).max(8);
     let mut out = Vec::new();
-    out.push(Line::from(Span::styled(
-        c.name.to_string(),
-        Style::new().fg(pal::INK_HI).add_modifier(Modifier::BOLD),
-    )));
-    if let Some(a) = c.alias.filter(|a| *a != c.name) {
-        out.push(Line::from(Span::styled(
-            a.to_string(),
-            Style::new().fg(pal::DIM).add_modifier(Modifier::ITALIC),
-        )));
-    }
-    out.push(Line::raw(""));
-    if !c.cost.is_empty() && c.cost != "//" {
-        out.push(Line::from(pips(c.cost)));
-        out.push(Line::raw(""));
-    }
-    if !art_series {
-        out.push(Line::from(Span::styled(
-            c.type_line.to_string(),
-            Style::new()
-                .fg(pal::TITLE_FROM)
-                .add_modifier(Modifier::BOLD),
-        )));
-    }
-    let mut tags = Vec::new();
-    if let Some(kind) = stand_in(text, card) {
-        tags.push(chip(kind, Color::Rgb(0xc4, 0x8c, 0xd8)));
-        tags.push(Span::raw(" "));
-    }
-    if !c.rarity.is_empty() {
-        tags.push(chip(c.rarity, rarity_color(c.rarity)));
-        tags.push(Span::raw(" "));
-    }
-    if !c.set.is_empty() {
-        tags.push(chip(&c.set.to_uppercase(), pal::DIM));
-    }
-    out.push(Line::from(tags));
-    if let Some(f) = card {
-        out.extend(facts(f, width));
-    }
-    if !c.rules.is_empty() {
-        out.push(Line::raw(""));
-        out.push(Line::from(Span::styled(
-            "─".repeat(usize::from(width.min(48))),
-            Style::new().fg(pal::LINE),
-        )));
-        out.push(Line::raw(""));
-        for (i, l) in c.rules.iter().enumerate() {
-            if i > 0 {
-                out.push(Line::raw(""));
-            }
-            out.push(rules_line(l));
+    let labels = label_fields(&s.schema);
+    for (i, f) in labels.iter().enumerate() {
+        for v in values_at(s, &f.name, row) {
+            out.push(Line::from(Span::styled(
+                v,
+                if i == 0 {
+                    Style::new().fg(pal::INK_HI).add_modifier(Modifier::BOLD)
+                } else {
+                    pal::dim()
+                },
+            )));
         }
     }
-    out
-}
-
-/// The fields as a line of facts and a line of formats: `cmc 1 · 3/3 ·
-/// edhrec #12` and `legal  pauper, modern, …`, the latter cut to `width`.
-fn facts(f: &fields::Card, width: u16) -> Vec<Line<'static>> {
-    let mut parts = Vec::new();
-    if let Some(v) = f.cmc {
-        parts.push(format!("cmc {v}"));
+    let mut chips: Vec<Span<'static>> = Vec::new();
+    let mut facts: Vec<String> = Vec::new();
+    let mut later: Vec<Line<'static>> = Vec::new();
+    for f in s.schema.iter().filter(|f| f.has_role("display")) {
+        if labels.iter().any(|l| l.name == f.name) {
+            continue;
+        }
+        let name = f.label.clone().unwrap_or_else(|| f.name.clone());
+        match (f.kind.as_str(), f.display.as_deref().unwrap_or("text")) {
+            ("chunk", _) => {
+                let from = f
+                    .unit
+                    .as_deref()
+                    .and_then(|u| u.parse::<usize>().ok())
+                    .unwrap_or(0);
+                let body: Vec<&str> = text
+                    .lines()
+                    .skip(from)
+                    .filter(|l| l.trim() != "//")
+                    .collect();
+                if !body.is_empty() {
+                    later.push(Line::raw(""));
+                    later.push(Line::from(Span::styled(
+                        "─".repeat(w.min(60)),
+                        pal::faint(),
+                    )));
+                    later.extend(body.into_iter().map(rich_line));
+                }
+            }
+            ("enum_map", _) => {
+                let keys = map_keys(s, &f.name, row);
+                if !keys.is_empty() {
+                    later.push(Line::from(vec![
+                        Span::styled(format!("{}  ", name.to_lowercase()), pal::faint()),
+                        Span::styled(
+                            cut(keys.join(", "), w.saturating_sub(name.len() + 2)),
+                            Style::new().fg(pal::HIGH),
+                        ),
+                    ]));
+                }
+            }
+            (_, "symbols") => {
+                let v = values_at(s, &f.name, row);
+                if !v.is_empty() {
+                    out.push(Line::from(symbols(&v)));
+                }
+            }
+            (_, "chip") => {
+                for v in values_at(s, &f.name, row) {
+                    chips.push(chip(&v));
+                    chips.push(Span::raw(" "));
+                }
+            }
+            (_, "number") => {
+                let v = values_at(s, &f.name, row);
+                if !v.is_empty() {
+                    facts.push(format!("{} {}", name.to_lowercase(), v.join("/")));
+                }
+            }
+            (_, _) => {
+                for v in values_at(s, &f.name, row) {
+                    out.push(Line::from(Span::styled(v, Style::new().fg(pal::INK))));
+                }
+            }
+        }
     }
-    match (&f.power, &f.toughness, &f.loyalty) {
-        (Some(p), Some(t), _) => parts.push(format!("{p}/{t}")),
-        (_, _, Some(l)) => parts.push(format!("loyalty {l}")),
-        _ => {}
+    if !chips.is_empty() {
+        out.push(Line::from(chips));
     }
-    if let Some(r) = f.edhrec_rank {
-        parts.push(format!("edhrec #{r}"));
+    if !facts.is_empty() {
+        out.push(Line::from(Span::styled(
+            cut(facts.join(" · "), w),
+            pal::dim(),
+        )));
     }
-    let mut out = Vec::new();
-    if !parts.is_empty() {
-        out.push(Line::from(Span::styled(parts.join(" · "), pal::dim())));
-    }
-    let formats = f.formats().collect::<Vec<_>>().join(", ");
-    if !formats.is_empty() {
-        let room = usize::from(width).saturating_sub(7);
-        let shown: String = if formats.chars().count() > room {
-            formats
-                .chars()
-                .take(room.saturating_sub(1))
-                .collect::<String>()
-                + "…"
-        } else {
-            formats
-        };
-        out.push(Line::from(vec![
-            Span::styled("legal  ", pal::faint()),
-            Span::styled(shown, Style::new().fg(pal::HIGH)),
-        ]));
-    }
+    out.extend(later);
     out
 }
 
@@ -281,66 +246,16 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_card_splits_into_its_parts_and_keeps_every_character() {
-        let c = parse(
-            "Lightning Bolt (Raio)\n{R}; Instant\n[uncommon, msc]\nLightning Bolt deals 3 damage to any target.",
-        );
-        assert_eq!(
-            (c.name, c.alias, c.cost, c.type_line),
-            ("Lightning Bolt", Some("Raio"), "{R}", "Instant")
-        );
-        assert_eq!((c.rarity, c.set), ("uncommon", "msc"));
-        assert_eq!(
-            c.rules,
-            vec!["Lightning Bolt deals 3 damage to any target."]
-        );
-        let art = parse("Sol Ring // Sol Ring\n// ; Card // Card\n[common, acmm]\n//");
-        assert_eq!((art.type_line, art.rules.len()), ("Card // Card", 0));
-        assert!(knows("mtgdataset/1") && !knows("other/1"));
-    }
-
-    #[test]
-    fn the_fields_add_facts_and_formats_and_name_the_stand_ins() {
-        let json = r#"{"ordinal":0,"oracle_id":"o","name":"Grizzly Bears","pt_name":null,
-            "mana_cost":"{1}{G}","type_line":"Creature — Bear","rarity":"common","set_code":"lea",
-            "oracle_text":"","kind":"token","cmc":2.0,"power":"2","toughness":"2","loyalty":null,
-            "layout":"token","legal":{"pauper":"legal","modern":"banned","legacy":"restricted"},
-            "edhrec_rank":7}"#;
-        let f: fields::Card = serde_json::from_str(json).expect("card");
-        let text = "Grizzly Bears
-{1}{G}; Creature — Bear
-[common, lea]
-";
-        let plain: Vec<String> = lines(text, 40, Some(&f))
+    fn without_a_schema_the_text_is_shown_as_stored() {
+        let golden = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../format/tests/fixtures/golden_v1_minimal.urna");
+        let session = Session::open(&golden).expect("golden opens");
+        assert!(!knows(&session));
+        let text = "first line\n{R} second";
+        let plain: Vec<String> = lines(&session, 0, text, 40)
             .iter()
             .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
             .collect();
-        assert!(
-            plain.iter().any(|l| l == "cmc 2 · 2/2 · edhrec #7"),
-            "{plain:?}"
-        );
-        assert!(
-            plain.iter().any(|l| l == "legal  legacy, pauper"),
-            "{plain:?}"
-        );
-        assert!(plain.iter().any(|l| l.contains(" token ")), "{plain:?}");
-        assert_eq!(stand_in(text, Some(&f)), Some("token"));
-        assert_eq!(stand_in(text, None), None);
-        assert_eq!(
-            stand_in(
-                "Sol Ring // Sol Ring
-// ; Card // Card
-[common, acmm]
-//",
-                None
-            ),
-            Some("art series")
-        );
-        // the cut keeps the line one row: `legal  ` and the ellipsis fit 12 cells.
-        let narrow: Vec<String> = lines(text, 12, Some(&f))
-            .iter()
-            .map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect())
-            .collect();
-        assert!(narrow.iter().any(|l| l == "legal  lega…"), "{narrow:?}");
+        assert_eq!(plain, vec!["first line", "{R} second"]);
     }
 }

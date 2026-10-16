@@ -240,6 +240,20 @@ pub fn embed_and_search(
     embedder: Option<PathBuf>,
     model_path: Option<PathBuf>,
 ) -> Result<SearchResult> {
+    embed_and_search_where(runtime, query, k, candidates, embedder, model_path, None)
+}
+
+/// `embed_and_search` over the chunks `keep` accepts: the bitset a filter
+/// resolved is applied before scoring on every route.
+pub fn embed_and_search_where(
+    runtime: &MmapUrnaFile,
+    query: &str,
+    k: i32,
+    candidates: Option<usize>,
+    embedder: Option<PathBuf>,
+    model_path: Option<PathBuf>,
+    keep: Option<&urna_engine::scalars::Bitset>,
+) -> Result<SearchResult> {
     // the manifest fields the open already parsed: no second pass over the
     // file (inspect_json re-verifies every checksum, ~1 s on a 1 GB corpus).
     let model = runtime.embedding_model().to_string();
@@ -271,7 +285,7 @@ pub fn embed_and_search(
                 bail!("dim mismatch: corpus {declared_dim}, embedder {}", p.dim());
             }
             let vector = p.embed(query)?;
-            return Ok(runtime.search_routed(&vector, Some(query), k, cand)?);
+            return Ok(runtime.search_routed_where(&vector, Some(query), k, cand, keep)?);
         }
     }
 
@@ -295,5 +309,5 @@ pub fn embed_and_search(
     // route by capability (bm25 -> hybrid, hnsw -> ann, else exact), not by
     // the declared `index_type`: a `hybrid` preset file declares "hnsw" and
     // carries its bm25 section as a capability.
-    Ok(runtime.search_routed(&payload.vector, Some(query), k, cand)?)
+    Ok(runtime.search_routed_where(&payload.vector, Some(query), k, cand, keep)?)
 }

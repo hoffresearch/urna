@@ -13,7 +13,9 @@ use std::collections::HashSet;
 use urna_engine::labels::Index;
 pub use urna_engine::labels::{alias, fold, tier};
 
-use super::fields::{Card, Kind};
+use urna_engine::scalars::Scalars;
+
+use super::session::{label_fields, text_at};
 
 struct Label {
     text: String,
@@ -61,29 +63,47 @@ impl Labels {
         Self::build(items)
     }
 
-    /// Labels from the card fields: the English name and the Portuguese one
-    /// of every card that belongs in a name list (art-series repeat a real
-    /// card's name and Alchemy cards are digital).
-    pub fn from_cards(cards: &[Card]) -> Self {
-        let mut items = Vec::with_capacity(cards.len() * 2);
-        for c in cards
+    /// Labels from chunk_scalars: every label-role text column of every
+    /// chunk (a name, then its translation), shown as `Name (Alias)`, with
+    /// the rank-role column as popularity so the more played leads inside
+    /// a tier and the unranked twins (an art series) come after.
+    pub fn from_scalars(s: &Scalars) -> Self {
+        let fields = label_fields(&s.schema);
+        let rank = s
+            .schema
             .iter()
-            .filter(|c| !matches!(c.kind, Kind::ArtSeries | Kind::Alchemy))
-        {
-            let shown = match &c.pt_name {
-                Some(pt) => format!("{} ({pt})", c.name),
-                None => c.name.clone(),
+            .find(|f| f.has_role("rank"))
+            .and_then(|f| s.table.column(&f.name));
+        let n = s.table.n_rows;
+        let mut items = Vec::with_capacity(n * fields.len().max(1));
+        for i in 0..n {
+            let names: Vec<&str> = fields
+                .iter()
+                .filter_map(|f| text_at(s, &f.name, i))
+                .collect();
+            let Some(first) = names.first() else {
+                continue;
             };
-            let names = std::iter::once(c.name.as_str()).chain(c.pt_name.as_deref());
-            for name in names {
+            let shown = match names.get(1) {
+                Some(alias) => format!("{first} ({alias})"),
+                None => first.to_string(),
+            };
+            let popularity = rank
+                .filter(|c| c.present(i))
+                .and_then(|c| match &c.data {
+                    urna_format::sections::ColumnData::Int(v) => v.get(i).copied(),
+                    _ => None,
+                })
+                .map_or(0, |r| u32::MAX.saturating_sub(r.max(0) as u32));
+            for name in &names {
                 items.push((
                     fold(name),
                     Label {
                         text: shown.clone(),
-                        ordinal: c.ordinal,
-                        key: c.name.clone(),
-                        playable: c.playable(),
-                        popularity: c.edhrec_rank.map_or(0, |r| u32::MAX - r),
+                        ordinal: i,
+                        key: first.to_string(),
+                        playable: popularity > 0,
+                        popularity,
                     },
                 ));
             }
@@ -191,34 +211,56 @@ mod tests {
     }
 
     #[test]
-    fn cards_offer_both_names_once_with_the_played_one_first() {
-        let card = |ordinal: usize, name: &str, pt: Option<&str>, kind: &str, rank: Option<u32>| {
-            let pt = pt.map_or("null".to_string(), |p| format!("\"{p}\""));
-            let rank = rank.map_or("null".to_string(), |r| r.to_string());
-            let json = format!(
-                r#"{{"ordinal":{ordinal},"name":"{name}","pt_name":{pt},"type_line":"Instant",
-                "kind":"{kind}","cmc":1.0,"power":null,"toughness":null,"loyalty":null,
-                "legal":{{}},"edhrec_rank":{rank}}}"#
-            );
-            serde_json::from_str::<Card>(&json).ok()
+    fn scalars_offer_both_names_once_with_the_played_one_first() {
+        use urna_format::manifest::schema::SchemaField;
+        use urna_format::sections::{Column, ColumnData, ScalarTable};
+        let f = |name: &str, roles: &[&str]| SchemaField {
+            name: name.into(),
+            kind: if name == "rank" {
+                "int".into()
+            } else {
+                "text".into()
+            },
+            roles: roles.iter().map(|r| r.to_string()).collect(),
+            ..Default::default()
         };
-        let cards: Vec<Card> = [
-            card(0, "Lightning Bolt", Some("Raio"), "card", Some(10)),
-            card(1, "Lightning Bolt", None, "art_series", None),
-            card(
-                2,
-                "Lightning Helix",
-                Some("Hélice de Raios"),
-                "card",
-                Some(300),
-            ),
-            card(3, "Lightning Greaves", None, "card", Some(1)),
-            card(4, "Lightning", None, "token", None),
-        ]
-        .into_iter()
-        .flatten()
-        .collect();
-        let l = Labels::from_cards(&cards);
+        let names = [
+            "Lightning Bolt",
+            "Lightning Bolt",
+            "Lightning Helix",
+            "Lightning Greaves",
+            "Lightning",
+        ];
+        let pt = ["Raio", "", "Hélice de Raios", "", ""];
+        let rank = [10, 0, 300, 1, 0];
+        let s = Scalars {
+            schema: vec![
+                f("name", &["label"]),
+                f("pt_name", &["label"]),
+                f("rank", &["rank"]),
+            ],
+            table: ScalarTable {
+                n_rows: 5,
+                columns: vec![
+                    Column {
+                        name: "name".into(),
+                        validity: None,
+                        data: ColumnData::Text(names.iter().map(|s| s.to_string()).collect()),
+                    },
+                    Column {
+                        name: "pt_name".into(),
+                        validity: Some(pt.iter().map(|p| !p.is_empty()).collect()),
+                        data: ColumnData::Text(pt.iter().map(|s| s.to_string()).collect()),
+                    },
+                    Column {
+                        name: "rank".into(),
+                        validity: Some(rank.iter().map(|r| *r > 0).collect()),
+                        data: ColumnData::Int(rank.to_vec()),
+                    },
+                ],
+            },
+        };
+        let l = Labels::from_scalars(&s);
         assert_eq!(
             l.suggest("lightn", 5),
             vec![
@@ -234,7 +276,7 @@ mod tests {
             vec!["Lightning Helix (Hélice de Raios)"]
         );
         assert_eq!(
-            l.suggest_where("lightning bolt", 5, &|o| o != 0),
+            l.suggest_where("lightning bolt", 5, &|o| o != 0 && o != 1),
             Vec::<String>::new()
         );
     }

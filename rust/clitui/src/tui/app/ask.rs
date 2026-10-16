@@ -4,18 +4,18 @@
 //! back with their stored canonical text (tier-1, the bytes `cite` returns)
 //! and, when their source is an image blob, the image. Typing offers the
 //! corpus's labels; tab takes one and asks for it, that label first. A
-//! corpus with card fields takes deck filters after `|` (`format=pauper
-//! id=UB cmc<=3 type=creature all`): they narrow the suggestions and the
-//! hits, and with no text they browse the most played cards.
+//! corpus with chunk_scalars takes the search syntax its schema declares
+//! (`t:creature c:r pow>=3 f:pauper`): the predicates narrow the
+//! suggestions and the hits before anything is scored, and a line of
+//! predicates alone browses the kept chunks by rank.
 
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Instant;
 
 use ratatui_cheese::input::InputState;
+use urna_engine::scalars::{Bitset, parse};
 
-use super::fields::Kind;
-use super::filter::Filter;
 use super::labels;
 use super::media::Media;
 use super::offer::{Need, Offer};
@@ -33,10 +33,10 @@ pub struct Answer {
     pub image: Option<usize>,
     /// found by its label, not by the search: `score` is not a cosine.
     pub by_name: bool,
-    /// the chunk's index in the file, the card's ordinal in the fields.
+    /// the chunk's index in the file.
     pub chunk: usize,
     /// `hybrid` from the search, `name` from the label, `browse` from the
-    /// most played under the filters.
+    /// kept chunks by rank.
     pub via: &'static str,
 }
 
@@ -50,6 +50,11 @@ pub struct Failure {
 
 type Reply = Result<(Vec<Answer>, f64), Failure>;
 
+/// How many hits to show.
+const K: usize = 20;
+/// How many kept chunks to browse with no text.
+const BROWSE: usize = 60;
+
 pub struct Ask {
     pub input: InputState,
     pub answers: Vec<Answer>,
@@ -57,6 +62,8 @@ pub struct Ask {
     pub scroll: u16,
     pub asked: Option<String>,
     pub took_ms: f64,
+    /// the last type-ahead's time.
+    pub typed_ms: f64,
     /// the last query's error, in words a person can act on.
     pub failed: Option<String>,
     pub(super) pending: Option<(Receiver<Reply>, Instant)>,
@@ -70,8 +77,6 @@ pub struct Ask {
     pub sug_sel: usize,
     /// the input changed since the last ask: the list shows suggestions.
     pub typing: bool,
-    /// how long the last type-ahead took.
-    pub typed_ms: f64,
     /// a label taken with tab: hits whose first line is it go first.
     pinned: Option<String>,
 }
@@ -87,6 +92,7 @@ impl Default for Ask {
             scroll: 0,
             asked: None,
             took_ms: 0.0,
+            typed_ms: 0.0,
             failed: None,
             pending: None,
             offer: None,
@@ -95,10 +101,34 @@ impl Default for Ask {
             suggestions: Vec::new(),
             sug_sel: 0,
             typing: false,
-            typed_ms: 0.0,
             pinned: None,
         }
     }
+}
+
+/// What a line said: the free text and the chunks the predicates keep
+/// (`None` when there were no predicates).
+#[derive(Debug)]
+pub struct Line {
+    pub text: String,
+    pub keep: Option<Bitset>,
+    /// the predicate terms, for the status line.
+    pub terms: Vec<String>,
+}
+
+/// Parse `input` with the corpus's schema and resolve its predicates.
+pub fn line(session: &Session, input: &str) -> Result<Line, String> {
+    let parsed = parse(input, session.schema()).map_err(|e| e.to_string())?;
+    let keep = if parsed.filter.is_empty() {
+        None
+    } else {
+        Some(session.rt.keep(&parsed.filter).map_err(|e| e.to_string())?)
+    };
+    Ok(Line {
+        text: parsed.text,
+        keep,
+        terms: parsed.terms,
+    })
 }
 
 impl Ask {
@@ -107,21 +137,18 @@ impl Ask {
     }
 
     /// Starts a query against the opened corpus on a worker thread. With
-    /// card fields, no text and only filters browses the most played.
+    /// chunk_scalars, predicates alone browse the kept chunks by rank.
     pub fn submit(&mut self, session: Arc<Session>) {
         let input = self.input.value().trim().to_string();
-        let (query, filter) = Filter::split(&input);
-        if (query.is_empty() && session.cards.is_none()) || self.busy() {
+        if input.is_empty() || self.busy() {
             return;
         }
         let (tx, rx) = channel();
-        let query = query.to_string();
         let s = Arc::clone(&session);
+        let query = input.clone();
         std::thread::spawn(move || {
             let t0 = Instant::now();
-            let _ = tx.send(
-                run_query(&s, &query, &filter).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)),
-            );
+            let _ = tx.send(run_line(&s, &query).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)));
         });
         self.session = Some(session);
         self.asked = Some(input);
@@ -137,32 +164,40 @@ impl Ask {
         self.submit(session);
     }
 
-    /// The input changed: offer the labels that match it, under the filters.
+    /// The input changed: offer the labels that match its text, under its
+    /// predicates.
     pub fn retype(&mut self, session: Option<&Session>) {
         self.typing = true;
         self.pinned = None;
         self.sug_sel = 0;
-        let (q, filter) = Filter::split(self.input.value());
         let t0 = Instant::now();
         self.suggestions = session
-            .map(|s| s.labels.suggest_where(q, 30, &|i| s.keeps(i, &filter)))
+            .and_then(|s| {
+                let l = line(s, self.input.value()).ok()?;
+                Some(match &l.keep {
+                    Some(keep) => s.labels.suggest_where(&l.text, 30, &|i| keep.get(i)),
+                    None => s.labels.suggest_where(&l.text, 30, &|_| true),
+                })
+            })
             .unwrap_or_default();
         self.typed_ms = t0.elapsed().as_secs_f64() * 1e3;
     }
 
-    /// Tab: the pointed label becomes the query, asked with it first; the
-    /// filters typed after `|` stay.
+    /// Tab: the pointed label becomes the text, asked with it first; the
+    /// predicates typed stay.
     pub fn take_suggestion(&mut self, session: Arc<Session>) {
         let Some(label) = self.suggestions.get(self.sug_sel).cloned() else {
             return;
         };
-        let filters = self
-            .input
-            .value()
-            .split_once('|')
-            .map(|(_, f)| format!(" |{f}"))
+        let terms: Vec<String> = line(&session, self.input.value())
+            .map(|l| l.terms)
             .unwrap_or_default();
-        self.input.set_value(format!("{label}{filters}"));
+        let value = if terms.is_empty() {
+            label.clone()
+        } else {
+            format!("{label} {}", terms.join(" "))
+        };
+        self.input.set_value(value);
         self.input.end();
         self.pinned = Some(label);
         self.submit(session);
@@ -187,24 +222,23 @@ impl Ask {
             // a hit whose label answers the query by name goes before one
             // that only scores close: the label taken with tab first, then a
             // label the text spells out, then the rest; stable, so rank order
-            // holds inside each.
-            // in a card corpus the art-series stand-ins go last.
+            // holds inside each. among equals a ranked chunk leads an
+            // unranked one (a card leads its art-series twin).
             let pinned = self.pinned.take();
-            let (asked, _) = Filter::split(self.asked.as_deref().unwrap_or(""));
-            let q = labels::fold(asked);
-            let session = self.session.as_deref();
-            let template = session.is_some_and(|s| super::card::knows(&s.chunker));
+            let session = self.session.clone();
+            let asked = self.asked.clone().unwrap_or_default();
+            let text = session
+                .as_deref()
+                .and_then(|s| line(s, &asked).ok())
+                .map(|l| l.text)
+                .unwrap_or(asked);
+            let q = labels::fold(&text);
             answers.sort_by_key(|a| {
                 let first = a.text.lines().next().map(str::trim).unwrap_or("");
                 let by_tab = pinned.as_deref() == Some(first);
                 let t = labels::tier(&labels::fold(first), &q);
-                // with fields the kind says what is a card; without them
-                // the template's placeholder rows are told from the text.
-                let real = match session.and_then(|s| s.card(a.chunk)) {
-                    Some(c) => c.kind != Kind::ArtSeries,
-                    None => !(template && super::card::placeholder(&a.text)),
-                };
-                std::cmp::Reverse((real, by_tab, if t >= 2 { t } else { 0 }))
+                let ranked = session.as_deref().and_then(|s| s.rank(a.chunk)).is_some();
+                std::cmp::Reverse((by_tab, if t >= 2 { t } else { 0 }, ranked))
             });
             self.answers = answers;
             self.took_ms = ms;
@@ -215,55 +249,56 @@ impl Ask {
     }
 }
 
-/// How many hits to show.
-const K: usize = 20;
-/// How many of the most played to browse with no text.
-const BROWSE: usize = 60;
+/// Parse and run one line: free text searches under the predicates,
+/// predicates alone browse.
+fn run_line(session: &Session, input: &str) -> Result<Vec<Answer>, Failure> {
+    let l = line(session, input).map_err(|text| Failure { text, need: None })?;
+    if l.text.trim().is_empty() {
+        return Ok(browse(session, l.keep.as_ref()));
+    }
+    run_query(session, &l.text, l.keep.as_ref())
+}
 
+/// Search `query` over the chunks `keep` accepts (all when `None`).
 pub(super) fn run_query(
     session: &Session,
     query: &str,
-    filter: &Filter,
+    keep: Option<&Bitset>,
 ) -> Result<Vec<Answer>, Failure> {
-    if query.is_empty() {
-        return Ok(browse(session, filter));
-    }
-    // filters drop hits after the rerank, so a narrow filter fetches more;
-    // without fields nothing is dropped, whatever was typed after `|`.
-    let plain = filter.is_default() || session.cards.is_none();
-    let fetch = if plain { K } else { (K * 40).max(400) };
-    let cand = (!plain).then_some(fetch.min(256));
-    embed_gate::embed_and_search(&session.rt, query, fetch as i32, cand, None, None)
+    embed_gate::embed_and_search_where(&session.rt, query, K as i32, None, None, None, keep)
         .map(|result| {
-            // a label the text spells out answers by name, first, wherever
-            // the search ranked it; the search's hits follow in rank order.
-            let mut answers: Vec<Answer> = session
+            let index = index_of(session);
+            let mut answers: Vec<Answer> = result
+                .hits
+                .iter()
+                .filter_map(|h| {
+                    let chunk = index(&h.chunk_id)?;
+                    Some(Answer {
+                        citation: h.citation_id.clone(),
+                        source: h.source_uri.clone(),
+                        score: h.score,
+                        text: session.texts.get(&h.chunk_id).cloned().unwrap_or_default(),
+                        image: session.image_of(&h.source_uri),
+                        by_name: false,
+                        chunk,
+                        via: "hybrid",
+                    })
+                })
+                .collect();
+            // a chunk whose label is the query goes first, found by the
+            // search or not, when the predicates keep it.
+            let named: Vec<usize> = session
                 .named(query)
                 .iter()
-                .filter(|&&i| session.keeps(i, filter))
+                .copied()
+                .filter(|&i| keep.is_none_or(|k| k.get(i)))
+                .collect();
+            answers.retain(|a| !named.contains(&a.chunk));
+            let extra: Vec<Answer> = named
+                .iter()
                 .filter_map(|&i| answer_at(session, i, 1.0, true, "name"))
                 .collect();
-            let named: std::collections::HashSet<usize> = answers.iter().map(|a| a.chunk).collect();
-            let index = index_of(session);
-            answers.extend(
-                result
-                    .hits
-                    .iter()
-                    .filter_map(|h| {
-                        let chunk = index(&h.chunk_id)?;
-                        (!named.contains(&chunk) && session.keeps(chunk, filter)).then(|| Answer {
-                            citation: h.citation_id.clone(),
-                            source: h.source_uri.clone(),
-                            score: h.score,
-                            text: session.texts.get(&h.chunk_id).cloned().unwrap_or_default(),
-                            image: session.image_of(&h.source_uri),
-                            by_name: false,
-                            chunk,
-                            via: "hybrid",
-                        })
-                    })
-                    .take(K),
-            );
+            answers.splice(0..0, extra);
             answers
         })
         .map_err(|e| {
@@ -280,11 +315,11 @@ pub(super) fn run_query(
         })
 }
 
-/// chunk_id -> chunk index: a map when the corpus has fields (every hit
-/// needs its card), a scan of the ids otherwise.
+/// chunk_id -> chunk index: a map when the corpus is large enough to pay
+/// for it, a scan of the ids otherwise.
 fn index_of(session: &Session) -> impl Fn(&str) -> Option<usize> + '_ {
     let ids = session.rt.chunk_ids();
-    let map: Option<std::collections::HashMap<&str, usize>> = session.cards.is_some().then(|| {
+    let map: Option<std::collections::HashMap<&str, usize>> = (ids.len() > 256).then(|| {
         ids.iter()
             .enumerate()
             .map(|(i, id)| (id.as_str(), i))
@@ -318,17 +353,14 @@ fn answer_at(
     })
 }
 
-/// No text: the most played cards (EDHREC rank, unranked last) the filter
-/// keeps.
-fn browse(session: &Session, filter: &Filter) -> Vec<Answer> {
-    let Some(cards) = &session.cards else {
-        return Vec::new();
-    };
-    let mut kept: Vec<_> = cards.iter().filter(|c| filter.keeps(c)).collect();
-    kept.sort_by_key(|c| (c.edhrec_rank.unwrap_or(u32::MAX), c.ordinal));
+/// No text: the kept chunks by rank (the rank-role column, unranked last).
+fn browse(session: &Session, keep: Option<&Bitset>) -> Vec<Answer> {
+    let n = session.rt.chunk_ids().len();
+    let mut kept: Vec<usize> = (0..n).filter(|&i| keep.is_none_or(|k| k.get(i))).collect();
+    kept.sort_by_key(|&i| (session.rank(i).unwrap_or(i64::MAX), i));
     kept.into_iter()
         .take(BROWSE)
-        .filter_map(|c| answer_at(session, c.ordinal, 0.0, false, "browse"))
+        .filter_map(|i| answer_at(session, i, 0.0, false, "browse"))
         .collect()
 }
 
@@ -486,5 +518,19 @@ mod tests {
         let area = Rect::new(0, 0, 100, 30);
         let mut buf = Buffer::empty(area);
         super::super::hits::render(&mut buf, area, &mut ask, "·");
+    }
+
+    #[test]
+    fn a_prefix_the_schema_lacks_is_a_message_not_a_panic() {
+        let golden = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../format/tests/fixtures/golden_v1_minimal.urna");
+        let session = Session::open(&golden).expect("golden opens");
+        let err = line(&session, "t:creature bolt").expect_err("no schema");
+        assert!(err.contains("prefix"), "{err}");
+        let ok = line(&session, "lightning bolt").expect("free text");
+        assert_eq!(
+            (ok.text.as_str(), ok.keep.is_none()),
+            ("lightning bolt", true)
+        );
     }
 }

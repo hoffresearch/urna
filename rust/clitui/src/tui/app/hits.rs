@@ -151,9 +151,12 @@ fn hits(buf: &mut Buffer, area: Rect, ask: &Ask) {
             Style::new().fg(pal::INK)
         };
         let first = a.text.lines().next().unwrap_or("");
-        let card = ask.session.as_ref().and_then(|s| s.card(a.chunk));
-        let kind = super::card::stand_in(&a.text, card)
-            .map(|k| format!("  {k}"))
+        let kind = ask
+            .session
+            .as_ref()
+            .map(|s| s.tags(a.chunk).join(" "))
+            .filter(|t| !t.is_empty())
+            .map(|t| format!("  {}", t.replace('_', " ")))
             .unwrap_or_default();
         hud::spans(
             buf,
@@ -216,15 +219,11 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
         );
         return;
     };
-    let card = ask.session.as_ref().and_then(|s| s.card(a.chunk)).cloned();
-    let as_card = ask
-        .session
-        .as_ref()
-        .is_some_and(|s| super::card::knows(&s.chunker));
-    let (title, note) = match (as_card, card.is_some()) {
-        (true, true) => ("card", "stored text · fields beside the file"),
-        (true, false) => ("card", "laid out from the stored text"),
-        _ => ("text", "tier-1 · stored canonical"),
+    let as_card = ask.session.as_ref().is_some_and(|s| super::card::knows(s));
+    let (title, note) = if as_card {
+        ("record", "laid out from the file's schema")
+    } else {
+        ("text", "tier-1 · stored canonical")
     };
     let inner = hud::panel(buf, drect, title, note, false);
     if inner.height < 3 {
@@ -252,8 +251,8 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
         inner.right().saturating_sub(tx + 2),
         inner.height.saturating_sub(3),
     );
-    let (para, total) = if as_card {
-        let lines = super::card::lines(&a.text, text_rect.width, card.as_ref());
+    let (para, total) = if let Some(session) = ask.session.as_ref().filter(|_| as_card) {
+        let lines = super::card::lines(session, a.chunk, &a.text, text_rect.width);
         let plain: String = lines
             .iter()
             .map(|l| {
