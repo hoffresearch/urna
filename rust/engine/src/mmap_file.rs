@@ -38,6 +38,12 @@ pub struct MmapUrnaFile {
     pub(crate) chunk_ids: Vec<String>,
     pub(crate) spans: Vec<OriginalSpan>,
     pub(crate) embedding_model: String,
+    /// Manifest `full_dim`: set when the default space is an mrl prefix of a
+    /// wider model, so a query embedder truncates to `embedding_dim`.
+    pub(crate) full_dim: Option<u32>,
+    /// Manifest `chunker_version`: names the template the stored text was
+    /// rendered with, so a reader can lay it out.
+    pub(crate) chunker_version: String,
     /// Manifest `model_hash`: the granular fingerprint of the model that
     /// produced the corpus embeddings. Exposed so a caller embedding a query
     /// can verify its embedder matches the corpus (the honesty gate).
@@ -71,7 +77,7 @@ pub struct MmapUrnaFile {
 }
 
 crate::shape_debug!(MmapUrnaFile {
-    show n_embeddings, show embedding_dim, show dtype, show embedding_model, show model_hash,
+    show n_embeddings, show embedding_dim, show dtype, show embedding_model, show full_dim, show chunker_version, show model_hash,
     show file_hash, show content_hash, show declared_index_type, show declared_score_type,
     some ann_index, some bm25_index, some graph_index, some embeddings_fp, some blob_refs,
     some blob_data, some spaces, len chunk_ids, len spans, skip _mmap, skip embeddings_offset,
@@ -181,6 +187,8 @@ impl MmapUrnaFile {
         // additive `supports_multimodal` capability. see spaces.rs.
         let spaces = crate::spaces::open_space_sections(&view)?;
         let embedding_model = view.manifest.embedding_model.clone();
+        let full_dim = view.manifest.full_dim;
+        let chunker_version = view.manifest.chunker_version.clone();
         let model_hash = view.manifest.model_hash.clone();
         let declared_index_type = view.manifest.index_type.clone();
         let declared_score_type = view.manifest.score_type.clone();
@@ -199,6 +207,8 @@ impl MmapUrnaFile {
             chunk_ids,
             spans,
             embedding_model,
+            full_dim,
+            chunker_version,
             model_hash,
             file_hash,
             content_hash,
@@ -238,6 +248,23 @@ impl MmapUrnaFile {
     /// with). Callers embed the query with their own model and compare.
     pub fn model_hash(&self) -> &str {
         &self.model_hash
+    }
+    /// Chunk `index`'s source span as queries report it (the blob overlay
+    /// applied): its uri and byte range.
+    pub fn span(&self, index: usize) -> Option<&OriginalSpan> {
+        self.spans.get(index)
+    }
+    /// Manifest `embedding_model`, the name the query embedder routes by.
+    pub fn embedding_model(&self) -> &str {
+        &self.embedding_model
+    }
+    /// Manifest `chunker_version`, the template the stored text follows.
+    pub fn chunker_version(&self) -> &str {
+        &self.chunker_version
+    }
+    /// Manifest `full_dim`, present on an mrl-truncated default space.
+    pub fn full_dim(&self) -> Option<u32> {
+        self.full_dim
     }
     pub fn declared_score_type(&self) -> &str {
         &self.declared_score_type

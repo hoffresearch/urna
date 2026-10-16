@@ -8,7 +8,7 @@
 //! `--mrl-dim` when the manifest records a truncated default space
 //! (`full_dim` present).
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcCommand;
 
@@ -240,18 +240,41 @@ pub fn embed_and_search(
     embedder: Option<PathBuf>,
     model_path: Option<PathBuf>,
 ) -> Result<SearchResult> {
-    let info: serde_json::Value = serde_json::from_str(&runtime.inspect_json()?)?;
-    let model = manifest_str(&info, "embedding_model")?;
-    let declared_dim = info["manifest"]["embedding_dim"]
-        .as_u64()
-        .ok_or_else(|| anyhow::anyhow!("manifest.embedding_dim missing"))?
-        as usize;
-    let declared_model_hash = manifest_str(&info, "model_hash")?;
+    // the manifest fields the open already parsed: no second pass over the
+    // file (inspect_json re-verifies every checksum, ~1 s on a 1 GB corpus).
+    let model = runtime.embedding_model().to_string();
+    let declared_dim = runtime.embedding_dim();
+    let declared_model_hash = runtime.model_hash().to_string();
 
     // route by manifest model: potion corpora keep the potion script; any
     // registry model goes through the generic embedder, with --mrl-dim when
     // the default space was truncated (full_dim recorded).
     let is_potion = model.starts_with("minishlab/potion");
+    let truncated = runtime.full_dim().is_some();
+    let cand = candidates.unwrap_or(((k as usize) * 4).max(64));
+
+    // a potion corpus queried with the default embedder embeds in process
+    // (#205): same recipe, same model_hash, no interpreter. the script stays
+    // for `--embedder`, `--model-path`, mrl-truncated corpora and a payload
+    // without the table.
+    if is_potion && embedder.is_none() && model_path.is_none() && !truncated {
+        let table = super::potion::table_dir(&default_potion_embedder_path());
+        if let Some(dir) = table {
+            let p = super::potion::shared(&dir)?;
+            if p.model_hash() != declared_model_hash {
+                bail!(
+                    "model_hash mismatch: corpus was built with {declared_model_hash}, embedder reports {}",
+                    p.model_hash()
+                );
+            }
+            if p.dim() != declared_dim {
+                bail!("dim mismatch: corpus {declared_dim}, embedder {}", p.dim());
+            }
+            let vector = p.embed(query)?;
+            return Ok(runtime.search_routed(&vector, Some(query), k, cand)?);
+        }
+    }
+
     let embedder = embedder.unwrap_or_else(|| {
         if is_potion {
             default_potion_embedder_path()
@@ -262,7 +285,7 @@ pub fn embed_and_search(
     // both embedders take --mrl-dim, so a corpus whose default space was
     // truncated (full_dim recorded) is queryable regardless of the model.
     let mut extra: Vec<String> = Vec::new();
-    if info["manifest"]["full_dim"].as_u64().is_some() {
+    if truncated {
         extra.push("--mrl-dim".into());
         extra.push(declared_dim.to_string());
     }
@@ -272,13 +295,5 @@ pub fn embed_and_search(
     // route by capability (bm25 -> hybrid, hnsw -> ann, else exact), not by
     // the declared `index_type`: a `hybrid` preset file declares "hnsw" and
     // carries its bm25 section as a capability.
-    let cand = candidates.unwrap_or(((k as usize) * 4).max(64));
     Ok(runtime.search_routed(&payload.vector, Some(query), k, cand)?)
-}
-
-fn manifest_str(info: &serde_json::Value, key: &str) -> Result<String> {
-    info["manifest"][key]
-        .as_str()
-        .map(|s| s.to_string())
-        .ok_or_else(|| anyhow::anyhow!("manifest.{} missing", key))
 }

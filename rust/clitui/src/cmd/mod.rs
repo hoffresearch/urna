@@ -19,6 +19,7 @@ pub mod inspect;
 pub mod media;
 pub mod paths;
 pub mod payload;
+pub mod potion;
 pub mod pyenv;
 pub mod search;
 pub mod search_ann;
