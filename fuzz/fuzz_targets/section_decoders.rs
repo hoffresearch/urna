@@ -9,8 +9,9 @@ use urna_format::encoding::{
     decode_txt_streams_payload, decode_zstd_dict_payload,
 };
 use urna_format::sections::{
-    decode_chunk_ids, decode_chunks_canonical, decode_chunks_original_spans,
-    decode_intpack_repack, decode_provenance, decode_search_contract, decode_txt_streams,
+    decode_chunk_ids, decode_chunk_scalars, decode_chunks_canonical,
+    decode_chunks_original_spans, decode_intpack_repack, decode_provenance,
+    decode_search_contract, decode_txt_streams,
 };
 use urna_format::{
     Int4EmbeddingsView, Int8EmbeddingsView, decode_blob_data_table, decode_blob_refs,
@@ -25,7 +26,7 @@ fuzz_target!(|data: &[u8]| {
     // and the embeddings views get exercised with plausible shapes.
     let n = (sel >> 4) as usize;
     let dim = 64 * (1 + (sel & 3) as usize);
-    match sel % 20 {
+    match sel % 21 {
         0 => drop(decode_chunk_ids(rest, n)),
         1 => drop(decode_chunks_canonical(rest, n)),
         2 => drop(decode_chunks_original_spans(rest, n)),
@@ -59,6 +60,7 @@ fuzz_target!(|data: &[u8]| {
                 }
             }
         }
+        19 => drop(decode_chunk_scalars(rest, n)),
         18 => {
             if let Ok(v) = Int4EmbeddingsView::parse(rest, n, dim) {
                 let mut scales = vec![0.0f32; v.blocks];
