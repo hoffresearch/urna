@@ -142,24 +142,32 @@ impl Index {
                 out.push(hit);
             }
         }
-        let mut last: Option<usize> = None;
+        // a label with two words that start with q is one hit, at its first
+        // such word: the word index sorts by word, so the two can sit any
+        // distance apart in it.
+        let mut first_at: std::collections::HashMap<usize, u16> = Default::default();
+        let mut order = Vec::new();
         for i in self.words.prefix(&q) {
             let Some(w) = self.words.payload(i) else {
                 continue;
             };
             let id = w.id as usize;
-            // a label whose two words both start with q is one hit: the
-            // word index sorts by word and then by id, so repeats of an id
-            // are not adjacent; the first word in label order wins below.
-            if whole.contains(&id) || out.iter().rev().take(64).any(|h| h.id == id) {
+            if whole.contains(&id) {
                 continue;
             }
-            if let Some(hit) = self.hit(id, w.at as usize, &q, keep) {
+            first_at
+                .entry(id)
+                .and_modify(|at| *at = (*at).min(w.at))
+                .or_insert_with(|| {
+                    order.push(id);
+                    w.at
+                });
+        }
+        for id in order {
+            if let Some(hit) = self.hit(id, first_at[&id] as usize, &q, keep) {
                 out.push(hit);
             }
-            last = Some(id);
         }
-        let _ = last;
         out
     }
 
@@ -337,6 +345,26 @@ mod tests {
         let whole = hits.iter().find(|h| h.ordinal == 1).map(|h| h.score);
         let word = hits.iter().find(|h| h.ordinal == 3).map(|h| h.score);
         assert!(whole > word, "{whole:?} {word:?}");
+    }
+
+    #[test]
+    fn a_label_two_words_match_is_one_hit_however_far_apart_they_index() {
+        // `shock` and `sword of shock` sort with a hundred `sl…` words
+        // between them in the word index.
+        let names: Vec<String> = (0..100)
+            .map(|i| format!("filler sl{i:03}"))
+            .chain(["x sword of shock".to_string()])
+            .collect();
+        let refs: Vec<&str> = names.iter().map(String::as_str).collect();
+        let idx = index(&refs);
+        let hits = idx.exact("s", &|_| true);
+        assert_eq!(hits.len(), 101);
+        let sword: Vec<&Hit> = hits.iter().filter(|h| h.ordinal == 100).collect();
+        assert_eq!(sword.len(), 1);
+        let first = Index::from_sorted([("x sword", 0)])
+            .expect("one label")
+            .exact("s", &|_| true);
+        assert_eq!(sword[0].score, first[0].score, "the first word wins");
     }
 
     #[test]
