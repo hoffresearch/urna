@@ -26,6 +26,31 @@ fn forced(choice: &str) -> Option<ProtocolType> {
     }
 }
 
+/// The cell's pixel size from the window size the kernel reports.
+fn cell_size() -> ratatui_image::FontSize {
+    crossterm::terminal::window_size()
+        .ok()
+        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
+        .map(|w| ratatui_image::FontSize { width: w.width / w.columns, height: w.height / w.rows })
+        .unwrap_or(ratatui_image::FontSize { width: 10, height: 20 })
+}
+
+/// Kitty's protocol in kitty and ghostty, iTerm2's in iTerm2 and WezTerm,
+/// characters everywhere else (and inside tmux).
+fn from_env() -> ProtocolType {
+    let var = |k: &str| std::env::var(k).unwrap_or_default();
+    let (term, program) = (var("TERM"), var("TERM_PROGRAM"));
+    if term.starts_with("tmux") || term.starts_with("screen") {
+        ProtocolType::Halfblocks
+    } else if !var("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
+        ProtocolType::Kitty
+    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm") {
+        ProtocolType::Iterm2
+    } else {
+        ProtocolType::Halfblocks
+    }
+}
+
 fn flag(args: &[String], name: &str) -> Option<String> {
     args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
 }
@@ -52,12 +77,13 @@ fn main() {
     }
 
     let mut terminal = ratatui::init();
-    // the picker asks the terminal what it can draw; it must run in raw mode
-    // and before anything else reads stdin.
-    let mut picker = Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks());
-    if let Some(p) = flag(&args, "--graphics").as_deref().and_then(forced) {
-        picker.set_protocol_type(p);
-    }
+    // decided without querying the terminal: a query's reply is read from
+    // stdin, and a reply that never comes takes the first keys typed.
+    // deprecated upstream in favor of the stdin query, the one thing this
+    // avoids; it is the constructor that takes a known cell size.
+    #[allow(deprecated)]
+    let mut picker = Picker::from_fontsize(cell_size());
+    picker.set_protocol_type(flag(&args, "--graphics").as_deref().and_then(forced).unwrap_or_else(from_env));
     let mut app = app::App::new(&pasta, picker);
     let result = run(&mut terminal, &mut app);
     ratatui::restore();

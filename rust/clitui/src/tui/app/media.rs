@@ -12,7 +12,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
 use ratatui_image::picker::{Picker, ProtocolType};
 use ratatui_image::protocol::StatefulProtocol;
-use ratatui_image::{FilterType, Resize, StatefulImage};
+use ratatui_image::{FilterType, FontSize, Resize, StatefulImage};
 
 use super::session::Session;
 
@@ -50,22 +50,56 @@ impl Drop for Media {
     }
 }
 
-/// Ask the terminal for its graphics protocol and cell size. Runs in raw
-/// mode, before the event loop reads stdin (the replies arrive on stdin).
-/// `URNA_GRAPHICS=kitty|sixel|iterm|halfblocks` overrides what it answered.
+/// The terminal's graphics protocol and cell size, without asking it: a
+/// query reads the terminal's reply from stdin, and a reply that never
+/// comes leaves that read pending, taking the first keys typed. The protocol
+/// comes from the variables terminals set (`URNA_GRAPHICS` overrides them),
+/// the cell size from the window size the kernel reports.
 pub fn probe() -> Picker {
-    let mut picker = Picker::from_query_stdio().unwrap_or_else(|_| Picker::halfblocks());
-    let forced = match std::env::var("URNA_GRAPHICS").unwrap_or_default().as_str() {
+    let font = crossterm::terminal::window_size()
+        .ok()
+        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
+        .map(|w| FontSize {
+            width: w.width / w.columns,
+            height: w.height / w.rows,
+        })
+        .unwrap_or(FontSize {
+            width: 10,
+            height: 20,
+        });
+    // deprecated upstream in favor of the stdin query, the one thing this
+    // avoids; it is the constructor that takes a known cell size.
+    #[allow(deprecated)]
+    let mut picker = Picker::from_fontsize(font);
+    picker.set_protocol_type(forced().unwrap_or_else(from_env));
+    picker
+}
+
+fn forced() -> Option<ProtocolType> {
+    match std::env::var("URNA_GRAPHICS").unwrap_or_default().as_str() {
         "kitty" => Some(ProtocolType::Kitty),
         "sixel" => Some(ProtocolType::Sixel),
         "iterm" => Some(ProtocolType::Iterm2),
-        "halfblocks" => Some(ProtocolType::Halfblocks),
+        "halfblocks" | "quadrants" => Some(ProtocolType::Halfblocks),
         _ => None,
-    };
-    if let Some(p) = forced {
-        picker.set_protocol_type(p);
     }
-    picker
+}
+
+/// Kitty's protocol in kitty and ghostty, iTerm2's in iTerm2 and WezTerm,
+/// characters everywhere else (and inside tmux, which needs passthrough).
+fn from_env() -> ProtocolType {
+    let var = |k: &str| std::env::var(k).unwrap_or_default();
+    let (term, program) = (var("TERM"), var("TERM_PROGRAM"));
+    if term.starts_with("tmux") || term.starts_with("screen") {
+        ProtocolType::Halfblocks
+    } else if !var("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
+        ProtocolType::Kitty
+    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm")
+    {
+        ProtocolType::Iterm2
+    } else {
+        ProtocolType::Halfblocks
+    }
 }
 
 impl Media {

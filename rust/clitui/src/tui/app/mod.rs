@@ -313,7 +313,6 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
         };
         let mut app = App::new(launch_now, sample());
         app.ask_on_open = ask_now;
-        // the terminal answers on stdin: ask before the loop reads it.
         app.ask.media.set_picker(media::probe());
         let res = app.run(&mut terminal);
         term::leave_fullscreen()?;
