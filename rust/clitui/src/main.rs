@@ -132,7 +132,9 @@ fn main() -> Result<()> {
             std::process::exit(code)
         }
         #[cfg(feature = "tui")]
-        Commands::Tui { file } => std::process::exit(tui::app::run(file)?),
+        Commands::Tui { file, ask } => std::process::exit(tui::app::run(file, ask)?),
+        #[cfg(feature = "window")]
+        Commands::View { frame } => std::process::exit(tui::view::run(&frame)?),
     }
 }
 
@@ -143,7 +145,7 @@ fn no_command() -> Result<()> {
     if std::io::IsTerminal::is_terminal(&std::io::stdin())
         && std::io::IsTerminal::is_terminal(&std::io::stdout())
     {
-        std::process::exit(tui::app::run(None)?);
+        std::process::exit(tui::app::run(None, None)?);
     }
     let _ = <Cli as clap::CommandFactory>::command().print_help();
     std::process::exit(2);

@@ -4,6 +4,7 @@
 //! the section table with a size bar per section and a scrollbar.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 use ratatui::buffer::Buffer;
@@ -12,6 +13,7 @@ use ratatui::style::Style;
 use ratatui::widgets::Widget;
 use tui_scrollbar::{ScrollBar, ScrollLengths};
 
+use super::session::Session;
 use crate::cmd::util::encoding_name;
 use crate::tui::hud::{self, Badge};
 use crate::tui::pal;
@@ -32,6 +34,8 @@ pub struct Corpus {
     pub content_hash: String,
     /// `Ok` when every checksum, hash and the contract hold.
     pub valid: Result<(), String>,
+    /// the file opened for queries, its texts, images and labels.
+    pub session: Arc<Session>,
 }
 
 fn short(h: &str) -> String {
@@ -105,6 +109,7 @@ pub fn load(path: &Path) -> Result<Corpus> {
         sections,
         content_hash: s(&info["content_hash"]),
         valid,
+        session: Arc::new(Session::from_runtime(rt)?),
     })
 }
 

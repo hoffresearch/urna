@@ -338,7 +338,17 @@ pub enum Commands {
     /// check the install. what a bare `urna` opens on a terminal.
     #[cfg(feature = "tui")]
     #[command(display_order = 31)]
-    Tui { file: Option<PathBuf> },
+    Tui {
+        file: Option<PathBuf>,
+        /// Open on the ask tab with this question already asked.
+        #[arg(long, value_name = "QUERY")]
+        ask: Option<String>,
+    },
+    /// The native image window the ask tab opens with ctrl+v; follows the
+    /// frame file the explorer rewrites. internal, started by `urna tui`.
+    #[cfg(feature = "window")]
+    #[command(hide = true)]
+    View { frame: PathBuf },
 }
 
 #[cfg(test)]

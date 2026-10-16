@@ -19,3 +19,5 @@ pub mod setup;
 pub mod term;
 pub mod toast;
 pub mod txt;
+#[cfg(feature = "window")]
+pub mod view;

@@ -94,6 +94,7 @@ pub fn footer(
             b("enter", "ask"),
             b("↑↓", "hit"),
             b("pgup/pgdn", "text"),
+            b("ctrl+v", "image window"),
             b("esc", "clear"),
         ],
         Tab::Health => vec![b("r", "re-run"), b("s", "setup")],

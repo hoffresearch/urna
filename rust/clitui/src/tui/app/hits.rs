@@ -1,6 +1,7 @@
 //! Drawing the ask tab: the query line (ratatui-cheese input), the status,
-//! the hits with the exact-rerank score as a thermometer bar, and the
-//! selected hit's stored text with its citation and source.
+//! the suggestions while typing or the hits with the exact-rerank score as a
+//! thermometer bar, and the selected hit: its image when its source is one,
+//! beside its stored text, citation and source.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -39,10 +40,22 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
         (None, Some(_)) if ask.failed.is_some() => {
             format!("ask failed: {}", ask.failed.as_deref().unwrap_or(""))
         }
+        (None, Some(_)) if ask.suggesting() => format!(
+            "{} labels match · ↑↓ points · tab asks for it · enter asks the text",
+            ask.suggestions.len()
+        ),
         (None, Some(q)) => format!(
-            "{} hits for \"{q}\" · {:.0} ms",
+            "{} hits for \"{q}\" · {:.0} ms{}",
             ask.answers.len(),
-            ask.took_ms
+            ask.took_ms,
+            ask.media
+                .decode_ms()
+                .map(|ms| format!(" · image {ms:.1} ms ({})", ask.media.mode()))
+                .unwrap_or_default()
+        ),
+        (None, None) if ask.suggesting() => format!(
+            "{} labels match · ↑↓ points · tab asks for it · enter asks the text",
+            ask.suggestions.len()
         ),
         (None, None) => "enter asks · ↑↓ picks a hit · pgup/pgdn scrolls the text".into(),
     };
@@ -62,18 +75,54 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
         return;
     }
     let lw = (rest.width * 2 / 5).max(28.min(rest.width));
-    let list = hud::panel(
-        buf,
-        Rect::new(rest.x + 1, rest.y, lw, rest.height),
-        "hits",
-        "exact rerank",
-        true,
-    );
+    if ask.suggesting() {
+        suggestions(buf, Rect::new(rest.x + 1, rest.y, lw, rest.height), ask);
+    } else {
+        hits(buf, Rect::new(rest.x + 1, rest.y, lw, rest.height), ask);
+    }
+    detail(buf, rest, lw, ask);
+}
+
+fn suggestions(buf: &mut Buffer, area: Rect, ask: &Ask) {
+    let list = hud::panel(buf, area, "suggestions", "tab asks", true);
+    let first = ask
+        .sug_sel
+        .saturating_sub(list.height.saturating_sub(1) as usize);
+    for (i, label) in ask.suggestions.iter().enumerate().skip(first) {
+        let y = list.y + (i - first) as u16;
+        if y >= list.bottom() {
+            break;
+        }
+        let sel = i == ask.sug_sel;
+        let st = if sel {
+            Style::new().fg(pal::INK_HI).add_modifier(Modifier::BOLD)
+        } else {
+            Style::new().fg(pal::INK)
+        };
+        hud::spans(
+            buf,
+            list.x,
+            y,
+            &[(if sel { "› " } else { "  " }, pal::key()), (label, st)],
+            list.width,
+        );
+        if sel {
+            buf.set_style(
+                Rect::new(list.x, y, list.width, 1),
+                Style::new().bg(pal::SURFACE),
+            );
+        }
+    }
+}
+
+fn hits(buf: &mut Buffer, area: Rect, ask: &Ask) {
+    let list = hud::panel(buf, area, "hits", "exact rerank", true);
     let top = ask
         .answers
-        .first()
+        .iter()
+        .filter(|a| !a.by_name)
         .map(|a| a.score)
-        .unwrap_or(1.0)
+        .fold(0.0f32, f32::max)
         .max(1e-6);
     // two rows per hit; the window scrolls so the selected hit stays in it.
     let fits = ((list.height.saturating_sub(1)) / 2).max(1) as usize;
@@ -97,12 +146,24 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
             y,
             &[
                 (if sel { "› " } else { "  " }, pal::key()),
-                (&format!("{:.3} ", a.score), pal::accent()),
+                // a hit found by its label has no cosine to show.
+                (
+                    &if a.by_name {
+                        "name  ".to_string()
+                    } else {
+                        format!("{:.3} ", a.score)
+                    },
+                    pal::accent(),
+                ),
                 (first, st),
             ],
             list.width,
         );
-        let ratio = (a.score / top).clamp(0.0, 1.0) as f64;
+        let ratio = if a.by_name {
+            0.0
+        } else {
+            (a.score / top).clamp(0.0, 1.0) as f64
+        };
         hud::gauge(
             buf,
             list.x + 2,
@@ -118,13 +179,16 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
             );
         }
     }
+}
+
+fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
     let drect = Rect::new(
         rest.x + lw + 2,
         rest.y,
         rest.width.saturating_sub(lw + 3),
         rest.height,
     );
-    let Some(a) = ask.answers.get(ask.sel) else {
+    let Some(a) = ask.answers.get(ask.sel).cloned() else {
         let inner = hud::panel(buf, drect, "text", "", false);
         hud::put(
             buf,
@@ -136,20 +200,64 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
         );
         return;
     };
-    let inner = hud::panel(buf, drect, "text", "tier-1 · stored canonical", false);
+    let as_card = ask
+        .session
+        .as_ref()
+        .is_some_and(|s| super::card::knows(&s.chunker));
+    let (title, note) = if as_card {
+        ("card", "laid out from the stored text")
+    } else {
+        ("text", "tier-1 · stored canonical")
+    };
+    let inner = hud::panel(buf, drect, title, note, false);
     if inner.height < 3 {
         return;
     }
+    // an image source draws beside the text: as wide as its aspect needs at
+    // the pane's height, never more than half the pane.
+    let mut tx = inner.x;
+    if let (Some(blob), Some(session)) = (a.image, ask.session.clone()) {
+        let title = a.text.lines().next().unwrap_or("").trim().to_string();
+        ask.media.show(&session, blob, &title);
+        let rows = inner.height.saturating_sub(3);
+        let w = ask.media.cells_wide(rows).min(inner.width / 2);
+        if w > 0 {
+            ask.media.render(buf, Rect::new(inner.x, inner.y, w, rows));
+            tx = inner.x + w + 2;
+        } else if let Some(err) = ask.media.error() {
+            hud::put(buf, inner.x, inner.y, err, pal::err(), inner.width);
+            tx = inner.x;
+        }
+    }
     let text_rect = Rect::new(
-        inner.x,
+        tx,
         inner.y,
-        inner.width.saturating_sub(2),
+        inner.right().saturating_sub(tx + 2),
         inner.height.saturating_sub(3),
     );
-    let para = Paragraph::new(a.text.as_str())
-        .wrap(Wrap { trim: false })
-        .style(Style::new().fg(pal::INK));
-    let total = wrapped_lines(&a.text, text_rect.width);
+    let (para, total) = if as_card {
+        let lines = super::card::lines(&a.text, text_rect.width);
+        let plain: String = lines
+            .iter()
+            .map(|l| {
+                l.spans
+                    .iter()
+                    .map(|s| s.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        (
+            Paragraph::new(lines),
+            wrapped_lines(&plain, text_rect.width),
+        )
+    } else {
+        (
+            Paragraph::new(a.text.as_str()).style(Style::new().fg(pal::INK)),
+            wrapped_lines(&a.text, text_rect.width),
+        )
+    };
+    let para = para.wrap(Wrap { trim: false });
     ask.scroll = ask.scroll.min(total.saturating_sub(text_rect.height));
     para.scroll((ask.scroll, 0)).render(text_rect, buf);
     if total > text_rect.height {

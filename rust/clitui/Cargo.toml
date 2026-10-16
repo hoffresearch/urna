@@ -83,6 +83,17 @@ crossterm = { version = "0.29", optional = true }
 tachyonfx = { version = "0.25.2", optional = true }
 ratatui-explorer = { version = "0.3", optional = true }
 ratatui-cheese = { version = "0.7", optional = true }
+# the ask tab's image pane: the terminal's graphics protocol (kitty, sixel,
+# iterm2) or truecolor halfblocks, and avif decoded by rav1d (pure rust).
+ratatui-image = { version = "11", default-features = false, features = ["crossterm"], optional = true }
+avif-decode = { version = "3", default-features = false, optional = true }
+image = { version = "0.25", default-features = false, optional = true }
+# `--features window`: the ask tab opens the selected image in a native
+# window at full resolution (sdl2, a system library), for terminals with no
+# graphics protocol. off by default: a local tool, not a shipped dependency.
+sdl2 = { version = "0.38", default-features = false, features = ["use-pkgconfig"], optional = true }
+# type-ahead over the corpus labels on the ask tab.
+nucleo-matcher = { version = "0.3", optional = true }
 hyperrat = { version = "0.1.3", optional = true }
 tui-scrollbar = { version = "0.2.8", optional = true }
 flate2 = { version = "1.1", optional = true }
@@ -112,7 +123,13 @@ tui = [
     "dep:tar",
     "dep:zip",
     "dep:sysinfo",
+    "dep:ratatui-image",
+    "dep:avif-decode",
+    "dep:image",
+    "dep:nucleo-matcher",
 ]
+
+window = ["tui", "dep:sdl2"]
 
 [build-dependencies]
 # build.rs names a development build by its git sha (issue #530). 9.1 is

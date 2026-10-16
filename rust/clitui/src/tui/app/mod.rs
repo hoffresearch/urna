@@ -11,6 +11,8 @@
 //! forgotten, so the next launch does not try it again.
 
 pub mod ask;
+mod blocks;
+mod card;
 mod chrome;
 pub mod corpus;
 mod draw;
@@ -18,8 +20,11 @@ mod health;
 mod hits;
 mod home;
 mod keys;
+mod labels;
+mod media;
 mod offer;
 mod pick;
+pub mod session;
 mod state;
 
 use std::path::{Path, PathBuf};
@@ -106,6 +111,8 @@ struct App {
     booted: bool,
     area: Rect,
     leaving: Option<(Instant, Exit)>,
+    /// `urna tui FILE --ask QUERY`: asked as soon as the corpus is open.
+    ask_on_open: Option<String>,
 }
 
 impl App {
@@ -135,6 +142,7 @@ impl App {
             booted: false,
             area: Rect::default(),
             leaving: None,
+            ask_on_open: None,
         };
         app.health.refresh();
         match launch {
@@ -206,8 +214,21 @@ impl App {
                     self.corpus = Some(c);
                     self.first_run = false;
                     self.sec_scroll = 0;
+                    // a fresh ask for the new corpus, keeping what the
+                    // terminal answered it can draw (probed once, at start).
+                    let picker = self.ask.media.take_picker();
                     self.ask = ask::Ask::default();
+                    if let Some(p) = picker {
+                        self.ask.media.set_picker(p);
+                    }
                     self.go(land);
+                    if let Some(q) = self.ask_on_open.take()
+                        && let Some(c) = &self.corpus
+                    {
+                        self.ask.input.set_value(q);
+                        self.ask.input.end();
+                        self.ask.submit(c.session.clone());
+                    }
                 }
                 Err(e) => {
                     self.toasts.push(format!("{name}: {e}"), Kind::Err);
@@ -239,7 +260,7 @@ impl App {
             self.toasts
                 .push(format!("installed {msg}; asking again"), Kind::Ok);
             if let Some(c) = &self.corpus {
-                self.ask.retry(c.path.clone());
+                self.ask.retry(c.session.clone());
             }
         }
         if self.health.poll() && self.tab == Tab::Health {
@@ -275,7 +296,7 @@ impl App {
 }
 
 /// Runs the explorer; returns the exit code.
-pub fn run(file: Option<PathBuf>) -> anyhow::Result<i32> {
+pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32> {
     pyenv::set_quiet(true);
     let home = crate::cmd::paths::urna_home();
     let sample = || home.as_deref().and_then(setup::sample::installed);
@@ -283,7 +304,18 @@ pub fn run(file: Option<PathBuf>) -> anyhow::Result<i32> {
     let mut launch = Launch::pick(file, saved.as_ref().and_then(state::State::last));
     loop {
         let mut terminal = term::fullscreen()?;
-        let res = App::new(launch, sample()).run(&mut terminal);
+        // a query to ask lands the file on the ask tab instead of corpus;
+        // it is asked once, not again after a trip through setup.
+        let ask_now = ask.take();
+        let launch_now = match (launch, &ask_now) {
+            (Launch::File(f), Some(_)) => Launch::Ask(f),
+            (l, _) => l,
+        };
+        let mut app = App::new(launch_now, sample());
+        app.ask_on_open = ask_now;
+        // the terminal answers on stdin: ask before the loop reads it.
+        app.ask.media.set_picker(media::probe());
+        let res = app.run(&mut terminal);
         term::leave_fullscreen()?;
         match res? {
             Exit::Quit => return Ok(0),
