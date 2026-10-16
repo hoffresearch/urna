@@ -79,6 +79,8 @@ pub struct Ask {
     pub typing: bool,
     /// a label taken with tab: hits whose first line is it go first.
     pinned: Option<String>,
+    /// the facet counts over the chunks the typed predicates keep.
+    pub facets: Vec<super::session::Facet>,
 }
 
 impl Default for Ask {
@@ -102,6 +104,7 @@ impl Default for Ask {
             sug_sel: 0,
             typing: false,
             pinned: None,
+            facets: Vec::new(),
         }
     }
 }
@@ -143,6 +146,9 @@ impl Ask {
         if input.is_empty() || self.busy() {
             return;
         }
+        self.facets = line(&session, &input)
+            .map(|l| session.facets(l.keep.as_ref(), 5))
+            .unwrap_or_default();
         let (tx, rx) = channel();
         let s = Arc::clone(&session);
         let query = input.clone();
@@ -171,15 +177,19 @@ impl Ask {
         self.pinned = None;
         self.sug_sel = 0;
         let t0 = Instant::now();
-        self.suggestions = session
-            .and_then(|s| {
-                let l = line(s, self.input.value()).ok()?;
-                Some(match &l.keep {
-                    Some(keep) => s.labels.suggest_where(&l.text, 30, &|i| keep.get(i)),
-                    None => s.labels.suggest_where(&l.text, 30, &|_| true),
-                })
-            })
-            .unwrap_or_default();
+        self.suggestions = Vec::new();
+        if let Some(s) = session {
+            match line(s, self.input.value()) {
+                Ok(l) => {
+                    self.suggestions = match &l.keep {
+                        Some(keep) => s.labels.suggest_where(&l.text, 30, &|i| keep.get(i)),
+                        None => s.labels.suggest_where(&l.text, 30, &|_| true),
+                    };
+                    self.facets = s.facets(l.keep.as_ref(), 5);
+                }
+                Err(_) => self.facets.clear(),
+            }
+        }
         self.typed_ms = t0.elapsed().as_secs_f64() * 1e3;
     }
 

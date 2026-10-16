@@ -164,6 +164,59 @@ impl Session {
     }
 }
 
+/// One facet: the field's label and its most frequent values among the
+/// kept chunks, with counts.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Facet {
+    pub label: String,
+    pub prefix: Option<String>,
+    pub values: Vec<(String, usize)>,
+}
+
+impl Session {
+    /// The facet-role fields counted over the chunks `keep` accepts (all
+    /// when `None`), each with its `top` most frequent values.
+    pub fn facets(&self, keep: Option<&urna_engine::scalars::Bitset>, top: usize) -> Vec<Facet> {
+        let Some(s) = self.scalars() else {
+            return Vec::new();
+        };
+        let n = s.table.n_rows;
+        s.schema
+            .iter()
+            .filter(|f| f.has_role("facet"))
+            .filter_map(|f| {
+                let c = s.table.column(&f.name)?;
+                let dict = c.data.dictionary()?;
+                let mut counts = vec![0usize; dict.values.len()];
+                for i in (0..n).filter(|&i| keep.is_none_or(|k| k.get(i))) {
+                    if !c.present(i) {
+                        continue;
+                    }
+                    for &code in c.data.codes_at(i) {
+                        if let Some(slot) = counts.get_mut(code as usize) {
+                            *slot += 1;
+                        }
+                    }
+                }
+                let mut values: Vec<(String, usize)> = dict
+                    .values
+                    .iter()
+                    .zip(counts)
+                    .filter(|(_, c)| *c > 0)
+                    .map(|(v, c)| (v.clone(), c))
+                    .collect();
+                values.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+                values.truncate(top);
+                Some(Facet {
+                    label: f.label.clone().unwrap_or_else(|| f.name.clone()),
+                    prefix: f.prefix.clone(),
+                    values,
+                })
+            })
+            .collect()
+    }
+}
+
 /// The schema fields that name a chunk, in schema order.
 pub fn label_fields(schema: &[SchemaField]) -> Vec<&SchemaField> {
     schema

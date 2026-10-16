@@ -76,12 +76,27 @@ pub fn render(buf: &mut Buffer, body: Rect, ask: &mut Ask, spinner: &str) {
         pal::faint()
     };
     hud::put(buf, qrect.x, status_y, &status, st, qrect.width);
-    let rest = Rect::new(
-        body.x,
-        status_y + 1,
-        body.width,
-        body.bottom().saturating_sub(status_y + 1),
-    );
+    // the facets of the kept set, one line, when the corpus declares any.
+    let mut top = status_y + 1;
+    if !ask.facets.is_empty() && body.height > 12 {
+        let line = ask
+            .facets
+            .iter()
+            .map(|f| {
+                let key = f.prefix.as_deref().unwrap_or(f.label.as_str());
+                let values: Vec<String> = f
+                    .values
+                    .iter()
+                    .map(|(v, c)| format!("{} {}", v.replace('_', " "), short(*c)))
+                    .collect();
+                format!("{key}: {}", values.join(" · "))
+            })
+            .collect::<Vec<_>>()
+            .join("   ");
+        hud::put(buf, qrect.x, top, &line, pal::dim(), qrect.width);
+        top += 1;
+    }
+    let rest = Rect::new(body.x, top, body.width, body.bottom().saturating_sub(top));
     if rest.height < 3 {
         return;
     }
@@ -308,6 +323,16 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
         ],
         inner.width,
     );
+}
+
+/// A count in at most four characters: `987`, `12k`, `1.2M`.
+fn short(n: usize) -> String {
+    match n {
+        0..=999 => n.to_string(),
+        1_000..=9_999 => format!("{:.1}k", n as f64 / 1e3),
+        10_000..=999_999 => format!("{}k", n / 1_000),
+        _ => format!("{:.1}M", n as f64 / 1e6),
+    }
 }
 
 /// Rows `text` takes when word-wrapped at `width` (close enough to the

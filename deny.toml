@@ -31,6 +31,9 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
+    # a public-domain dedication, not a copyleft: the rule above is about
+    # copyleft, so saying it here keeps the rule honest (#608).
+    "CC0-1.0",
 ]
 confidence-threshold = 0.8
 # the allowlist is shared by three workspaces; a license unused by one of
