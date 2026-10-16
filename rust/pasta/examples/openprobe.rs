@@ -12,7 +12,10 @@ fn main() {
     println!("page in        {:>7.0} ms", t.elapsed().as_secs_f64() * 1e3);
     let t = Instant::now();
     let view = urna_format::reader::UrnaView::from_bytes(&mmap).expect("view");
-    println!("from_bytes     {:>7.0} ms  (section checksums + footer hash)", t.elapsed().as_secs_f64() * 1e3);
+    println!(
+        "from_bytes     {:>7.0} ms  (section checksums + footer hash)",
+        t.elapsed().as_secs_f64() * 1e3
+    );
     let t = Instant::now();
     let _ = view.file_hash_hex();
     println!("file_hash      {:>7.0} ms", t.elapsed().as_secs_f64() * 1e3);
@@ -21,5 +24,8 @@ fn main() {
     println!("content_hash   {:>7.0} ms", t.elapsed().as_secs_f64() * 1e3);
     let t = Instant::now();
     let _ = urna_engine::MmapUrnaFile::open(std::path::Path::new(&path)).expect("runtime");
-    println!("runtime open   {:>7.0} ms  (everything, warm cache)", t.elapsed().as_secs_f64() * 1e3);
+    println!(
+        "runtime open   {:>7.0} ms  (everything, warm cache)",
+        t.elapsed().as_secs_f64() * 1e3
+    );
 }

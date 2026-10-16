@@ -58,7 +58,10 @@ impl Card {
     }
 
     pub fn legal_in(&self, format: &str) -> bool {
-        matches!(self.legal.get(format).map(String::as_str), Some("legal" | "restricted"))
+        matches!(
+            self.legal.get(format).map(String::as_str),
+            Some("legal" | "restricted")
+        )
     }
 }
 

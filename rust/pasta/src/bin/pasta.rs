@@ -56,7 +56,13 @@ fn main() {
                 println!("c {rest:?} · {:.2} ms", ms(t0));
                 for x in s {
                     let pt = x.pt_name.map(|p| format!(" ({p})")).unwrap_or_default();
-                    println!("  {:>5}  {}{}{}", x.ordinal, x.name, pt, if x.via_pt { "  ← pt" } else { "" });
+                    println!(
+                        "  {:>5}  {}{}{}",
+                        x.ordinal,
+                        x.name,
+                        pt,
+                        if x.via_pt { "  ← pt" } else { "" }
+                    );
                 }
             }
             "s" => {
@@ -81,7 +87,12 @@ fn main() {
                     Err(e) => println!("s error: {e}"),
                 }
             }
-            "card" => match rest.trim().parse::<usize>().ok().and_then(|o| pasta.card(o)) {
+            "card" => match rest
+                .trim()
+                .parse::<usize>()
+                .ok()
+                .and_then(|o| pasta.card(o))
+            {
                 Some(c) => println!("{c:#?}"),
                 None => println!("card: no such ordinal"),
             },
@@ -91,7 +102,9 @@ fn main() {
                 let path = it.next().unwrap_or("card.avif");
                 match ord.and_then(|o| pasta.image(o)) {
                     Some(bytes) => match std::fs::write(path, bytes) {
-                        Ok(()) => println!("img {} bytes -> {path} · {:.2} ms", bytes.len(), ms(t0)),
+                        Ok(()) => {
+                            println!("img {} bytes -> {path} · {:.2} ms", bytes.len(), ms(t0))
+                        }
                         Err(e) => println!("img error: {e}"),
                     },
                     None => println!("img: no per-card image in this file"),

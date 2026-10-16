@@ -18,9 +18,17 @@ fn main() {
             std::process::exit(1);
         }
     };
-    let all: Vec<(usize, String)> =
-        p.cards().iter().filter(|c| c.playable()).map(|c| (c.ordinal, c.name.clone())).collect();
-    let want = a.get(3).and_then(|n| n.to_str()?.parse::<usize>().ok()).unwrap_or(all.len()).max(1);
+    let all: Vec<(usize, String)> = p
+        .cards()
+        .iter()
+        .filter(|c| c.playable())
+        .map(|c| (c.ordinal, c.name.clone()))
+        .collect();
+    let want = a
+        .get(3)
+        .and_then(|n| n.to_str()?.parse::<usize>().ok())
+        .unwrap_or(all.len())
+        .max(1);
     let stride = (all.len() / want).max(1);
     let names: Vec<(usize, String)> = all.into_iter().step_by(stride).collect();
     let (mut full_top1, mut search_top1, mut keys_to_top5) = (0usize, 0usize, Vec::new());
@@ -42,21 +50,45 @@ fn main() {
         if p.complete(name, 1).first().is_some_and(|x| x.name == *name) {
             full_top1 += 1;
         }
-        let hits = p.search(name, &pasta_core::Filter::default(), 1).expect("search");
-        if hits.first().is_some_and(|h| p.cards()[h.ordinal].name == *name || h.ordinal == *ord) {
+        let hits = p
+            .search(name, &pasta_core::Filter::default(), 1)
+            .expect("search");
+        if hits
+            .first()
+            .is_some_and(|h| p.cards()[h.ordinal].name == *name || h.ordinal == *ord)
+        {
             search_top1 += 1;
         }
     }
     lat.sort_by(f64::total_cmp);
     let n = names.len();
-    let reached: Vec<usize> = keys_to_top5.iter().copied().filter(|k| *k != usize::MAX).collect();
+    let reached: Vec<usize> = keys_to_top5
+        .iter()
+        .copied()
+        .filter(|k| *k != usize::MAX)
+        .collect();
     let mut sorted = reached.clone();
     sorted.sort_unstable();
     println!("playable cards evaluated: {n} (stride {stride})");
-    println!("full name -> 1st suggestion: {full_top1} ({:.4})", full_top1 as f64 / n as f64);
-    println!("name search -> 1st hit: {search_top1} ({:.4})", search_top1 as f64 / n as f64);
-    println!("keystrokes until the card is in the top 5: median {} p90 {} never {}",
-        sorted[sorted.len() / 2], sorted[sorted.len() * 9 / 10], n - reached.len());
-    println!("keystroke latency over {} calls: p50 {:.2} ms p99 {:.2} ms max {:.2} ms",
-        lat.len(), lat[lat.len() / 2], lat[lat.len() * 99 / 100], lat[lat.len() - 1]);
+    println!(
+        "full name -> 1st suggestion: {full_top1} ({:.4})",
+        full_top1 as f64 / n as f64
+    );
+    println!(
+        "name search -> 1st hit: {search_top1} ({:.4})",
+        search_top1 as f64 / n as f64
+    );
+    println!(
+        "keystrokes until the card is in the top 5: median {} p90 {} never {}",
+        sorted[sorted.len() / 2],
+        sorted[sorted.len() * 9 / 10],
+        n - reached.len()
+    );
+    println!(
+        "keystroke latency over {} calls: p50 {:.2} ms p99 {:.2} ms max {:.2} ms",
+        lat.len(),
+        lat[lat.len() / 2],
+        lat[lat.len() * 99 / 100],
+        lat[lat.len() - 1]
+    );
 }

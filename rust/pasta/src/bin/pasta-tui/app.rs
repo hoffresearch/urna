@@ -78,7 +78,13 @@ impl<'a> App<'a> {
         if q.is_empty() {
             self.mode = Mode::Browse;
             let hits = self.pasta.search("", &filter, 60).unwrap_or_default();
-            self.rows = hits.into_iter().map(|h| Row { ordinal: h.ordinal, score: None }).collect();
+            self.rows = hits
+                .into_iter()
+                .map(|h| Row {
+                    ordinal: h.ordinal,
+                    score: None,
+                })
+                .collect();
         } else {
             self.mode = Mode::Suggest;
             self.rows = self
@@ -86,7 +92,10 @@ impl<'a> App<'a> {
                 .complete(&q, 30)
                 .into_iter()
                 .filter(|s| filter.keeps(&self.pasta.cards()[s.ordinal]))
-                .map(|s| Row { ordinal: s.ordinal, score: None })
+                .map(|s| Row {
+                    ordinal: s.ordinal,
+                    score: None,
+                })
                 .collect();
         }
         self.last_ms = t.elapsed().as_secs_f64() * 1000.0;
@@ -97,9 +106,19 @@ impl<'a> App<'a> {
         let t = Instant::now();
         let (q, filter) = self.split_input();
         if let Ok(hits) = self.pasta.search(&q, &filter, 60) {
-            self.rows = hits.into_iter().map(|h| Row { ordinal: h.ordinal, score: Some(h.score) }).collect();
+            self.rows = hits
+                .into_iter()
+                .map(|h| Row {
+                    ordinal: h.ordinal,
+                    score: Some(h.score),
+                })
+                .collect();
         }
-        self.mode = if q.is_empty() { Mode::Browse } else { Mode::Results };
+        self.mode = if q.is_empty() {
+            Mode::Browse
+        } else {
+            Mode::Results
+        };
         self.last_ms = t.elapsed().as_secs_f64() * 1000.0;
         self.sel = 0;
     }
@@ -119,11 +138,22 @@ impl<'a> App<'a> {
         }
         let t = Instant::now();
         let (image, rgba, error) = match self.pasta.decode_image(ordinal) {
-            Ok(img) => (Some(self.picker.new_resize_protocol(img.clone())), Some(img.to_rgba8()), None),
+            Ok(img) => (
+                Some(self.picker.new_resize_protocol(img.clone())),
+                Some(img.to_rgba8()),
+                None,
+            ),
             Err(e) => (None, None, Some(e.to_string())),
         };
         let decode_ms = t.elapsed().as_secs_f64() * 1000.0;
-        self.shown = Some(Shown { ordinal, image, rgba, blocks: None, decode_ms, error });
+        self.shown = Some(Shown {
+            ordinal,
+            image,
+            rgba,
+            blocks: None,
+            decode_ms,
+            error,
+        });
     }
 
     pub fn key(&mut self, k: KeyEvent) {
@@ -150,7 +180,11 @@ impl<'a> App<'a> {
             KeyCode::Enter => self.search(),
             KeyCode::Tab => {
                 if let Some(o) = self.selected() {
-                    let filters = self.input.split_once('|').map(|(_, f)| format!(" |{f}")).unwrap_or_default();
+                    let filters = self
+                        .input
+                        .split_once('|')
+                        .map(|(_, f)| format!(" |{f}"))
+                        .unwrap_or_default();
                     self.input = format!("{}{}", self.pasta.cards()[o].name, filters);
                     self.search();
                 }

@@ -31,8 +31,14 @@ fn cell_size() -> ratatui_image::FontSize {
     crossterm::terminal::window_size()
         .ok()
         .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
-        .map(|w| ratatui_image::FontSize { width: w.width / w.columns, height: w.height / w.rows })
-        .unwrap_or(ratatui_image::FontSize { width: 10, height: 20 })
+        .map(|w| ratatui_image::FontSize {
+            width: w.width / w.columns,
+            height: w.height / w.rows,
+        })
+        .unwrap_or(ratatui_image::FontSize {
+            width: 10,
+            height: 20,
+        })
 }
 
 /// Kitty's protocol in kitty and ghostty, iTerm2's in iTerm2 and WezTerm,
@@ -44,7 +50,8 @@ fn from_env() -> ProtocolType {
         ProtocolType::Halfblocks
     } else if !var("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
         ProtocolType::Kitty
-    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm") {
+    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm")
+    {
         ProtocolType::Iterm2
     } else {
         ProtocolType::Halfblocks
@@ -52,14 +59,24 @@ fn from_env() -> ProtocolType {
 }
 
 fn flag(args: &[String], name: &str) -> Option<String> {
-    args.iter().position(|a| a == name).and_then(|i| args.get(i + 1).cloned())
+    args.iter()
+        .position(|a| a == name)
+        .and_then(|i| args.get(i + 1).cloned())
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let paths: Vec<PathBuf> = args.iter().skip(1).filter(|a| !a.starts_with("--")).take(3).map(PathBuf::from).collect();
+    let paths: Vec<PathBuf> = args
+        .iter()
+        .skip(1)
+        .filter(|a| !a.starts_with("--"))
+        .take(3)
+        .map(PathBuf::from)
+        .collect();
     if paths.len() != 3 {
-        eprintln!("usage: pasta-tui FILE.urna FIELDS POTION_DIR [--graphics auto|halfblocks|sixel|kitty|iterm] [--snapshot QUERY]");
+        eprintln!(
+            "usage: pasta-tui FILE.urna FIELDS POTION_DIR [--graphics auto|halfblocks|sixel|kitty|iterm] [--snapshot QUERY]"
+        );
         std::process::exit(2);
     }
     eprintln!("abrindo {} …", paths[0].display());
@@ -83,7 +100,12 @@ fn main() {
     // avoids; it is the constructor that takes a known cell size.
     #[allow(deprecated)]
     let mut picker = Picker::from_fontsize(cell_size());
-    picker.set_protocol_type(flag(&args, "--graphics").as_deref().and_then(forced).unwrap_or_else(from_env));
+    picker.set_protocol_type(
+        flag(&args, "--graphics")
+            .as_deref()
+            .and_then(forced)
+            .unwrap_or_else(from_env),
+    );
     let mut app = app::App::new(&pasta, picker);
     let result = run(&mut terminal, &mut app);
     ratatui::restore();
@@ -132,7 +154,9 @@ fn snapshot(pasta: &Pasta, query: &str) {
     terminal.draw(|f| view::draw(f, &mut app)).expect("draw");
     let buf = terminal.backend().buffer();
     for y in 0..buf.area.height {
-        let line: String = (0..buf.area.width).map(|x| buf[(x, y)].symbol().to_string()).collect();
+        let line: String = (0..buf.area.width)
+            .map(|x| buf[(x, y)].symbol().to_string())
+            .collect();
         println!("{line}");
     }
 }

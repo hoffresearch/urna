@@ -32,6 +32,9 @@ struct Entry {
     popularity: u32,
 }
 
+/// (playable, tier, popularity in name tiers, score, -len): sorted descending.
+type Rank = (bool, u8, u32, u32, i64);
+
 pub struct Completer {
     entries: Vec<Entry>,
     matcher: Mutex<Matcher>,
@@ -39,7 +42,10 @@ pub struct Completer {
 
 /// Lowercase with the accents dropped: `Relâmpago` -> `relampago`.
 pub fn fold(s: &str) -> String {
-    s.chars().map(nucleo_matcher::chars::normalize).flat_map(char::to_lowercase).collect()
+    s.chars()
+        .map(nucleo_matcher::chars::normalize)
+        .flat_map(char::to_lowercase)
+        .collect()
 }
 
 impl Completer {
@@ -47,8 +53,12 @@ impl Completer {
         let mut entries = Vec::with_capacity(cards.len() * 2);
         // art-series repeat a real card's name and alchemy cards are digital:
         // neither belongs in a name list.
-        for c in cards.iter().filter(|c| !matches!(c.kind, Kind::ArtSeries | Kind::Alchemy)) {
-            let names = std::iter::once((&c.name, false)).chain(c.pt_name.as_ref().map(|p| (p, true)));
+        for c in cards
+            .iter()
+            .filter(|c| !matches!(c.kind, Kind::ArtSeries | Kind::Alchemy))
+        {
+            let names =
+                std::iter::once((&c.name, false)).chain(c.pt_name.as_ref().map(|p| (p, true)));
             for (name, via_pt) in names {
                 entries.push(Entry {
                     ordinal: c.ordinal,
@@ -60,7 +70,10 @@ impl Completer {
                 });
             }
         }
-        Self { entries, matcher: Mutex::new(Matcher::new(Config::DEFAULT)) }
+        Self {
+            entries,
+            matcher: Mutex::new(Matcher::new(Config::DEFAULT)),
+        }
     }
 
     pub fn complete(&self, cards: &[Card], query: &str, k: usize) -> Vec<Suggestion> {
@@ -73,10 +86,11 @@ impl Completer {
             Ok(m) => m,
             Err(poisoned) => poisoned.into_inner(),
         };
-        // (playable, tier, popularity in name tiers, score, -len).
-        let mut scored: Vec<((bool, u8, u32, u32, i64), &Entry)> = Vec::new();
+        let mut scored: Vec<(Rank, &Entry)> = Vec::new();
         for e in &self.entries {
-            let Some(score) = pattern.score(e.hay.slice(..), &mut matcher) else { continue };
+            let Some(score) = pattern.score(e.hay.slice(..), &mut matcher) else {
+                continue;
+            };
             let tier = if e.folded == q {
                 3
             } else if e.folded.starts_with(&q) {
@@ -87,7 +101,16 @@ impl Completer {
                 0
             };
             let popularity = if tier > 0 { e.popularity } else { 0 };
-            scored.push(((e.playable, tier, popularity, score, -(e.folded.len() as i64)), e));
+            scored.push((
+                (
+                    e.playable,
+                    tier,
+                    popularity,
+                    score,
+                    -(e.folded.len() as i64),
+                ),
+                e,
+            ));
         }
         scored.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.ordinal.cmp(&b.1.ordinal)));
 

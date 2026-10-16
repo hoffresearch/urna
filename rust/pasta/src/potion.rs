@@ -28,7 +28,13 @@ impl Potion {
         let (table, dim) = read_table(&dir.join("model.safetensors"))?;
         let unk = tok.token_to_id("[UNK]").unwrap_or(1);
         let model_hash = model_hash(dir, dim)?;
-        Ok(Self { tok, table, dim, unk, model_hash })
+        Ok(Self {
+            tok,
+            table,
+            dim,
+            unk,
+            model_hash,
+        })
     }
 
     pub fn model_hash(&self) -> &str {
@@ -40,7 +46,11 @@ impl Potion {
             .tok
             .encode(text, false)
             .map_err(|e| Error::Model(format!("tokenize: {e}")))?;
-        let ids: Vec<u32> = if enc.get_ids().is_empty() { vec![self.unk] } else { enc.get_ids().to_vec() };
+        let ids: Vec<u32> = if enc.get_ids().is_empty() {
+            vec![self.unk]
+        } else {
+            enc.get_ids().to_vec()
+        };
         let mut v = vec![0f32; self.dim];
         for id in &ids {
             let row = &self.table[*id as usize * self.dim..(*id as usize + 1) * self.dim];
@@ -58,22 +68,39 @@ impl Potion {
 
 /// The single F32 `embeddings` tensor of a safetensors file.
 fn read_table(path: &Path) -> Result<(Vec<f32>, usize), Error> {
-    let bytes = std::fs::read(path).map_err(|e| Error::Model(format!("{}: {e}", path.display())))?;
+    let bytes =
+        std::fs::read(path).map_err(|e| Error::Model(format!("{}: {e}", path.display())))?;
     let bad = |why: &str| Error::Model(format!("{}: {why}", path.display()));
-    let n = u64::from_le_bytes(bytes.get(..8).ok_or_else(|| bad("truncated"))?.try_into().map_err(|_| bad("header"))?) as usize;
+    let n = u64::from_le_bytes(
+        bytes
+            .get(..8)
+            .ok_or_else(|| bad("truncated"))?
+            .try_into()
+            .map_err(|_| bad("header"))?,
+    ) as usize;
     let header: serde_json::Value =
-        serde_json::from_slice(bytes.get(8..8 + n).ok_or_else(|| bad("truncated header"))?).map_err(|_| bad("header json"))?;
+        serde_json::from_slice(bytes.get(8..8 + n).ok_or_else(|| bad("truncated header"))?)
+            .map_err(|_| bad("header json"))?;
     let t = &header["embeddings"];
     if t["dtype"] != "F32" {
         return Err(bad("embeddings is not F32"));
     }
     let dim = t["shape"][1].as_u64().ok_or_else(|| bad("shape"))? as usize;
     let (a, b) = (
-        t["data_offsets"][0].as_u64().ok_or_else(|| bad("offsets"))? as usize,
-        t["data_offsets"][1].as_u64().ok_or_else(|| bad("offsets"))? as usize,
+        t["data_offsets"][0]
+            .as_u64()
+            .ok_or_else(|| bad("offsets"))? as usize,
+        t["data_offsets"][1]
+            .as_u64()
+            .ok_or_else(|| bad("offsets"))? as usize,
     );
-    let data = bytes.get(8 + n + a..8 + n + b).ok_or_else(|| bad("data out of range"))?;
-    let table = data.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect();
+    let data = bytes
+        .get(8 + n + a..8 + n + b)
+        .ok_or_else(|| bad("data out of range"))?;
+    let table = data
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
     Ok((table, dim))
 }
 
@@ -92,13 +119,17 @@ fn model_hash(dir: &Path, dim: usize) -> Result<String, Error> {
         "tokenizer_hash": tokenizer_hash(dir)?,
         "version": POTION_VERSION,
     });
-    Ok(format!("sha256:{}", hex::encode(Sha256::digest(fp.to_string().as_bytes()))))
+    Ok(format!(
+        "sha256:{}",
+        hex::encode(Sha256::digest(fp.to_string().as_bytes()))
+    ))
 }
 
 const RELEVANT_FILES: [&str; 3] = ["config.json", "tokenizer.json", "model.safetensors"];
 
 fn sha256_file(path: &Path) -> Result<String, Error> {
-    let bytes = std::fs::read(path).map_err(|e| Error::Model(format!("{}: {e}", path.display())))?;
+    let bytes =
+        std::fs::read(path).map_err(|e| Error::Model(format!("{}: {e}", path.display())))?;
     Ok(hex::encode(Sha256::digest(&bytes)))
 }
 
@@ -119,5 +150,8 @@ fn files_hash(dir: &Path) -> Result<String, Error> {
 }
 
 fn tokenizer_hash(dir: &Path) -> Result<String, Error> {
-    Ok(format!("sha256:{}", sha256_file(&dir.join("tokenizer.json"))?))
+    Ok(format!(
+        "sha256:{}",
+        sha256_file(&dir.join("tokenizer.json"))?
+    ))
 }

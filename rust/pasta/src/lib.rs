@@ -71,12 +71,23 @@ impl Pasta {
         let fields_ms = ms(t);
 
         let t = Instant::now();
-        let by_chunk_id = file.chunk_ids().iter().enumerate().map(|(i, id)| (id.clone(), i)).collect();
+        let by_chunk_id = file
+            .chunk_ids()
+            .iter()
+            .enumerate()
+            .map(|(i, id)| (id.clone(), i))
+            .collect();
         let mut by_name: HashMap<String, Vec<usize>> = HashMap::new();
         for c in &cards {
-            by_name.entry(complete::fold(&c.name)).or_default().push(c.ordinal);
+            by_name
+                .entry(complete::fold(&c.name))
+                .or_default()
+                .push(c.ordinal);
             if let Some(pt) = &c.pt_name {
-                by_name.entry(complete::fold(pt)).or_default().push(c.ordinal);
+                by_name
+                    .entry(complete::fold(pt))
+                    .or_default()
+                    .push(c.ordinal);
             }
         }
         let blob_of = blob_index(&file, cards.len());
@@ -86,7 +97,10 @@ impl Pasta {
         let t = Instant::now();
         let potion = potion::Potion::open(potion_dir)?;
         if potion.model_hash() != file.model_hash() {
-            return Err(Error::ModelMismatch { file: file.model_hash().into(), ours: potion.model_hash().into() });
+            return Err(Error::ModelMismatch {
+                file: file.model_hash().into(),
+                ours: potion.model_hash().into(),
+            });
         }
         let potion_ms = ms(t);
 
@@ -98,7 +112,12 @@ impl Pasta {
             blob_of,
             completer,
             potion,
-            timings: Timings { open_ms, fields_ms, index_ms, potion_ms },
+            timings: Timings {
+                open_ms,
+                fields_ms,
+                index_ms,
+                potion_ms,
+            },
         })
     }
 
@@ -124,17 +143,36 @@ impl Pasta {
         }
         let mut hits: Vec<Hit> = Vec::with_capacity(k);
         if let Some(named) = self.by_name.get(&complete::fold(query)) {
-            let named = named.iter().copied().filter(|o| filter.keeps(&self.cards[*o]));
-            hits.extend(named.map(|ordinal| Hit { ordinal, score: 1.0, via: "name" }));
+            let named = named
+                .iter()
+                .copied()
+                .filter(|o| filter.keeps(&self.cards[*o]));
+            hits.extend(named.map(|ordinal| Hit {
+                ordinal,
+                score: 1.0,
+                via: "name",
+            }));
         }
         let vec = self.potion.embed(query)?;
         // filters drop rows after the rerank, so a narrow filter fetches more.
-        let over = if filter.is_default() { (k * 4).max(40) } else { (k * 40).max(400) };
-        let res = self.file.search_hybrid(&vec, query, over as i32, over.min(256))?;
+        let over = if filter.is_default() {
+            (k * 4).max(40)
+        } else {
+            (k * 40).max(400)
+        };
+        let res = self
+            .file
+            .search_hybrid(&vec, query, over as i32, over.min(256))?;
         for h in res.hits {
-            let Some(&ordinal) = self.by_chunk_id.get(&h.chunk_id) else { continue };
+            let Some(&ordinal) = self.by_chunk_id.get(&h.chunk_id) else {
+                continue;
+            };
             if filter.keeps(&self.cards[ordinal]) && !hits.iter().any(|x| x.ordinal == ordinal) {
-                hits.push(Hit { ordinal, score: h.score, via: "hybrid" });
+                hits.push(Hit {
+                    ordinal,
+                    score: h.score,
+                    via: "hybrid",
+                });
             }
         }
         hits.truncate(k);
@@ -144,7 +182,14 @@ impl Pasta {
     fn browse(&self, filter: &Filter, k: usize) -> Vec<Hit> {
         let mut kept: Vec<&Card> = self.cards.iter().filter(|c| filter.keeps(c)).collect();
         kept.sort_by_key(|c| (c.edhrec_rank.unwrap_or(u32::MAX), c.ordinal));
-        kept.into_iter().take(k).map(|c| Hit { ordinal: c.ordinal, score: 0.0, via: "browse" }).collect()
+        kept.into_iter()
+            .take(k)
+            .map(|c| Hit {
+                ordinal: c.ordinal,
+                score: 0.0,
+                via: "browse",
+            })
+            .collect()
     }
 
     /// The card's image as stored: AVIF bytes, sliced off the mmap with no
@@ -159,7 +204,9 @@ impl Pasta {
     /// desktop and the terminal.
     #[cfg(feature = "decode")]
     pub fn decode_image(&self, ordinal: usize) -> Result<image::DynamicImage, Error> {
-        let bytes = self.image(ordinal).ok_or_else(|| Error::Media(format!("no image for card {ordinal}")))?;
+        let bytes = self
+            .image(ordinal)
+            .ok_or_else(|| Error::Media(format!("no image for card {ordinal}")))?;
         image::load_from_memory_with_format(bytes, image::ImageFormat::Avif)
             .map_err(|e| Error::Media(format!("card {ordinal}: {e}")))
     }
@@ -168,12 +215,16 @@ impl Pasta {
 fn read_fields(path: &Path, content_hash: &str, n: usize) -> Result<Vec<Card>, Error> {
     let raw = std::fs::read(path).map_err(|e| Error::Fields(format!("{}: {e}", path.display())))?;
     let json = zstd::decode_all(raw.as_slice()).map_err(|e| Error::Fields(format!("zstd: {e}")))?;
-    let doc: card::FieldsFile = serde_json::from_slice(&json).map_err(|e| Error::Fields(format!("json: {e}")))?;
+    let doc: card::FieldsFile =
+        serde_json::from_slice(&json).map_err(|e| Error::Fields(format!("json: {e}")))?;
     if doc.format != "pasta-fields/1" {
         return Err(Error::Fields(format!("unknown format {}", doc.format)));
     }
     if doc.content_hash != content_hash {
-        return Err(Error::ContentMismatch { fields: doc.content_hash, urna: content_hash.into() });
+        return Err(Error::ContentMismatch {
+            fields: doc.content_hash,
+            urna: content_hash.into(),
+        });
     }
     if doc.cards.len() != n || doc.cards.iter().enumerate().any(|(i, c)| c.ordinal != i) {
         return Err(Error::Fields(format!("expected ordinals 0..{n} in order")));
@@ -186,7 +237,11 @@ fn read_fields(path: &Path, content_hash: &str, n: usize) -> Result<Vec<Card>, E
 fn blob_index(file: &MmapUrnaFile, n: usize) -> Vec<Option<usize>> {
     let mut out = vec![None; n];
     for (i, r) in file.blob_refs().unwrap_or_default().iter().enumerate() {
-        let stem = r.original_uri.rsplit('/').next().and_then(|f| f.strip_suffix(".avif"));
+        let stem = r
+            .original_uri
+            .rsplit('/')
+            .next()
+            .and_then(|f| f.strip_suffix(".avif"));
         if let Some(o) = stem.and_then(|s| s.parse::<usize>().ok())
             && o < n
         {

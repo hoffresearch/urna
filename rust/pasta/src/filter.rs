@@ -27,7 +27,11 @@ impl Filter {
             } else if let Some(v) = part.strip_prefix("format=") {
                 f.format = Some(v.to_lowercase());
             } else if let Some(v) = part.strip_prefix("id=") {
-                f.identity_within = Some(v.chars().map(|c| c.to_ascii_uppercase().to_string()).collect());
+                f.identity_within = Some(
+                    v.chars()
+                        .map(|c| c.to_ascii_uppercase().to_string())
+                        .collect(),
+                );
             } else if let Some(v) = part.strip_prefix("cmc<=") {
                 f.max_cmc = v.parse().ok();
             } else if let Some(v) = part.strip_prefix("type=") {

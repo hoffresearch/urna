@@ -6,12 +6,12 @@ rust-version = "1.85"
 license = "MIT"
 publish = false
 
-# its own workspace: a demo app on top of urna-engine, outside the urna
-# workspace build and tests.
+# its own workspace, like rust/ingest: the card-search app on top of
+# urna-engine stays out of the urna workspace build and tests.
 [workspace]
 
 [dependencies]
-urna-engine = { path = "../../rust/engine" }
+urna-engine = { path = "../engine" }
 tokenizers = { version = "0.22", default-features = false, features = ["fancy-regex"] }
 nucleo-matcher = "0.3"
 serde = { version = "1", features = ["derive"] }
@@ -41,5 +41,5 @@ lto = "thin"
 codegen-units = 1
 
 [dev-dependencies]
-urna-format = { path = "../../rust/format" }
+urna-format = { path = "../format" }
 memmap2 = "0.9"
