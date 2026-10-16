@@ -18,7 +18,8 @@
 //!   bool      bitset, ceil(n_rows/8) bytes
 //!   text      intpack offsets (n_rows + 1) · utf-8 bytes
 //!   uuid      16 bytes per row (absent rows zero)
-//!   enum      dictionary · intpack codes, one per row (absent rows 0)
+//!   enum      dictionary · intpack codes, one per row (absent rows 0,
+//!             so a column with no value has an empty dictionary)
 //!   enum_list dictionary · intpack offsets (n_rows + 1) · intpack codes
 //! dictionary: u32 n · (u32 len · utf-8) × n · u8 has_numeric ·
 //!             [f64 × n, NaN = no value]
@@ -294,14 +295,18 @@ pub fn encode_chunk_scalars(table: &ScalarTable) -> Result<Vec<u8>, UrnaError> {
             }
             None => out.push(0),
         }
-        let body = encode_body(&c.data, n)?;
+        let body = encode_body(&c.data, n, c.validity.as_deref())?;
         out.extend_from_slice(&(body.len() as u32).to_le_bytes());
         out.extend_from_slice(&body);
     }
     Ok(out)
 }
 
-fn encode_body(data: &ColumnData, n: usize) -> Result<Vec<u8>, UrnaError> {
+fn encode_body(
+    data: &ColumnData,
+    n: usize,
+    validity: Option<&[bool]>,
+) -> Result<Vec<u8>, UrnaError> {
     let mut body = Vec::new();
     match data {
         ColumnData::Int(v) => {
@@ -333,7 +338,7 @@ fn encode_body(data: &ColumnData, n: usize) -> Result<Vec<u8>, UrnaError> {
             }
         }
         ColumnData::Enum { dict, codes } => {
-            check_codes(dict, codes)?;
+            check_codes(dict, codes, validity)?;
             push_dictionary(&mut body, dict)?;
             let packed: Vec<u64> = codes.iter().map(|&c| c as u64).collect();
             push_packed(&mut body, &packed);
@@ -343,7 +348,7 @@ fn encode_body(data: &ColumnData, n: usize) -> Result<Vec<u8>, UrnaError> {
             offsets,
             codes,
         } => {
-            check_codes(dict, codes)?;
+            check_codes(dict, codes, None)?;
             if offsets.len() != n + 1
                 || offsets.windows(2).any(|w| w[0] > w[1])
                 || offsets.last().is_some_and(|&l| l as usize != codes.len())
@@ -362,10 +367,19 @@ fn encode_body(data: &ColumnData, n: usize) -> Result<Vec<u8>, UrnaError> {
     Ok(body)
 }
 
-fn check_codes(dict: &Dictionary, codes: &[u32]) -> Result<(), UrnaError> {
+/// a present row's code indexes the dictionary; an absent row's is 0, the
+/// only code a column with no value at all (an empty dictionary) carries.
+pub(super) fn check_codes(
+    dict: &Dictionary,
+    codes: &[u32],
+    validity: Option<&[bool]>,
+) -> Result<(), UrnaError> {
     let n = dict.values.len() as u32;
-    if codes.iter().any(|&c| c >= n) {
-        return Err(malformed("an enum code is outside its dictionary"));
+    let present = |i: usize| validity.is_none_or(|v| v[i]);
+    for (i, &c) in codes.iter().enumerate() {
+        if if present(i) { c >= n } else { c != 0 } {
+            return Err(malformed(format!("code {c} outside a dictionary of {n}")));
+        }
     }
     Ok(())
 }

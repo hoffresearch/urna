@@ -432,4 +432,17 @@ mod tests {
         let bad: Vec<Value> = serde_json::from_str(r#"[{"cmc":"two"}]"#).expect("rows");
         assert!(build(&specs[4..5], &bad).is_err());
     }
+
+    #[test]
+    fn an_enum_with_no_value_in_any_row_round_trips() {
+        let specs: Vec<FieldSpec> =
+            serde_json::from_str(r#"[{"name":"loyalty","kind":"enum","numeric":true}]"#)
+                .expect("specs");
+        let rows: Vec<Value> = serde_json::from_str(r#"[{"loyalty":null},{}]"#).expect("rows");
+        let (table, _) = build(&specs, &rows).expect("builds");
+        let bytes = crate::sections::encode_chunk_scalars(&table).expect("encodes");
+        let back = crate::sections::decode_chunk_scalars(&bytes, 2).expect("decodes");
+        assert_eq!(back, table);
+        assert!(!back.columns[0].present(0) && !back.columns[0].present(1));
+    }
 }
