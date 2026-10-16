@@ -34,10 +34,17 @@ pub fn parse(line: &str, schema: &[SchemaField]) -> Result<ParsedQuery, RuntimeE
             _ => (false, raw.as_str()),
         };
         let Some((prefix, op, value)) = split_term(term) else {
-            free.push(unquote(term));
+            if negate && term.starts_with(|c: char| c.is_alphabetic() || c == '"') {
+                return Err(cannot_exclude(&raw));
+            }
+            // `-1/-1` is text, not a negation.
+            free.push(unquote(&raw));
             continue;
         };
         if prefix.eq_ignore_ascii_case("o") {
+            if negate {
+                return Err(cannot_exclude(&raw));
+            }
             free.push(unquote(value));
             continue;
         }
@@ -65,7 +72,7 @@ pub fn parse(line: &str, schema: &[SchemaField]) -> Result<ParsedQuery, RuntimeE
 fn predicate(field: &SchemaField, op: &str, value: &str) -> Result<Predicate, RuntimeError> {
     let column = field.name.clone();
     let numeric = matches!(field.kind.as_str(), "int" | "real")
-        || (field.kind == "enum" && op != ":" && op != "=");
+        || (field.kind == "enum" && matches!(op, ">=" | ">" | "<=" | "<"));
     if op != ":" && op != "=" && op != "!=" && !numeric {
         return Err(RuntimeError::Filter(format!(
             "{} takes `:` or `=`, not {op}",
@@ -81,8 +88,14 @@ fn predicate(field: &SchemaField, op: &str, value: &str) -> Result<Predicate, Ru
             column: format!("{column}.{}", value.to_lowercase()),
             value: "legal".into(),
         })),
-        ("enum_list", ":" | "=") => has_all(column, value),
-        ("enum_list", "!=") => Predicate::Not(Box::new(has_all(column, value))),
+        ("enum_list", ":" | "=") => Predicate::Has {
+            column,
+            value: value.into(),
+        },
+        ("enum_list", "!=") => Predicate::Not(Box::new(Predicate::Has {
+            column,
+            value: value.into(),
+        })),
         ("text", ":") => Predicate::Contains {
             column,
             value: value.into(),
@@ -144,51 +157,31 @@ fn predicate(field: &SchemaField, op: &str, value: &str) -> Result<Predicate, Ru
     })
 }
 
-/// a list value: `rg` on a single-letter dictionary means every letter,
-/// otherwise the whole value is one entry.
-fn has_all(column: String, value: &str) -> Predicate {
-    let letters: Vec<String> = value
-        .chars()
-        .map(|c| c.to_ascii_uppercase().to_string())
-        .collect();
-    if letters.len() > 1 && value.chars().all(|c| c.is_ascii_alphabetic()) && value.len() <= 5 {
-        let mut it = letters.into_iter().map(|v| Predicate::Has {
-            column: column.clone(),
-            value: v,
-        });
-        // fold into nested `and` through Not(Not(..))-free chaining: the
-        // Filter is an `and` already, so return a Has per letter via a
-        // synthetic all-of predicate.
-        let first = it.next().unwrap_or(Predicate::Present {
-            column: column.clone(),
-        });
-        it.fold(first, |acc, p| Predicate::All(vec![acc, p]))
-    } else {
-        Predicate::Has {
-            column,
-            value: value.into(),
-        }
-    }
+/// the search runs over the stored chunks and the scalar columns; there
+/// is no text column to exclude a free word or an `o:` phrase from.
+fn cannot_exclude(raw: &str) -> RuntimeError {
+    RuntimeError::Filter(format!(
+        "{raw}: `-` excludes on a prefixed column, not on free text or o:"
+    ))
 }
 
-/// `prefix`, operator and value of a term, when it has an operator.
+/// `prefix`, operator and value of a term, split at its first operator
+/// (`>=` before `>` at the same place), so a value may hold operators.
 fn split_term(term: &str) -> Option<(&str, &str, &str)> {
-    for op in [">=", "<=", "!=", ":", "=", ">", "<"] {
-        if let Some(i) = term.find(op) {
-            let (prefix, rest) = term.split_at(i);
-            let value = &rest[op.len()..];
-            if !prefix.is_empty()
-                && prefix
-                    .chars()
-                    .all(|c| c.is_ascii_alphanumeric() || c == '_')
-                && !value.is_empty()
-            {
-                return Some((prefix, op, value));
-            }
-            return None;
-        }
-    }
-    None
+    let (i, op) = term.char_indices().find_map(|(i, _)| {
+        [">=", "<=", "!=", ":", "=", ">", "<"]
+            .into_iter()
+            .find(|op| term[i..].starts_with(op))
+            .map(|op| (i, op))
+    })?;
+    let (prefix, rest) = term.split_at(i);
+    let value = &rest[op.len()..];
+    let valid = !prefix.is_empty()
+        && prefix
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_')
+        && !value.is_empty();
+    valid.then_some((prefix, op, value))
 }
 
 fn unquote(s: &str) -> String {
@@ -241,6 +234,7 @@ mod tests {
             f("cmc", "real", "cmc"),
             f("rarity", "enum", "r"),
             f("legal", "enum_map", "f"),
+            f("keywords", "enum_list", "kw"),
         ]
     }
 
@@ -260,7 +254,13 @@ mod tests {
                 value: "creature".into()
             }
         );
-        assert!(matches!(&q.filter.predicates[1], Predicate::All(v) if v.len() == 2));
+        assert_eq!(
+            q.filter.predicates[1],
+            Predicate::Has {
+                column: "colors".into(),
+                value: "rg".into()
+            }
+        );
         assert_eq!(
             q.filter.predicates[2],
             Predicate::Range {
@@ -291,5 +291,43 @@ mod tests {
             parse("lightning bolt", &schema()).expect("free").text,
             "lightning bolt"
         );
+    }
+
+    #[test]
+    fn a_list_word_stays_whole_and_not_equal_on_an_enum_is_not_a_range() {
+        let one = |line: &str| parse(line, &schema()).expect("parses").filter.predicates[0].clone();
+        assert_eq!(
+            one("kw:haste"),
+            Predicate::Has {
+                column: "keywords".into(),
+                value: "haste".into()
+            }
+        );
+        let not_eq = |column: &str, value: &str| {
+            Predicate::Not(Box::new(Predicate::Eq {
+                column: column.into(),
+                value: value.into(),
+            }))
+        };
+        assert_eq!(one("r!=common"), not_eq("rarity", "common"));
+        assert_eq!(one("pow!=*"), not_eq("power", "*"));
+    }
+
+    #[test]
+    fn a_negation_without_a_column_is_an_error_not_a_dropped_sign() {
+        assert!(parse("t:creature -o:flying", &schema()).is_err());
+        assert!(parse("-bolt", &schema()).is_err());
+        assert!(parse(r#"-"lightning bolt""#, &schema()).is_err());
+        assert_eq!(
+            parse("-1/-1 counter", &schema()).expect("text").text,
+            "-1/-1 counter"
+        );
+    }
+
+    #[test]
+    fn the_first_operator_splits_the_term() {
+        let q = parse(r#"o:"x >= 3" cmc>=2"#, &schema()).expect("parses");
+        assert_eq!(q.text, "x >= 3");
+        assert_eq!(q.filter.predicates.len(), 1);
     }
 }

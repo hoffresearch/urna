@@ -22,7 +22,8 @@ pub enum Predicate {
         column: String,
         value: String,
     },
-    /// a list column holds `value`.
+    /// a list column holds `value`; on a dictionary of single letters a
+    /// longer value holds each of its letters (`rg`).
     Has {
         column: String,
         value: String,
@@ -153,8 +154,21 @@ fn eval(p: &Predicate, table: &ScalarTable, n: usize) -> Result<Bitset, RuntimeE
             let ColumnData::EnumList { dict, .. } = &c.data else {
                 return Err(err(format!("{name} is not a list column")));
             };
+            let held = |code: u32| Bitset::from_fn(n, |i| c.data.codes_at(i).contains(&code));
             match code_of(dict, value) {
-                Some(code) => Bitset::from_fn(n, |i| c.data.codes_at(i).contains(&code)),
+                Some(code) => held(code),
+                // `rg` on a dictionary of single letters (colors) holds
+                // every letter; any letter the dictionary lacks keeps none.
+                None if dict.values.iter().all(|v| v.chars().count() == 1) => {
+                    let mut b = Bitset::full(n);
+                    for ch in value.chars() {
+                        match code_of(dict, ch.encode_utf8(&mut [0; 4])) {
+                            Some(code) => b.and(&held(code)),
+                            None => return Ok(Bitset::empty(n)),
+                        }
+                    }
+                    b
+                }
                 None => Bitset::empty(n),
             }
         }
@@ -249,8 +263,8 @@ mod tests {
                             values: vec!["G".into(), "R".into()],
                             numeric: None,
                         },
-                        offsets: vec![0, 1, 2, 3, 3],
-                        codes: vec![0, 1, 0],
+                        offsets: vec![0, 1, 2, 4, 4],
+                        codes: vec![0, 1, 0, 1],
                     },
                 },
                 Column {
@@ -291,6 +305,13 @@ mod tests {
             ones(Filter::default().and(Predicate::Not(Box::new(green)))),
             vec![1, 3]
         );
+        let has = |v: &str| Predicate::Has {
+            column: "colors".into(),
+            value: v.into(),
+        };
+        assert_eq!(ones(Filter::default().and(has("rg"))), vec![2]);
+        assert_eq!(ones(Filter::default().and(has("g"))), vec![0, 2]);
+        assert_eq!(ones(Filter::default().and(has("gx"))), Vec::<usize>::new());
         let cmc1 = Predicate::Eq {
             column: "cmc".into(),
             value: "1".into(),
