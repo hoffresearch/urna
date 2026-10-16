@@ -343,6 +343,14 @@ pub enum Commands {
         /// Open on the ask tab with this question already asked.
         #[arg(long, value_name = "QUERY")]
         ask: Option<String>,
+        /// No terminal: ask QUERY, draw one 120x40 frame of the ask tab as
+        /// text and exit. needs the card fields beside FILE.
+        #[arg(long, value_name = "QUERY", conflicts_with = "ask", requires = "file")]
+        snapshot: Option<String>,
+        /// No terminal: type N playable cards' names key by key and search
+        /// each, report the ranks and latencies, exit. needs the card fields.
+        #[arg(long, value_name = "N", conflicts_with_all = ["ask", "snapshot"], requires = "file")]
+        eval: Option<usize>,
     },
     /// The native image window the ask tab opens with ctrl+v; follows the
     /// frame file the explorer rewrites. internal, started by `urna tui`.

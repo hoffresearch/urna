@@ -132,7 +132,19 @@ fn main() -> Result<()> {
             std::process::exit(code)
         }
         #[cfg(feature = "tui")]
-        Commands::Tui { file, ask } => std::process::exit(tui::app::run(file, ask)?),
+        Commands::Tui {
+            file,
+            ask,
+            snapshot,
+            eval,
+        } => {
+            let code = match (file, snapshot, eval) {
+                (Some(f), Some(q), _) => tui::app::headless::snapshot(&f, &q)?,
+                (Some(f), _, Some(n)) => tui::app::headless::eval(&f, n)?,
+                (file, _, _) => tui::app::run(file, ask)?,
+            };
+            std::process::exit(code)
+        }
         #[cfg(feature = "window")]
         Commands::View { frame } => std::process::exit(tui::view::run(&frame)?),
     }
