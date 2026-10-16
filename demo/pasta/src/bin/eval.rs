@@ -7,7 +7,17 @@ use std::time::Instant;
 
 fn main() {
     let a: Vec<PathBuf> = std::env::args().skip(1).map(PathBuf::from).collect();
-    let p = pasta_core::Pasta::open(&a[0], &a[1], &a[2]).expect("open");
+    if a.len() < 3 {
+        eprintln!("usage: eval FILE.urna FIELDS POTION_DIR [N]");
+        std::process::exit(2);
+    }
+    let p = match pasta_core::Pasta::open(&a[0], &a[1], &a[2]) {
+        Ok(p) => p,
+        Err(e) => {
+            eprintln!("error: {e}");
+            std::process::exit(1);
+        }
+    };
     let all: Vec<(usize, String)> =
         p.cards().iter().filter(|c| c.playable()).map(|c| (c.ordinal, c.name.clone())).collect();
     let want = a.get(3).and_then(|n| n.to_str()?.parse::<usize>().ok()).unwrap_or(all.len()).max(1);

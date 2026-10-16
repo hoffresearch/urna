@@ -7,6 +7,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, List, ListItem, ListState, Paragraph, Wrap};
+use ratatui_image::picker::ProtocolType;
 use ratatui_image::{FontSize, Resize, StatefulImage};
 
 use crate::app::{App, Mode};
@@ -95,10 +96,20 @@ fn draw_card(f: &mut Frame, app: &mut App, area: Rect) {
     let [img_area, _, text_area] =
         Layout::horizontal([Constraint::Length(img_w), Constraint::Length(2), Constraint::Min(10)]).areas(inner);
 
+    let pixels = app.picker.protocol_type() != ProtocolType::Halfblocks;
     if let Some(shown) = app.shown.as_mut().filter(|s| s.ordinal == ordinal) {
-        if let Some(proto) = shown.image.as_mut() {
-            let fit = fit_rect(img_area, font);
+        let fit = fit_rect(img_area, font);
+        if let (true, Some(proto)) = (pixels, shown.image.as_mut()) {
+            // the terminal draws pixels (kitty, sixel, iterm2): the image itself.
             f.render_stateful_widget(StatefulImage::default().resize(Resize::Scale(None)), fit, proto);
+        } else if let (false, Some(rgba)) = (pixels, shown.rgba.as_ref()) {
+            // no pixels: quadrant characters, recomputed only when the rect moves.
+            if shown.blocks.as_ref().is_none_or(|(r, _)| *r != fit) {
+                shown.blocks = Some((fit, crate::blocks::cells(rgba, fit.width, fit.height)));
+            }
+            if let Some((r, cells)) = &shown.blocks {
+                crate::blocks::draw(f.buffer_mut(), *r, cells);
+            }
         } else if let Some(err) = &shown.error {
             f.render_widget(Paragraph::new(err.as_str()).wrap(Wrap { trim: true }), img_area);
         }
@@ -119,7 +130,7 @@ fn draw_footer(f: &mut Frame, app: &App, area: Rect) {
         Span::styled("esc ", Style::new().fg(ACCENT)),
         Span::styled("limpar/sair", Style::new().fg(FAINT)),
         Span::styled(
-            format!("   {:?} · lista {:.1} ms{decode}", app.picker.protocol_type(), app.last_ms),
+            format!("   {} · lista {:.1} ms{decode}", mode(app.picker.protocol_type()), app.last_ms),
             Style::new().fg(FAINT),
         ),
     ]);
@@ -222,4 +233,14 @@ fn fit_rect(area: Rect, font: FontSize) -> Rect {
     let w = ((CARD_W as f64 * scale / fw).floor() as u16).clamp(1, area.width.max(1));
     let h = ((CARD_H as f64 * scale / fh).floor() as u16).clamp(1, area.height.max(1));
     Rect::new(area.x + (area.width - w) / 2, area.y + (area.height - h) / 2, w, h)
+}
+
+/// What draws the image: the terminal's protocol, or quadrant characters.
+fn mode(p: ProtocolType) -> &'static str {
+    match p {
+        ProtocolType::Kitty => "kitty",
+        ProtocolType::Sixel => "sixel",
+        ProtocolType::Iterm2 => "iterm2",
+        ProtocolType::Halfblocks => "quadrants",
+    }
 }

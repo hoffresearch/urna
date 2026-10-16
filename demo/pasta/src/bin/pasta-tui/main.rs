@@ -6,6 +6,7 @@
 //! QUERY into text and exits, for checking the screen without a terminal.
 
 mod app;
+mod blocks;
 mod view;
 
 use std::path::PathBuf;

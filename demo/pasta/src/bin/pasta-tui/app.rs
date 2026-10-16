@@ -27,6 +27,10 @@ pub struct Row {
 pub struct Shown {
     pub ordinal: usize,
     pub image: Option<StatefulProtocol>,
+    /// the decoded pixels, for the quadrant renderer.
+    pub rgba: Option<image::RgbaImage>,
+    /// the quadrant cells last drawn, and the rect they were drawn for.
+    pub blocks: Option<(ratatui::layout::Rect, Vec<crate::blocks::Cell>)>,
     pub decode_ms: f64,
     pub error: Option<String>,
 }
@@ -114,12 +118,12 @@ impl<'a> App<'a> {
             return;
         }
         let t = Instant::now();
-        let (image, error) = match self.pasta.decode_image(ordinal) {
-            Ok(img) => (Some(self.picker.new_resize_protocol(img)), None),
-            Err(e) => (None, Some(e.to_string())),
+        let (image, rgba, error) = match self.pasta.decode_image(ordinal) {
+            Ok(img) => (Some(self.picker.new_resize_protocol(img.clone())), Some(img.to_rgba8()), None),
+            Err(e) => (None, None, Some(e.to_string())),
         };
         let decode_ms = t.elapsed().as_secs_f64() * 1000.0;
-        self.shown = Some(Shown { ordinal, image, decode_ms, error });
+        self.shown = Some(Shown { ordinal, image, rgba, blocks: None, decode_ms, error });
     }
 
     pub fn key(&mut self, k: KeyEvent) {

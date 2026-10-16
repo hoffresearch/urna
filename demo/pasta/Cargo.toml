@@ -23,7 +23,7 @@ thiserror = "2"
 image = { version = "0.25", default-features = false, features = ["avif-native"], optional = true }
 ratatui = { version = "0.30", optional = true }
 crossterm = { version = "0.29", optional = true }
-ratatui-image = { version = "=12.0.0-rc.2", default-features = false, features = ["crossterm", "chafa-dyn"], optional = true }
+ratatui-image = { version = "=12.0.0-rc.2", default-features = false, features = ["crossterm"], optional = true }
 
 [features]
 default = []
