@@ -12,8 +12,6 @@
 //! `label`, `unit`, `roles`, `prefix` and `display`. The kind `enum_map`
 //! turns an object into one enum column per key, `name.key`.
 
-mod columns;
-
 use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
@@ -22,9 +20,8 @@ use anyhow::{Context, Result, bail};
 use urna_engine::MmapUrnaFile;
 use urna_format::layout::{SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW};
 use urna_format::manifest::schema::{DatasetSource, MediaDerivation, SchemaField};
+use urna_format::sections::scalars::from_json::{self as columns, FieldSpec};
 use urna_format::sections::{ScalarTable, encode_chunk_scalars};
-
-pub use columns::FieldSpec;
 
 pub fn run(
     file: PathBuf,

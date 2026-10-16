@@ -86,6 +86,44 @@ def _spaces_payload(ctx, only_preset: str | None = None) -> list[dict]:
     return spaces
 
 
+def _declarations(ctx) -> dict:
+    """The per-chunk columns and the dataset and media declarations the spec
+    asks for, as `urna.build` keywords; empty when the spec declares none."""
+    spec = ctx.spec
+    out: dict = {}
+    if spec.scalars.fields:
+        out["scalar_rows"] = [r.fields or {} for r in ctx.rows]
+        out["schema"] = spec.scalars.fields
+    if spec.dataset is not None:
+        d = {k: v for k, v in vars(spec.dataset).items() if v}
+        if d.get("sha256") == "auto":
+            src = spec.source.path or spec.source.db
+            d["sha256"] = _sha256_file(Path(src)) if src and Path(src).is_file() else ""
+            d = {k: v for k, v in d.items() if v}
+        out["dataset"] = d
+    if spec.media is not None:
+        backend = spec.media.backend
+        lossy = backend not in ("jxl", "control") or backend == "jxl-transcode"
+        out["media"] = {
+            "codec": backend,
+            "profile": spec.media.profile or None,
+            "quality": spec.media.crf if isinstance(spec.media.crf, int) else None,
+            "lossy": lossy,
+        }
+        out["media"] = {k: v for k, v in out["media"].items() if v is not None}
+    return out
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as fh:
+        while block := fh.read(1 << 20):
+            digest.update(block)
+    return digest.hexdigest()
+
+
 def _emit(ctx) -> dict:
     import urna
 
@@ -129,6 +167,7 @@ def _emit(ctx) -> dict:
             chunk_blob_spans=chunk_spans,
             spaces=spaces or None,
             provenance={"dataset": spec.name, "corpus_input_hash": ctx.input_hash},
+            **_declarations(ctx),
         )
         os.replace(tmp, final)
         db = urna.open(str(final))

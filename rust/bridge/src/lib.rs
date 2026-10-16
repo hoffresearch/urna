@@ -8,6 +8,7 @@ mod blob_data;
 mod build_fn;
 mod build_inputs;
 mod build_manifest;
+mod build_scalars;
 mod build_spaces;
 mod chunk_id_fn;
 mod retrieve_fn;

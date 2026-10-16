@@ -31,6 +31,7 @@
 //! format) is one enum column per key, `legal.pauper`, by the writer.
 
 mod decode;
+pub mod from_json;
 
 use crate::encoding::pack_u64s;
 use crate::error::UrnaError;

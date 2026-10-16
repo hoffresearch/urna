@@ -111,6 +111,10 @@ const PLACEHOLDER_MODEL_HASH: &str =
     hnsw_ef_construction=400,
     hnsw_seed=42,
     allow_placeholder_model_hash=false,
+    scalar_rows=None,
+    schema=None,
+    dataset=None,
+    media=None,
 ))]
 #[allow(clippy::too_many_arguments)]
 pub fn build(
@@ -145,6 +149,10 @@ pub fn build(
     hnsw_ef_construction: usize,
     hnsw_seed: u64,
     allow_placeholder_model_hash: bool,
+    scalar_rows: Option<&Bound<'_, PyList>>,
+    schema: Option<&Bound<'_, PyList>>,
+    dataset: Option<&Bound<'_, PyDict>>,
+    media: Option<&Bound<'_, PyDict>>,
 ) -> PyResult<String> {
     use urna_format::writer::{EmbeddingDType, UrnaFileBuilder};
 
@@ -228,6 +236,12 @@ pub fn build(
         mrl_dim.map(|_| full_dim),
     );
 
+    // Optional per-chunk columns (0x0D) with the schema, dataset and media
+    // declarations that describe them; the same path the `urna scalars`
+    // verb takes. helper lives in build_scalars.
+    let (manifest, scalars_payload) =
+        crate::build_scalars::attach(py, manifest, scalar_rows, schema, dataset, media, n_chunks)?;
+
     let mut builder = UrnaFileBuilder::new(manifest)
         .reproducible(reproducible)
         .with_provenance(provenance_value)
@@ -299,6 +313,10 @@ pub fn build(
             urna_engine::bm25::DEFAULT_B,
         );
         builder = builder.bm25_index(bm.to_bytes());
+    }
+
+    if let Some(payload) = scalars_payload {
+        builder = builder.chunk_scalars(payload);
     }
 
     builder = builder.add_chunks(chunk_inputs);
