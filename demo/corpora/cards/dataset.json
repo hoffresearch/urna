@@ -1,7 +1,0 @@
-{
-  "name": "Scryfall oracle-cards bulk data",
-  "version": "oracle-cards.jsonl.gz",
-  "url": "https://scryfall.com/docs/api/bulk-data",
-  "license": "Scryfall bulk data; card data is Wizards of the Coast property used under the Wizards of the Coast Fan Content Policy",
-  "sha256": "458490e4c0d1d1cdcf141b3378eb93080333f093ea6fa49184eb641cc914af85"
-}
