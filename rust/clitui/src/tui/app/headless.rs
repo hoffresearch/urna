@@ -57,8 +57,10 @@ pub fn snapshot(file: &Path, query: &str) -> Result<i32> {
         Err(code) => return Ok(code),
     };
     let mut ask = Ask::default();
-    ask.media
-        .set_terminal(crate::tui::graphics::Terminal::default());
+    ask.media.set_picker(
+        ratatui_image::picker::Picker::halfblocks(),
+        crate::tui::graphics::glyphs::Set::Blocks,
+    );
     if let Err(e) = ask_and_wait(&mut ask, session, query) {
         eprintln!("ask failed: {e}");
         return Ok(1);

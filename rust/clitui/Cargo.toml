@@ -82,8 +82,14 @@ urna-neural = { workspace = true }
 ratatui = { version = "0.30.2", optional = true }
 crossterm = { version = "0.29", optional = true }
 # the ask tab's image pane: avif decoded by urna-images (the AV1 decoder
-# carried in the tree); the terminal protocols are written in tui/graphics.
+# carried in the tree), drawn by ratatui-image: it asks the terminal which
+# protocol it speaks (kitty, iTerm2, sixel) and the cell size, and writes
+# the image through the frame; without a protocol the pane falls back to
+# the block glyphs of tui/app/blocks.rs. `image` only carries the pixels
+# into it (no codec feature).
 urna-images = { path = "../images", optional = true }
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"], optional = true }
+image = { version = "0.25", default-features = false, optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
 # the machine's total ram, for the model screen's fit mark; only its memory
@@ -107,6 +113,8 @@ tui = [
     "dep:zip",
     "dep:sysinfo",
     "dep:urna-images",
+    "dep:ratatui-image",
+    "dep:image",
 ]
 
 [build-dependencies]

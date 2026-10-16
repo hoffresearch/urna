@@ -216,10 +216,11 @@ impl App {
                     self.sec_scroll = 0;
                     // a fresh ask for the new corpus, keeping what the
                     // terminal answered it can draw (probed once, at start).
-                    let terminal = self.ask.media.take_terminal();
+                    let picker = self.ask.media.take_picker();
+                    let glyphs = self.ask.media.glyphs();
                     self.ask = ask::Ask::default();
-                    if let Some(t) = terminal {
-                        self.ask.media.set_terminal(t);
+                    if let Some(p) = picker {
+                        self.ask.media.set_picker(p, glyphs);
                     }
                     self.go(land);
                     if let Some(q) = self.ask_on_open.take()
@@ -283,10 +284,6 @@ impl App {
             let dt = self.clock.tick();
             self.spinner.tick(dt);
             self.draw(terminal, dt)?;
-            // the pixels of the ask tab's image go out after the frame, at
-            // their anchor cell; off the tab, the image the terminal keeps
-            // is removed.
-            self.ask.media.flush(&mut std::io::stdout())?;
             if let Some((t0, _)) = &self.leaving
                 && t0.elapsed() > Duration::from_millis(380)
             {
@@ -317,7 +314,18 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
         };
         let mut app = App::new(launch_now, sample());
         app.ask_on_open = ask_now;
-        app.ask.media.set_terminal(crate::tui::graphics::detect());
+        app.ask.media.set_picker(
+            crate::tui::graphics::picker(),
+            crate::tui::graphics::glyph_set(),
+        );
+        // a terminal that does not know a query may have printed some of
+        // it: the first frame starts from a clean screen. `CSI 2J`, not
+        // `Terminal::clear`, which reads the cursor position (one more
+        // query a terminal may not answer); ratatui's buffer is still empty.
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )?;
         let res = app.run(&mut terminal);
         term::leave_fullscreen()?;
         match res? {

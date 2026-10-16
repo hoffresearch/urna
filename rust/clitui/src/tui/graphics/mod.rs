@@ -1,18 +1,14 @@
-//! Pixels in the terminal, by the protocol the terminal speaks, written
-//! here from the specifications: kitty's graphics protocol (kitty,
-//! ghostty), iTerm2's inline images (iTerm2, WezTerm) and sixel. Each
-//! takes an `Rgba` image sized for a cell rectangle and gives the escape
-//! bytes that draw it at the cursor; the explorer writes them after each
-//! frame at the image's anchor cell. Terminals with none of these get
-//! quadrant characters (`app::blocks`). The protocol comes from the
-//! variables terminals set, `URNA_GRAPHICS` overrides them; nothing here
-//! queries the terminal, so no reply can land in the key stream.
+//! Pixels for the terminal. The protocols (kitty, iTerm2, sixel) and the
+//! question of which one the terminal speaks belong to `ratatui-image`,
+//! made here by `picker`; `URNA_GRAPHICS` overrides its answer. Terminals
+//! with none of them get the image in block glyphs (`app::blocks`), from
+//! the set of `glyphs` every font carries. `Rgba` is the decoded image as
+//! both paths take it.
 
-mod base64;
-mod iterm;
-mod kitty;
-mod png;
-mod sixel;
+pub mod glyphs;
+
+use ratatui_image::FontSize;
+use ratatui_image::picker::{Picker, ProtocolType};
 
 /// 8-bit RGBA pixels, rows top to bottom, no padding.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -88,110 +84,45 @@ impl Rgba {
     }
 }
 
-/// What draws the image.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Protocol {
-    Kitty,
-    Iterm2,
-    Sixel,
-    /// quadrant characters: every terminal and font.
-    Quadrants,
-}
-
-impl Protocol {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Kitty => "kitty",
-            Self::Iterm2 => "iterm2",
-            Self::Sixel => "sixel",
-            Self::Quadrants => "quadrants",
-        }
+/// The terminal, asked by ratatui-image: call it with the alternate screen
+/// up and before any key is read. `URNA_GRAPHICS` (`kitty`, `iterm`,
+/// `sixel`, `blocks`) wins over the answer; a terminal that answers
+/// nothing gets blocks at the cell size the kernel reports.
+pub fn picker() -> Picker {
+    let mut picker = Picker::from_query_stdio().unwrap_or_else(|_| {
+        let cell = crossterm::terminal::window_size()
+            .ok()
+            .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
+            .map_or((10, 20), |w| (w.width / w.columns, w.height / w.rows));
+        // `halfblocks()` would fix the cell at 10x20; the kernel's size
+        // keeps the aspect right where the terminal answered no query.
+        #[allow(deprecated, reason = "the only constructor that takes a cell size")]
+        Picker::from_fontsize(FontSize::new(cell.0, cell.1))
+    });
+    if let Some(p) = forced(&std::env::var("URNA_GRAPHICS").unwrap_or_default()) {
+        picker.set_protocol_type(p);
     }
-
-    pub fn pixels(self) -> bool {
-        self != Self::Quadrants
-    }
+    picker
 }
 
-/// The terminal as the explorer draws on it: its protocol and the pixel
-/// size of one cell.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Terminal {
-    pub protocol: Protocol,
-    /// (width, height) of a cell in pixels.
-    pub cell: (u16, u16),
-}
-
-impl Default for Terminal {
-    fn default() -> Self {
-        Self {
-            protocol: Protocol::Quadrants,
-            cell: (10, 20),
-        }
+/// The glyphs to draw with where there is no protocol: the blocks every
+/// font has, unless `URNA_GLYPHS` (`sextants`, `octants`) says the font
+/// has more. A font cannot be asked, so nothing here guesses.
+pub fn glyph_set() -> glyphs::Set {
+    match std::env::var("URNA_GLYPHS").unwrap_or_default().as_str() {
+        "sextants" => glyphs::Set::Sextants,
+        "octants" => glyphs::Set::Octants,
+        _ => glyphs::Set::Blocks,
     }
 }
 
-/// The terminal from its environment: `URNA_GRAPHICS` (`kitty`, `iterm`,
-/// `sixel`, `halfblocks`/`quadrants`) wins; else kitty's protocol in kitty
-/// and ghostty, iTerm2's in iTerm2 and WezTerm, characters everywhere
-/// else and inside tmux. The cell size comes from the window size the
-/// kernel reports, never from a query.
-pub fn detect() -> Terminal {
-    let cell = crossterm::terminal::window_size()
-        .ok()
-        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
-        .map(|w| (w.width / w.columns, w.height / w.rows))
-        .unwrap_or((10, 20));
-    Terminal {
-        protocol: forced().unwrap_or_else(from_env),
-        cell,
-    }
-}
-
-fn forced() -> Option<Protocol> {
-    match std::env::var("URNA_GRAPHICS").unwrap_or_default().as_str() {
-        "kitty" => Some(Protocol::Kitty),
-        "sixel" => Some(Protocol::Sixel),
-        "iterm" | "iterm2" => Some(Protocol::Iterm2),
-        "halfblocks" | "quadrants" => Some(Protocol::Quadrants),
+fn forced(v: &str) -> Option<ProtocolType> {
+    match v {
+        "kitty" => Some(ProtocolType::Kitty),
+        "sixel" => Some(ProtocolType::Sixel),
+        "iterm" | "iterm2" => Some(ProtocolType::Iterm2),
+        "blocks" | "glyphs" | "halfblocks" | "quadrants" => Some(ProtocolType::Halfblocks),
         _ => None,
-    }
-}
-
-fn from_env() -> Protocol {
-    let var = |k: &str| std::env::var(k).unwrap_or_default();
-    let (term, program) = (var("TERM"), var("TERM_PROGRAM"));
-    if term.starts_with("tmux") || term.starts_with("screen") {
-        Protocol::Quadrants
-    } else if !var("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
-        Protocol::Kitty
-    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm")
-    {
-        Protocol::Iterm2
-    } else {
-        Protocol::Quadrants
-    }
-}
-
-/// The escape bytes that draw `img` at the cursor, spanning `cols` x
-/// `rows` cells. `id` names the image to the protocols that keep images
-/// (kitty), so the next draw replaces this one.
-pub fn encode(protocol: Protocol, img: &Rgba, cols: u16, rows: u16, id: u32) -> Vec<u8> {
-    match protocol {
-        Protocol::Kitty => kitty::encode(img, cols, rows, id),
-        Protocol::Iterm2 => iterm::encode(img, cols, rows),
-        Protocol::Sixel => sixel::encode(img),
-        Protocol::Quadrants => Vec::new(),
-    }
-}
-
-/// The escape bytes that remove image `id` where the protocol keeps
-/// images past the cells they covered (kitty); nothing elsewhere, where
-/// redrawing the cells is the removal.
-pub fn clear(protocol: Protocol, id: u32) -> Vec<u8> {
-    match protocol {
-        Protocol::Kitty => kitty::delete(id),
-        _ => Vec::new(),
     }
 }
 
@@ -217,10 +148,9 @@ mod tests {
     }
 
     #[test]
-    fn the_override_wins_and_the_names_match() {
-        assert_eq!(Protocol::Quadrants.name(), "quadrants");
-        assert!(Protocol::Sixel.pixels() && !Protocol::Quadrants.pixels());
-        assert!(clear(Protocol::Sixel, 1).is_empty());
-        assert!(clear(Protocol::Kitty, 1).starts_with(b"\x1b_G"));
+    fn the_override_names_match() {
+        assert_eq!(forced("quadrants"), Some(ProtocolType::Halfblocks));
+        assert_eq!(forced("kitty"), Some(ProtocolType::Kitty));
+        assert_eq!(forced(""), None);
     }
 }
