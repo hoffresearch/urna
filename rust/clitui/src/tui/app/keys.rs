@@ -88,7 +88,13 @@ fn key(app: &mut App, code: KeyCode, mods: KeyModifiers) {
         KeyCode::Char('c') | KeyCode::Char('q') if ctrl => return app.leave(Exit::Quit),
         KeyCode::Char('o') if ctrl => return open_picker(app),
         KeyCode::Char('v') if ctrl && app.tab == Tab::Ask => {
-            match app.ask.media.toggle_viewer() {
+            let opened = app
+                .ask
+                .session
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("select a hit first"))
+                .and_then(|s| app.ask.media.open_external(&s));
+            match opened {
                 Ok(msg) => app.toasts.push(msg, Kind::Info),
                 Err(e) => app.toasts.push(format!("{e:#}"), Kind::Warn),
             }

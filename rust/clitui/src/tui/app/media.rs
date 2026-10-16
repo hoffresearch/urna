@@ -1,146 +1,90 @@
-//! The ask tab's image pane. The terminal is asked once, at start, what it
-//! can draw (kitty, sixel, iterm2); without an answer it gets truecolor
-//! halfblocks, which every font has. The selected hit's image blob is sliced
-//! off the mmap, decoded by rav1d (pure rust, no system library) and fitted
-//! to the pane with its aspect kept.
+//! The ask tab's image pane. The terminal says once, at start, what it
+//! can draw (kitty, sixel, iterm2, from its environment); without a
+//! protocol it gets quadrant characters, which every font has. The
+//! selected hit's image blob is sliced off the mmap, decoded by `urna-avif`
+//! (the AV1 decoder carried in the tree, pure rust) and fitted to the pane
+//! with its aspect kept. Pixels go out after the frame, as the escape
+//! bytes of the protocol written at the image's anchor cell.
 
+use std::io::Write;
 use std::time::Instant;
 
 use anyhow::{Result, anyhow};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::widgets::StatefulWidget;
-use ratatui_image::picker::{Picker, ProtocolType};
-use ratatui_image::protocol::StatefulProtocol;
-use ratatui_image::{FilterType, FontSize, Resize, StatefulImage};
 
 use super::session::Session;
+use crate::tui::graphics::{self, Protocol, Rgba, Terminal};
+
+/// The id the protocols that keep images know this pane's image by.
+const IMAGE_ID: u32 = 7;
 
 struct Shown {
     blob: usize,
-    proto: Option<StatefulProtocol>,
-    /// the decoded pixels: the character renderer draws from them and the
-    /// native window shows them.
-    rgba: Option<image::RgbaImage>,
+    rgba: Option<Rgba>,
     /// the character cells last drawn, and the rect they were drawn for.
     blocks: Option<(Rect, Vec<super::blocks::Cell>)>,
-    #[cfg_attr(not(feature = "window"), allow(dead_code))]
-    title: String,
+    /// the protocol bytes last encoded, and the rect they fit.
+    encoded: Option<(Rect, Vec<u8>)>,
     size: (u32, u32),
     error: Option<String>,
     ms: f64,
 }
 
-/// The native window process and the frame file it follows.
-struct Viewer {
-    child: std::process::Child,
-    frame: std::path::PathBuf,
+/// Where the next flush writes the image: the anchor cell and the bytes.
+struct Placement {
+    x: u16,
+    y: u16,
+    bytes: Vec<u8>,
+    /// the same image at the same cells as the last flush: nothing to send.
+    unchanged: bool,
 }
 
 #[derive(Default)]
 pub struct Media {
-    picker: Option<Picker>,
+    terminal: Option<Terminal>,
     shown: Option<Shown>,
-    viewer: Option<Viewer>,
-}
-
-impl Drop for Media {
-    fn drop(&mut self) {
-        self.close_viewer();
-    }
-}
-
-/// The terminal's graphics protocol and cell size, without asking it: a
-/// query reads the terminal's reply from stdin, and a reply that never
-/// comes leaves that read pending, taking the first keys typed. The protocol
-/// comes from the variables terminals set (`URNA_GRAPHICS` overrides them),
-/// the cell size from the window size the kernel reports.
-pub fn probe() -> Picker {
-    let font = crossterm::terminal::window_size()
-        .ok()
-        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
-        .map(|w| FontSize {
-            width: w.width / w.columns,
-            height: w.height / w.rows,
-        })
-        .unwrap_or(FontSize {
-            width: 10,
-            height: 20,
-        });
-    // deprecated upstream in favor of the stdin query, the one thing this
-    // avoids; it is the constructor that takes a known cell size.
-    #[allow(deprecated)]
-    let mut picker = Picker::from_fontsize(font);
-    picker.set_protocol_type(forced().unwrap_or_else(from_env));
-    picker
-}
-
-fn forced() -> Option<ProtocolType> {
-    match std::env::var("URNA_GRAPHICS").unwrap_or_default().as_str() {
-        "kitty" => Some(ProtocolType::Kitty),
-        "sixel" => Some(ProtocolType::Sixel),
-        "iterm" => Some(ProtocolType::Iterm2),
-        "halfblocks" | "quadrants" => Some(ProtocolType::Halfblocks),
-        _ => None,
-    }
-}
-
-/// Kitty's protocol in kitty and ghostty, iTerm2's in iTerm2 and WezTerm,
-/// characters everywhere else (and inside tmux, which needs passthrough).
-fn from_env() -> ProtocolType {
-    let var = |k: &str| std::env::var(k).unwrap_or_default();
-    let (term, program) = (var("TERM"), var("TERM_PROGRAM"));
-    if term.starts_with("tmux") || term.starts_with("screen") {
-        ProtocolType::Halfblocks
-    } else if !var("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
-        ProtocolType::Kitty
-    } else if program == "iTerm.app" || program == "WezTerm" || var("LC_TERMINAL").contains("iTerm")
-    {
-        ProtocolType::Iterm2
-    } else {
-        ProtocolType::Halfblocks
-    }
+    pending: Option<Placement>,
+    /// a protocol image is on screen from the last flush.
+    on_screen: Option<(usize, Rect)>,
 }
 
 impl Media {
-    /// The probed picker, handed over to the next ask.
-    pub fn take_picker(&mut self) -> Option<Picker> {
-        self.picker.take()
+    /// The probed terminal, handed over to the next ask.
+    pub fn take_terminal(&mut self) -> Option<Terminal> {
+        self.terminal.take()
     }
 
-    pub fn set_picker(&mut self, picker: Picker) {
-        self.picker = Some(picker);
+    pub fn set_terminal(&mut self, terminal: Terminal) {
+        self.terminal = Some(terminal);
         self.shown = None;
     }
 
-    pub fn protocol(&self) -> Option<ProtocolType> {
-        self.picker.as_ref().map(Picker::protocol_type)
+    pub fn protocol(&self) -> Option<Protocol> {
+        self.terminal.map(|t| t.protocol)
     }
 
     /// The last decode, for the status line.
     pub fn decode_ms(&self) -> Option<f64> {
         self.shown
             .as_ref()
-            .filter(|s| s.proto.is_some())
+            .filter(|s| s.rgba.is_some())
             .map(|s| s.ms)
     }
 
-    /// Decode `blob` unless it is already the one shown; `title` names it in
-    /// the native window.
-    pub fn show(&mut self, session: &Session, blob: usize, title: &str) {
+    /// Decode `blob` unless it is already the one shown.
+    pub fn show(&mut self, session: &Session, blob: usize) {
         if self.shown.as_ref().is_some_and(|s| s.blob == blob) {
             return;
         }
-        let picker = self.picker.get_or_insert_with(Picker::halfblocks);
         let t = Instant::now();
         let shown = match decode(session, blob) {
             Ok(img) => Shown {
                 blob,
-                size: (img.width(), img.height()),
-                rgba: Some(img.to_rgba8()),
+                size: (img.width, img.height),
+                rgba: Some(img),
                 blocks: None,
-                title: title.to_string(),
-                proto: Some(picker.new_resize_protocol(img)),
+                encoded: None,
                 error: None,
                 ms: t.elapsed().as_secs_f64() * 1e3,
             },
@@ -149,136 +93,145 @@ impl Media {
                 size: (1, 1),
                 rgba: None,
                 blocks: None,
-                title: title.to_string(),
-                proto: None,
+                encoded: None,
                 error: Some(format!("{e:#}")),
                 ms: 0.0,
             },
         };
         self.shown = Some(shown);
-        if self.viewer.is_some() {
-            self.write_frame();
-        }
     }
 
-    /// Ctrl+v: open the selected image in a native window, or close it.
-    /// Returns what happened, in words for a toast.
-    pub fn toggle_viewer(&mut self) -> Result<&'static str> {
-        if self.viewer.is_some() {
-            self.close_viewer();
-            return Ok("image window closed");
-        }
-        self.open_viewer()?;
-        Ok("image window open · it follows the selected hit")
-    }
-
-    #[cfg(feature = "window")]
-    fn open_viewer(&mut self) -> Result<()> {
+    /// Ctrl+v: the selected image, as stored, in the system's viewer. The
+    /// blob goes to a temporary file and `open`, `xdg-open` or `start`
+    /// takes it from there; what the viewer does with it is the viewer's.
+    pub fn open_external(&self, session: &Session) -> Result<&'static str> {
         let Some(s) = &self.shown else {
             return Err(anyhow!("select a hit first"));
         };
-        let Some(rgba) = &s.rgba else {
+        if s.rgba.is_none() {
             return Err(anyhow!("the selected hit has no image"));
+        }
+        let bytes = session.rt.blob_bytes(s.blob)?;
+        let path = std::env::temp_dir().join(format!("urna-blob-{}.avif", s.blob));
+        std::fs::write(&path, bytes)?;
+        let mut cmd = if cfg!(target_os = "macos") {
+            let mut c = std::process::Command::new("open");
+            c.arg(&path);
+            c
+        } else if cfg!(windows) {
+            let mut c = std::process::Command::new("cmd");
+            c.args(["/C", "start", ""]).arg(&path);
+            c
+        } else {
+            let mut c = std::process::Command::new("xdg-open");
+            c.arg(&path);
+            c
         };
-        let frame = std::env::temp_dir().join(format!("urna-view-{}.frm", std::process::id()));
-        // the window reads the frame as it starts: write it before spawning.
-        crate::tui::view::frame::write(
-            &frame,
-            rgba.width(),
-            rgba.height(),
-            &s.title,
-            rgba.as_raw(),
-        )?;
-        let child = std::process::Command::new(std::env::current_exe()?)
-            .arg("view")
-            .arg(&frame)
-            .stdin(std::process::Stdio::null())
+        cmd.stdin(std::process::Stdio::null())
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
-            .map_err(|e| anyhow!("image window: {e}"))?;
-        self.viewer = Some(Viewer { child, frame });
-        Ok(())
-    }
-
-    #[cfg(not(feature = "window"))]
-    fn open_viewer(&mut self) -> Result<()> {
-        Err(anyhow!(
-            "this build has no image window: cargo build --features window"
-        ))
-    }
-
-    fn write_frame(&mut self) {
-        #[cfg(feature = "window")]
-        if let (Some(v), Some(s)) = (&self.viewer, &self.shown)
-            && let Some(rgba) = &s.rgba
-        {
-            let _ = crate::tui::view::frame::write(
-                &v.frame,
-                rgba.width(),
-                rgba.height(),
-                &s.title,
-                rgba.as_raw(),
-            );
-        }
-    }
-
-    fn close_viewer(&mut self) {
-        if let Some(mut v) = self.viewer.take() {
-            let _ = std::fs::remove_file(&v.frame);
-            let _ = v.child.kill();
-            let _ = v.child.wait();
-        }
+            .map_err(|e| anyhow!("open the image: {e}"))?;
+        Ok("image opened in the system viewer")
     }
 
     /// The image's width in cells when it fills `rows` cells of height.
     pub fn cells_wide(&self, rows: u16) -> u16 {
-        let (Some(p), Some(s)) = (&self.picker, &self.shown) else {
+        let (Some(t), Some(s)) = (&self.terminal, &self.shown) else {
             return 0;
         };
-        let font = p.font_size();
-        let px_h = u32::from(rows) * u32::from(font.height.max(1));
+        let px_h = u32::from(rows) * u32::from(t.cell.1.max(1));
         let px_w = px_h * s.size.0 / s.size.1.max(1);
-        px_w.div_ceil(u32::from(font.width.max(1))) as u16
+        px_w.div_ceil(u32::from(t.cell.0.max(1))) as u16
     }
 
     pub fn error(&self) -> Option<&str> {
         self.shown.as_ref().and_then(|s| s.error.as_deref())
     }
 
+    /// Draw into the frame: quadrant cells, or blank cells under the
+    /// pixels the next `flush` writes there.
     pub fn render(&mut self, buf: &mut Buffer, area: Rect) {
-        let Some(p) = &self.picker else { return };
-        let font = p.font_size();
-        let pixels = p.protocol_type() != ProtocolType::Halfblocks;
+        let Some(t) = self.terminal else { return };
         let Some(s) = self.shown.as_mut() else { return };
-        let fit = fit(area, s.size, (font.width, font.height));
-        if pixels {
-            // the terminal draws pixels (kitty, sixel, iterm2): the image itself.
-            if let Some(proto) = s.proto.as_mut() {
-                StatefulImage::default()
-                    .resize(Resize::Fit(Some(FilterType::Lanczos3)))
-                    .render(fit, buf, proto);
+        let Some(rgba) = &s.rgba else { return };
+        let fit = fit(area, s.size, t.cell);
+        if !t.protocol.pixels() {
+            // no pixels: quadrant characters, recomputed only when the rect moves.
+            if s.blocks.as_ref().is_none_or(|(r, _)| *r != fit) {
+                s.blocks = Some((fit, super::blocks::cells(rgba, fit.width, fit.height)));
+            }
+            if let Some((r, cells)) = &s.blocks {
+                super::blocks::draw(buf, *r, cells);
             }
             return;
         }
-        // no pixels: quadrant characters, recomputed only when the rect moves.
-        let Some(rgba) = &s.rgba else { return };
-        if s.blocks.as_ref().is_none_or(|(r, _)| *r != fit) {
-            s.blocks = Some((fit, super::blocks::cells(rgba, fit.width, fit.height)));
+        // the terminal draws pixels: the cells under them stay blank so the
+        // frame never paints text over the image.
+        for y in fit.y..fit.bottom() {
+            for x in fit.x..fit.right() {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.reset();
+                }
+            }
         }
-        if let Some((r, cells)) = &s.blocks {
-            super::blocks::draw(buf, *r, cells);
+        if s.encoded.as_ref().is_none_or(|(r, _)| *r != fit) {
+            let px = rgba.resize(
+                u32::from(fit.width) * u32::from(t.cell.0.max(1)),
+                u32::from(fit.height) * u32::from(t.cell.1.max(1)),
+            );
+            s.encoded = Some((
+                fit,
+                graphics::encode(t.protocol, &px, fit.width, fit.height, IMAGE_ID),
+            ));
+        }
+        if let Some((r, bytes)) = &s.encoded {
+            self.pending = Some(Placement {
+                x: r.x,
+                y: r.y,
+                bytes: bytes.clone(),
+                unchanged: self.on_screen == Some((s.blob, *r)),
+            });
+        }
+    }
+
+    /// After the frame: write the pending pixels at their anchor, or
+    /// remove the image the terminal keeps when nothing was rendered.
+    pub fn flush(&mut self, out: &mut impl Write) -> std::io::Result<()> {
+        let Some(t) = self.terminal else {
+            return Ok(());
+        };
+        match self.pending.take() {
+            Some(p) if p.unchanged => Ok(()),
+            Some(p) => {
+                // save the cursor, go to the anchor (1-based), draw, restore.
+                out.write_all(b"\x1b7")?;
+                out.write_all(format!("\x1b[{};{}H", p.y + 1, p.x + 1).as_bytes())?;
+                out.write_all(&p.bytes)?;
+                out.write_all(b"\x1b8")?;
+                out.flush()?;
+                self.on_screen = self
+                    .shown
+                    .as_ref()
+                    .and_then(|s| s.encoded.as_ref().map(|(r, _)| (s.blob, *r)));
+                Ok(())
+            }
+            None => {
+                if self.on_screen.take().is_some() {
+                    let bytes = graphics::clear(t.protocol, IMAGE_ID);
+                    if !bytes.is_empty() {
+                        out.write_all(&bytes)?;
+                        out.flush()?;
+                    }
+                }
+                Ok(())
+            }
         }
     }
 
     /// What draws the image: the terminal's protocol, or characters.
     pub fn mode(&self) -> &'static str {
-        match self.protocol() {
-            Some(ProtocolType::Kitty) => "kitty",
-            Some(ProtocolType::Sixel) => "sixel",
-            Some(ProtocolType::Iterm2) => "iterm2",
-            _ => "quadrants",
-        }
+        self.protocol().unwrap_or(Protocol::Quadrants).name()
     }
 }
 
@@ -297,59 +250,58 @@ fn fit(area: Rect, size: (u32, u32), font: (u16, u16)) -> Rect {
     )
 }
 
-fn decode(session: &Session, blob: usize) -> Result<image::DynamicImage> {
+fn decode(session: &Session, blob: usize) -> Result<Rgba> {
     let bytes = session.rt.blob_bytes(blob)?;
-    let img = avif_decode::Decoder::from_avif(bytes)
-        .map_err(|e| anyhow!("avif: {e}"))?
-        .to_image()
-        .map_err(|e| anyhow!("avif: {e}"))?;
-    let rgba = |w: usize, h: usize, px: Vec<[u8; 4]>| {
-        image::RgbaImage::from_raw(w as u32, h as u32, px.concat())
-            .map(image::DynamicImage::ImageRgba8)
-            .ok_or_else(|| anyhow!("avif: {w}x{h} does not match its pixels"))
-    };
-    let to8 = |v: u16| (v >> 8) as u8;
-    match img {
-        avif_decode::Image::Rgb8(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels().map(|p| [p.r, p.g, p.b, 255]).collect(),
-        ),
-        avif_decode::Image::Rgba8(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels().map(|p| [p.r, p.g, p.b, p.a]).collect(),
-        ),
-        avif_decode::Image::Rgb16(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels()
-                .map(|p| [to8(p.r), to8(p.g), to8(p.b), 255])
-                .collect(),
-        ),
-        avif_decode::Image::Rgba16(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels()
-                .map(|p| [to8(p.r), to8(p.g), to8(p.b), to8(p.a)])
-                .collect(),
-        ),
-        avif_decode::Image::Gray8(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels()
-                .map(|p| [p.value(), p.value(), p.value(), 255])
-                .collect(),
-        ),
-        avif_decode::Image::Gray16(i) => rgba(
-            i.width(),
-            i.height(),
-            i.pixels()
-                .map(|p| {
-                    let v = to8(p.value());
-                    [v, v, v, 255]
-                })
-                .collect(),
-        ),
+    let img = urna_avif::decode(bytes).map_err(|e| anyhow!("{e}"))?;
+    Rgba::from_avif(img).ok_or_else(|| anyhow!("avif: the pixels do not match the size"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fit_keeps_the_aspect_and_centers() {
+        // a 2:1 image in a 20x20 cell pane with 10x20 cells: 20 wide, 5 tall.
+        let r = fit(Rect::new(0, 0, 20, 20), (200, 100), (10, 20));
+        assert_eq!((r.width, r.height), (20, 5));
+        assert_eq!(r.y, 7);
+        let r = fit(Rect::new(3, 4, 10, 10), (100, 400), (10, 20));
+        assert_eq!((r.width, r.height), (5, 10));
+        assert_eq!(r.x, 5);
+    }
+
+    #[test]
+    fn flush_writes_the_anchor_then_the_bytes_and_clears_once_gone() {
+        let mut m = Media {
+            terminal: Some(Terminal {
+                protocol: Protocol::Kitty,
+                cell: (10, 20),
+            }),
+            ..Default::default()
+        };
+        m.pending = Some(Placement {
+            x: 4,
+            y: 2,
+            bytes: b"IMG".to_vec(),
+            unchanged: false,
+        });
+        m.shown = Some(Shown {
+            blob: 1,
+            rgba: None,
+            blocks: None,
+            encoded: Some((Rect::new(4, 2, 1, 1), b"IMG".to_vec())),
+            size: (1, 1),
+            error: None,
+            ms: 0.0,
+        });
+        let mut out = Vec::new();
+        m.flush(&mut out).expect("writes");
+        assert_eq!(out, b"\x1b7\x1b[3;5HIMG\x1b8");
+        assert!(m.on_screen.is_some());
+        let mut out = Vec::new();
+        m.flush(&mut out).expect("clears");
+        assert!(out.starts_with(b"\x1b_Ga=d"));
+        assert!(m.on_screen.is_none());
     }
 }

@@ -81,15 +81,9 @@ urna-infer = { workspace = true }
 # system `curl`, so the binary itself never links a network stack.
 ratatui = { version = "0.30.2", optional = true }
 crossterm = { version = "0.29", optional = true }
-# the ask tab's image pane: the terminal's graphics protocol (kitty, sixel,
-# iterm2) or truecolor halfblocks, and avif decoded by rav1d (pure rust).
-ratatui-image = { version = "11", default-features = false, features = ["crossterm"], optional = true }
-avif-decode = { version = "3", default-features = false, optional = true }
-image = { version = "0.25", default-features = false, optional = true }
-# `--features window`: the ask tab opens the selected image in a native
-# window at full resolution (sdl2, a system library), for terminals with no
-# graphics protocol. off by default: a local tool, not a shipped dependency.
-sdl2 = { version = "0.38", default-features = false, features = ["use-pkgconfig"], optional = true }
+# the ask tab's image pane: avif decoded by urna-avif (the AV1 decoder
+# carried in the tree); the terminal protocols are written in tui/graphics.
+urna-avif = { path = "../avif", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
 # the machine's total ram, for the model screen's fit mark; only its memory
@@ -112,12 +106,8 @@ tui = [
     "dep:tar",
     "dep:zip",
     "dep:sysinfo",
-    "dep:ratatui-image",
-    "dep:avif-decode",
-    "dep:image",
+    "dep:urna-avif",
 ]
-
-window = ["tui", "dep:sdl2"]
 
 [build-dependencies]
 # build.rs names a development build by its git sha (issue #530). 9.1 is

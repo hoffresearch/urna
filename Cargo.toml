@@ -1,9 +1,10 @@
 [workspace]
 members = ["rust/*"]
-# rust/ingest and rust/infer/parity are workspaces of their own (forge
-# ingestion deps and the reference tokenizer stay out of the sovereign
-# crates); they share the directory, not the lockfile or the build.
-exclude = ["rust/ingest", "rust/infer/parity"]
+# rust/ingest, rust/infer/parity and rust/avif/parity are workspaces of their
+# own (forge ingestion deps, the reference tokenizer and the reference
+# decoders stay out of the sovereign crates); they share the directory, not
+# the lockfile or the build.
+exclude = ["rust/ingest", "rust/infer/parity", "rust/avif/parity"]
 resolver = "3"
 
 [workspace.package]

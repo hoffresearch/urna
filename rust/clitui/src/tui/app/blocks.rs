@@ -4,11 +4,11 @@
 //! pixels best: twice the horizontal detail of halfblocks, with glyphs
 //! (U+2580..U+259F, block elements) that every monospace font carries.
 
-use image::RgbaImage;
-use image::imageops::{self, FilterType};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
+
+use crate::tui::graphics::Rgba;
 
 /// The quadrant glyph for a mask: bit 0 top-left, 1 top-right, 2 bottom-left,
 /// 3 bottom-right; a set bit takes the foreground color.
@@ -73,14 +73,14 @@ fn color(c: Rgb) -> Color {
 /// The image's cells for `area`, one (glyph, fg, bg) per cell, row by row.
 /// The image is resampled to 2 pixels per cell across and 2 down; the cell
 /// is about twice as tall as wide, so a fitted `area` keeps the aspect.
-pub fn cells(img: &RgbaImage, w: u16, h: u16) -> Vec<Cell> {
+pub fn cells(img: &Rgba, w: u16, h: u16) -> Vec<Cell> {
     let (pw, ph) = (u32::from(w) * 2, u32::from(h) * 2);
     if pw == 0 || ph == 0 {
         return Vec::new();
     }
-    let small = imageops::resize(img, pw, ph, FilterType::Lanczos3);
+    let small = img.resize(pw, ph);
     let at = |x: u32, y: u32| -> Rgb {
-        let p = small.get_pixel(x, y).0;
+        let p = small.pixel(x, y);
         [f32::from(p[0]), f32::from(p[1]), f32::from(p[2])]
     };
     let mut out = Vec::with_capacity(usize::from(w) * usize::from(h));

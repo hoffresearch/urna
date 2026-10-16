@@ -155,8 +155,6 @@ fn main() -> Result<()> {
             };
             std::process::exit(code)
         }
-        #[cfg(feature = "window")]
-        Commands::View { frame } => std::process::exit(tui::view::run(&frame)?),
     }
 }
 

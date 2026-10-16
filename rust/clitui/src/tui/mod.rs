@@ -11,6 +11,7 @@
 pub mod app;
 pub mod art;
 pub mod fx;
+pub mod graphics;
 pub mod hud;
 pub mod pal;
 pub mod rain;
@@ -20,5 +21,3 @@ pub mod term;
 pub mod toast;
 pub mod txt;
 pub mod widgets;
-#[cfg(feature = "window")]
-pub mod view;

@@ -12,12 +12,5 @@ publish = false
 urna-av1 = { path = "../av1" }
 thiserror = { workspace = true }
 
-[dev-dependencies]
-# the parity test only: the decoder the explorer used before this crate.
-avif-decode = { version = "3", default-features = false }
-# the plane parity test only: the same decoder from crates.io, no asm.
-rav1d = { version = "1.1", default-features = false, features = ["bitdepth_8"] }
-urna-engine = { path = "../engine" }
-
 [lints]
 workspace = true

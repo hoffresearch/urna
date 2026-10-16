@@ -384,11 +384,6 @@ pub enum Commands {
         #[arg(long, value_name = "N", conflicts_with_all = ["ask", "snapshot"], requires = "file")]
         eval: Option<usize>,
     },
-    /// The native image window the ask tab opens with ctrl+v; follows the
-    /// frame file the explorer rewrites. internal, started by `urna tui`.
-    #[cfg(feature = "window")]
-    #[command(hide = true)]
-    View { frame: PathBuf },
 }
 
 #[cfg(test)]

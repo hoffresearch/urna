@@ -245,8 +245,7 @@ fn detail(buf: &mut Buffer, rest: Rect, lw: u16, ask: &mut Ask) {
     // the pane's height, never more than half the pane.
     let mut tx = inner.x;
     if let (Some(blob), Some(session)) = (a.image, ask.session.clone()) {
-        let title = a.text.lines().next().unwrap_or("").trim().to_string();
-        ask.media.show(&session, blob, &title);
+        ask.media.show(&session, blob);
         let rows = inner.height.saturating_sub(3);
         let w = ask.media.cells_wide(rows).min(inner.width / 2);
         if w > 0 {
