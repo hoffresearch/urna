@@ -38,7 +38,7 @@ pub fn shared(dir: &Path) -> Result<Arc<Potion>> {
 mod tests {
     //! parity against the reference embedder script, run when a python with
     //! numpy and tokenizers is around (the repo venv, then `python3`), and
-    //! skipped with a note otherwise.
+    //! skipped with a note otherwise, unless `URNA_REQUIRE_PARITY` is set.
 
     use super::*;
     use std::process::Command;
@@ -90,6 +90,12 @@ mod tests {
     #[test]
     fn vectors_and_model_hash_match_the_reference_script() {
         let (Some(dir), Some(py)) = (table(), python()) else {
+            // the release gate (tool/tasks/fullcheck.sh) sets this: there a
+            // skip would pass #205 unchecked.
+            assert!(
+                std::env::var_os("URNA_REQUIRE_PARITY").is_none(),
+                "potion parity required: no table (an lfs pointer?) or no python with numpy+tokenizers"
+            );
             eprintln!("skip potion parity: no table or no python with numpy+tokenizers");
             return;
         };

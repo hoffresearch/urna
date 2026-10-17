@@ -3,12 +3,15 @@
 //! in the scrollback) and the full screen the explorer takes. both restore
 //! the terminal on panic before the message prints.
 
+use std::cell::RefCell;
 use std::io::{self, Write};
 use std::time::{Duration, Instant};
 
 use crossterm::event::{self, DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::execute;
 use ratatui::{DefaultTerminal, TerminalOptions, Viewport};
+
+use super::graphics::probe;
 
 /// ~30 fps: smooth for the effects, idle enough for a laptop.
 pub const FRAME: Duration = Duration::from_millis(33);
@@ -48,11 +51,18 @@ pub fn leave_fullscreen() -> io::Result<()> {
 
 /// Waits up to one frame for input; `None` means "draw the next frame".
 pub fn next_event() -> io::Result<Option<Event>> {
-    if event::poll(FRAME)? {
-        Ok(Some(event::read()?))
-    } else {
-        Ok(None)
+    thread_local! {
+        static LATE: RefCell<probe::Late> = RefCell::default();
     }
+    if !event::poll(FRAME)? {
+        return Ok(None);
+    }
+    let ev = event::read()?;
+    // a terminal reply that came after the probe gave up is not a key.
+    if LATE.with_borrow_mut(|l| l.swallows(&ev, Instant::now())) {
+        return Ok(None);
+    }
+    Ok(Some(ev))
 }
 
 /// Wall time between frames, for the effects and the spinners.

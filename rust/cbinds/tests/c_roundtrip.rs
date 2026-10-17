@@ -1,5 +1,5 @@
-//! A C program against the header and the static library: open the
-//! quickstart corpus, ask it, read the hits, take an image, read the
+//! A C program against the header and the static library: open a corpus
+//! built here from `demo/starter/docs.jsonl` with the potion table, ask it, read the hits, take an image, read the
 //! schema, close, and the error path on a file that is not there. Runs
 //! under `leaks` on macOS when it is available. Skipped, with a note,
 //! without a C compiler.
@@ -89,6 +89,44 @@ fn staticlib() -> PathBuf {
     lib
 }
 
+/// The starter docs, one chunk each, embedded with the potion table and
+/// written under its model name and hash: the corpus the ABI asks.
+fn build_corpus(table: &Path, out: &Path) {
+    use urna_format::ChunkInput;
+    use urna_format::manifest::Manifest;
+    use urna_format::writer::UrnaFileBuilder;
+
+    let potion = urna_neural::Potion::open(table).expect("potion table");
+    let docs = std::fs::read_to_string(root().join("demo/starter/docs.jsonl")).unwrap();
+    let mut chunks = Vec::new();
+    let mut at = 0u64;
+    for line in docs.lines().filter(|l| !l.trim().is_empty()) {
+        let doc: serde_json::Value = serde_json::from_str(line).unwrap();
+        let text = doc["text"].as_str().expect("a text field").to_string();
+        let end = at + line.len() as u64;
+        chunks.push(ChunkInput {
+            embedding: potion.embed(&text).unwrap(),
+            canonical_text: text,
+            source_uri: "docs.jsonl".into(),
+            byte_start: at,
+            byte_end: end,
+        });
+        at = end + 1;
+    }
+    let manifest = Manifest {
+        embedding_model: "minishlab/potion-base-8M/v1".into(),
+        embedding_dim: u32::try_from(potion.dim()).unwrap(),
+        n_chunks: chunks.len() as u64,
+        chunker_version: "starter-doc/1".into(),
+        model_hash: potion.model_hash().to_string(),
+        ..Default::default()
+    };
+    UrnaFileBuilder::new(manifest)
+        .add_chunks(chunks)
+        .write_to_path(out)
+        .unwrap();
+}
+
 #[test]
 fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
     if !have("cc") {
@@ -102,10 +140,10 @@ fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
         eprintln!("skip: the potion table is a git-lfs pointer");
         return;
     }
-    let corpus = root().join("demo/starter/out/quickstart.urna");
-    assert!(corpus.is_file(), "{} missing", corpus.display());
     let dir = std::env::temp_dir().join(format!("urna-cbinds-c-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
+    let corpus = dir.join("starter.urna");
+    build_corpus(&table, &corpus);
     let src = dir.join("main.c");
     std::fs::write(&src, PROGRAM).unwrap();
     let exe = dir.join("main");

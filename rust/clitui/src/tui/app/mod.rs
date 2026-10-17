@@ -214,13 +214,14 @@ impl App {
                     self.corpus = Some(c);
                     self.first_run = false;
                     self.sec_scroll = 0;
-                    // a fresh ask for the new corpus, keeping what the
-                    // terminal answered it can draw (probed once, at start).
-                    let terminal = self.ask.media.take_terminal();
+                    // a fresh ask for the new corpus, keeping the image
+                    // pane: what the terminal answered it can draw (probed
+                    // once, at start) and the image still on screen, which
+                    // the next flush removes.
+                    let mut media = std::mem::take(&mut self.ask.media);
+                    media.forget();
                     self.ask = ask::Ask::default();
-                    if let Some(t) = terminal {
-                        self.ask.media.set_terminal(t);
-                    }
+                    self.ask.media = media;
                     self.go(land);
                     if let Some(q) = self.ask_on_open.take()
                         && let Some(c) = &self.corpus
@@ -306,6 +307,9 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
     let sample = || home.as_deref().and_then(setup::sample::installed);
     let saved = state::file().map(|f| state::State::read(&f));
     let mut launch = Launch::pick(file, saved.as_ref().and_then(state::State::last));
+    // the terminal is asked once: a trip through setup does not change what
+    // it draws, and every query a terminal leaves unanswered costs a timeout.
+    let mut probed: Option<crate::tui::graphics::Terminal> = None;
     loop {
         let mut terminal = term::fullscreen()?;
         // a query to ask lands the file on the ask tab instead of corpus;
@@ -317,7 +321,16 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
         };
         let mut app = App::new(launch_now, sample());
         app.ask_on_open = ask_now;
-        app.ask.media.set_terminal(crate::tui::graphics::detect());
+        let graphics = *probed.get_or_insert_with(crate::tui::graphics::detect);
+        app.ask.media.set_terminal(graphics);
+        // a terminal that does not know a query may have printed some of
+        // it: the first frame starts from a clean screen. `CSI 2J`, not
+        // `Terminal::clear`, which reads the cursor position (one more
+        // query a terminal may not answer); ratatui's buffer is still empty.
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )?;
         let res = app.run(&mut terminal);
         term::leave_fullscreen()?;
         match res? {

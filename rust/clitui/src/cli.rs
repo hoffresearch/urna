@@ -108,8 +108,8 @@ pub enum Commands {
     /// [engine] Search by raw text - embeds the query with the model declared in
     /// the manifest, then routes by what the file carries: hybrid when it
     /// has a bm25 section, hnsw when it has an hnsw section, else exact.
-    /// One of the two engine verbs that run python (the other is
-    /// `doctor`). Validates the
+    /// A potion corpus embeds in process; any other model runs its python
+    /// query embedder, as `ask` and `retrieve` do. Validates the
     /// embedder's model_hash against the manifest before running search;
     /// a mismatch fails with a typed error rather than returning
     /// silently-bad results.
@@ -119,8 +119,9 @@ pub enum Commands {
         query: String,
         #[arg(short, long, default_value = "10")]
         k: i32,
-        /// Override the embedder script. Default: `rust/bridge/python/urna/embed/searchtxt.py` in a
-        /// checkout, else the installed payload's `<data root>/urna/python/urna/embed/searchtxt.py`.
+        /// Override the embedder script. Default: the potion table in
+        /// process for a potion corpus, else `urna/embed/presetqry.py` from
+        /// a checkout or the installed payload.
         #[arg(long)]
         embedder: Option<PathBuf>,
         /// `ef` (HNSW) / candidates-per-path (hybrid). Default: 4*k or 64.

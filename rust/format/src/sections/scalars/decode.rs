@@ -56,7 +56,8 @@ pub fn decode_chunk_scalars(bytes: &[u8], n_rows: usize) -> Result<ScalarTable, 
         };
         let body_len = cur.u32()? as usize;
         let body = cur.take(body_len)?;
-        let data = decode_body(kind, body, n_rows).map_err(|e| tag(e, &name))?;
+        let data =
+            decode_body(kind, body, n_rows, validity.as_deref()).map_err(|e| tag(e, &name))?;
         columns.push(Column {
             name,
             validity,
@@ -81,7 +82,12 @@ fn tag(e: UrnaError, column: &str) -> UrnaError {
     }
 }
 
-fn decode_body(kind: ColumnKind, body: &[u8], n: usize) -> Result<ColumnData, UrnaError> {
+fn decode_body(
+    kind: ColumnKind,
+    body: &[u8],
+    n: usize,
+    validity: Option<&[bool]>,
+) -> Result<ColumnData, UrnaError> {
     let mut cur = Cursor::new(body);
     let data = match kind {
         ColumnKind::Int => {
@@ -132,7 +138,7 @@ fn decode_body(kind: ColumnKind, body: &[u8], n: usize) -> Result<ColumnData, Ur
         }
         ColumnKind::Enum => {
             let dict = cur.dictionary()?;
-            let codes = cur.codes(n, &dict)?;
+            let codes = cur.codes(n, &dict, validity)?;
             ColumnData::Enum { dict, codes }
         }
         ColumnKind::EnumList => {
@@ -145,7 +151,7 @@ fn decode_body(kind: ColumnKind, body: &[u8], n: usize) -> Result<ColumnData, Ur
             if total > u32::MAX as u64 {
                 return Err(malformed("enum_list offsets overflow"));
             }
-            let codes = cur.codes(total as usize, &dict)?;
+            let codes = cur.codes(total as usize, &dict, None)?;
             ColumnData::EnumList {
                 dict,
                 offsets: offsets.into_iter().map(|o| o as u32).collect(),
@@ -242,16 +248,18 @@ impl<'a> Cursor<'a> {
         };
         Ok(Dictionary { values, numeric })
     }
-    fn codes(&mut self, want: usize, dict: &Dictionary) -> Result<Vec<u32>, UrnaError> {
-        let n = dict.values.len() as u64;
+    fn codes(
+        &mut self,
+        want: usize,
+        dict: &Dictionary,
+        validity: Option<&[bool]>,
+    ) -> Result<Vec<u32>, UrnaError> {
         let packed = self.packed(want)?;
-        let mut codes = Vec::with_capacity(want);
-        for c in packed {
-            if c >= n {
-                return Err(malformed(format!("code {c} outside a dictionary of {n}")));
-            }
-            codes.push(c as u32);
+        if packed.iter().any(|&c| c > u64::from(u32::MAX)) {
+            return Err(malformed("an enum code exceeds u32"));
         }
+        let codes: Vec<u32> = packed.into_iter().map(|c| c as u32).collect();
+        super::check_codes(dict, &codes, validity)?;
         Ok(codes)
     }
 }
