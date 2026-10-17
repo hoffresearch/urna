@@ -75,6 +75,12 @@ jobs:
             *+dev.*) ;;
             *) echo "expected a development build name (<version>+dev.<sha>), got: $v" >&2; exit 1 ;;
           esac
+      # the checkout carries the potion table as an lfs pointer; `urna doctor`
+      # and the in-process embed need the table itself, fetched from hugging
+      # face at the pinned revision and checked against the pointer's oid.
+      - name: fetch the potion table (embedder payload), verified against its lfs pointer
+        run: sh tool/tasks/getpotion.sh
+        shell: bash
       - name: test
         run: cargo test --workspace
       - name: benches compile (numbers are not a gate on shared runners)
@@ -117,6 +123,12 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: clippy
         run: cargo clippy -p urna --all-targets -- -D warnings
+      # the checkout carries the potion table as an lfs pointer; `urna doctor`
+      # and the in-process embed need the table itself, fetched from hugging
+      # face at the pinned revision and checked against the pointer's oid.
+      - name: fetch the potion table (embedder payload), verified against its lfs pointer
+        run: sh tool/tasks/getpotion.sh
+        shell: bash
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
 

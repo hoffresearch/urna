@@ -19,11 +19,6 @@ use std::time::Duration;
 /// every terminal that answers.
 pub const DEADLINE: Duration = Duration::from_millis(1000);
 
-const KITTY: &[u8] = b"\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\";
-const XTVERSION: &[u8] = b"\x1b[>0q";
-const CELL: &[u8] = b"\x1b[16t";
-const DA1: &[u8] = b"\x1b[c";
-
 /// What the terminal said; `None` where it said nothing.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Answer {
@@ -37,13 +32,20 @@ pub struct Answer {
     pub done: bool,
 }
 
-/// The four queries, in the order the replies close the read.
+/// The four queries, in the order the replies close the read. The query,
+/// and the parser of its replies, exist where a terminal is asked (unix).
+#[cfg(any(unix, test))]
 pub fn query() -> Vec<u8> {
+    const KITTY: &[u8] = b"\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\";
+    const XTVERSION: &[u8] = b"\x1b[>0q";
+    const CELL: &[u8] = b"\x1b[16t";
+    const DA1: &[u8] = b"\x1b[c";
     [KITTY, XTVERSION, CELL, DA1].concat()
 }
 
 /// The replies in `bytes`; what is not a reply (a key, a mouse report) is
 /// skipped.
+#[cfg(any(unix, test))]
 pub fn parse(bytes: &[u8]) -> Answer {
     let mut a = Answer::default();
     let mut i = 0;
@@ -84,6 +86,7 @@ pub fn parse(bytes: &[u8]) -> Answer {
     a
 }
 
+#[cfg(any(unix, test))]
 fn csi(params: &[u8], fin: u8, a: &mut Answer) {
     let text = String::from_utf8_lossy(params);
     match fin {
@@ -108,6 +111,7 @@ fn csi(params: &[u8], fin: u8, a: &mut Answer) {
     }
 }
 
+#[cfg(any(unix, test))]
 fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
     hay.windows(needle.len()).position(|w| w == needle)
 }
@@ -213,7 +217,7 @@ mod tests {
 
     #[test]
     fn the_query_ends_with_da1() {
-        assert!(query().ends_with(DA1));
+        assert!(query().ends_with(b"\x1b[c"));
         assert!(query().starts_with(b"\x1b_G"));
     }
 }
