@@ -17,3 +17,7 @@ crate-type = ["rlib", "cdylib", "staticlib"]
 urna-engine = { path = "../engine" }
 urna-neural = { path = "../neural" }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+# the C round trip builds its own potion corpus from demo/starter/docs.jsonl.
+urna-format = { workspace = true }

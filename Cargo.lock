@@ -2415,6 +2415,7 @@ version = "0.5.6"
 dependencies = [
  "serde_json",
  "urna-engine",
+ "urna-format",
  "urna-neural",
 ]
 
