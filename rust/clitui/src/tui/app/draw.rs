@@ -93,18 +93,23 @@ impl App {
                 }
                 self.fx.add_unique_effect("page", fx::page_in(body));
             }
+            // what is drawn over the ask tab's image hides its pixels.
+            let mut covers = Vec::new();
             if self.tab == Tab::Ask
                 && let Some(o) = &self.ask.offer
             {
                 offer::render(buf, body, o, &spin);
+                covers.push(body);
             }
             if let Some(fe) = &self.picker {
                 let r = pick::render(buf, area, fe);
+                covers.push(r);
                 if std::mem::take(&mut self.picker_new) {
                     self.fx.add_unique_effect("picker", fx::open(r));
                 }
             }
             for r in self.toasts.render(buf, body) {
+                covers.push(r);
                 self.fx.add_effect(fx::toast_in(r));
             }
             if !self.booted {
@@ -114,6 +119,7 @@ impl App {
             }
             self.fx.process_effects(dt, buf, area);
             pal::fit(buf, area, self.depth);
+            self.ask.media.settle(buf, &covers);
         })?;
         Ok(())
     }

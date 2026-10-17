@@ -1,14 +1,20 @@
-//! Pixels for the terminal. The protocols (kitty, iTerm2, sixel) and the
-//! question of which one the terminal speaks belong to `ratatui-image`,
-//! made here by `picker`; `URNA_GRAPHICS` overrides its answer. Terminals
-//! with none of them get the image in block glyphs (`app::blocks`), from
-//! the set of `glyphs` every font carries. `Rgba` is the decoded image as
-//! both paths take it.
+//! Pixels for the terminal, by the protocol the terminal speaks, written
+//! here from the specifications: kitty's graphics protocol (kitty,
+//! ghostty), iTerm2's inline images (iTerm2, WezTerm) and sixel. Each
+//! takes an `Rgba` image sized for a cell rectangle and gives the escape
+//! bytes that draw it at the cursor; the explorer writes them after each
+//! frame at the image's anchor cell. Which one the terminal speaks, and
+//! its cell size, the terminal says itself (`probe`); `URNA_GRAPHICS`
+//! overrides it. Terminals with none get the image in block glyphs
+//! (`app::blocks`), from the set of `glyphs` the font carries.
 
+mod base64;
 pub mod glyphs;
-
-use ratatui_image::FontSize;
-use ratatui_image::picker::{Picker, ProtocolType};
+mod iterm;
+mod kitty;
+mod png;
+pub mod probe;
+mod sixel;
 
 /// 8-bit RGBA pixels, rows top to bottom, no padding.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -84,45 +90,150 @@ impl Rgba {
     }
 }
 
-/// The terminal, asked by ratatui-image: call it with the alternate screen
-/// up and before any key is read. `URNA_GRAPHICS` (`kitty`, `iterm`,
-/// `sixel`, `blocks`) wins over the answer; a terminal that answers
-/// nothing gets blocks at the cell size the kernel reports.
-pub fn picker() -> Picker {
-    let mut picker = Picker::from_query_stdio().unwrap_or_else(|_| {
-        let cell = crossterm::terminal::window_size()
-            .ok()
-            .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
-            .map_or((10, 20), |w| (w.width / w.columns, w.height / w.rows));
-        // `halfblocks()` would fix the cell at 10x20; the kernel's size
-        // keeps the aspect right where the terminal answered no query.
-        #[allow(deprecated, reason = "the only constructor that takes a cell size")]
-        Picker::from_fontsize(FontSize::new(cell.0, cell.1))
-    });
-    if let Some(p) = forced(&std::env::var("URNA_GRAPHICS").unwrap_or_default()) {
-        picker.set_protocol_type(p);
+/// What draws the image.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Protocol {
+    Kitty,
+    Iterm2,
+    Sixel,
+    /// block glyphs (`app::blocks`): every terminal and font.
+    Glyphs,
+}
+
+impl Protocol {
+    pub fn pixels(self) -> bool {
+        self != Self::Glyphs
     }
-    picker
+}
+
+/// The terminal as the explorer draws on it: its protocol, the pixel size
+/// of one cell and the glyphs its font carries.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Terminal {
+    pub protocol: Protocol,
+    /// (width, height) of a cell in pixels.
+    pub cell: (u16, u16),
+    pub glyphs: glyphs::Set,
+}
+
+impl Default for Terminal {
+    fn default() -> Self {
+        Self {
+            protocol: Protocol::Glyphs,
+            cell: (10, 20),
+            glyphs: glyphs::Set::Blocks,
+        }
+    }
+}
+
+/// The terminal, asked once per process with the alternate screen up and
+/// before any key is read. `URNA_GRAPHICS` (`kitty`, `iterm`, `sixel`,
+/// `blocks`) wins over the answer, and `blocks` asks nothing: the glyphs
+/// need only the cell size the kernel reports.
+pub fn detect() -> Terminal {
+    let env = |k: &str| std::env::var(k).unwrap_or_default();
+    let forced = forced(&env("URNA_GRAPHICS"));
+    let answer = match forced {
+        Some(Protocol::Glyphs) => None,
+        _ => probe::ask(probe::DEADLINE),
+    };
+    let kernel = crossterm::terminal::window_size()
+        .ok()
+        .filter(|w| w.width > 0 && w.height > 0 && w.columns > 0 && w.rows > 0)
+        .map(|w| (w.width / w.columns, w.height / w.rows));
+    Terminal {
+        protocol: forced.unwrap_or_else(|| choose(answer.as_ref(), &env)),
+        cell: answer
+            .as_ref()
+            .and_then(|a| a.cell)
+            .or(kernel)
+            .unwrap_or((10, 20)),
+        glyphs: glyph_set(&env("URNA_GLYPHS")),
+    }
+}
+
+/// The protocol from what the terminal answered. Inside tmux only sixel,
+/// which tmux draws itself: an image passed through to the terminal
+/// outside would land where that terminal's cursor is, not in the pane.
+/// iTerm2 and WezTerm by name take inline images, then kitty's `OK`, then
+/// DA1's sixel; a terminal that answered nothing is read from the
+/// variables it sets, as before there was a query.
+fn choose(answer: Option<&probe::Answer>, env: &dyn Fn(&str) -> String) -> Protocol {
+    let name = answer.and_then(|a| a.name.as_deref()).unwrap_or_default();
+    let term = env("TERM");
+    let tmux = !env("TMUX").is_empty()
+        || term.starts_with("tmux")
+        || term.starts_with("screen")
+        || name.starts_with("tmux");
+    match answer.filter(|a| a.done) {
+        Some(a) if tmux => {
+            if a.sixel {
+                Protocol::Sixel
+            } else {
+                Protocol::Glyphs
+            }
+        }
+        Some(_) if name.starts_with("iTerm2") || name.starts_with("WezTerm") => Protocol::Iterm2,
+        Some(a) if a.kitty => Protocol::Kitty,
+        Some(a) if a.sixel => Protocol::Sixel,
+        Some(_) => Protocol::Glyphs,
+        None if tmux => Protocol::Glyphs,
+        None => from_env(env),
+    }
+}
+
+fn from_env(env: &dyn Fn(&str) -> String) -> Protocol {
+    let (term, program) = (env("TERM"), env("TERM_PROGRAM"));
+    if !env("KITTY_WINDOW_ID").is_empty() || term.contains("kitty") || program == "ghostty" {
+        Protocol::Kitty
+    } else if program == "iTerm.app" || program == "WezTerm" || env("LC_TERMINAL").contains("iTerm")
+    {
+        Protocol::Iterm2
+    } else {
+        Protocol::Glyphs
+    }
+}
+
+fn forced(v: &str) -> Option<Protocol> {
+    match v {
+        "kitty" => Some(Protocol::Kitty),
+        "sixel" => Some(Protocol::Sixel),
+        "iterm" | "iterm2" => Some(Protocol::Iterm2),
+        "blocks" | "glyphs" | "halfblocks" | "quadrants" => Some(Protocol::Glyphs),
+        _ => None,
+    }
 }
 
 /// The glyphs to draw with where there is no protocol: the blocks every
 /// font has, unless `URNA_GLYPHS` (`sextants`, `octants`) says the font
 /// has more. A font cannot be asked, so nothing here guesses.
-pub fn glyph_set() -> glyphs::Set {
-    match std::env::var("URNA_GLYPHS").unwrap_or_default().as_str() {
+fn glyph_set(v: &str) -> glyphs::Set {
+    match v {
         "sextants" => glyphs::Set::Sextants,
         "octants" => glyphs::Set::Octants,
         _ => glyphs::Set::Blocks,
     }
 }
 
-fn forced(v: &str) -> Option<ProtocolType> {
-    match v {
-        "kitty" => Some(ProtocolType::Kitty),
-        "sixel" => Some(ProtocolType::Sixel),
-        "iterm" | "iterm2" => Some(ProtocolType::Iterm2),
-        "blocks" | "glyphs" | "halfblocks" | "quadrants" => Some(ProtocolType::Halfblocks),
-        _ => None,
+/// The escape bytes that draw `img` at the cursor, spanning `cols` x
+/// `rows` cells. `id` names the image to the protocols that keep images
+/// (kitty), so the next draw replaces this one.
+pub fn encode(protocol: Protocol, img: &Rgba, cols: u16, rows: u16, id: u32) -> Vec<u8> {
+    match protocol {
+        Protocol::Kitty => kitty::encode(img, cols, rows, id),
+        Protocol::Iterm2 => iterm::encode(img, cols, rows),
+        Protocol::Sixel => sixel::encode(img),
+        Protocol::Glyphs => Vec::new(),
+    }
+}
+
+/// The escape bytes that remove image `id` where the protocol keeps
+/// images past the cells they covered (kitty); nothing elsewhere, where
+/// redrawing the cells is the removal.
+pub fn clear(protocol: Protocol, id: u32) -> Vec<u8> {
+    match protocol {
+        Protocol::Kitty => kitty::delete(id),
+        _ => Vec::new(),
     }
 }
 
@@ -148,9 +259,62 @@ mod tests {
     }
 
     #[test]
-    fn the_override_names_match() {
-        assert_eq!(forced("quadrants"), Some(ProtocolType::Halfblocks));
-        assert_eq!(forced("kitty"), Some(ProtocolType::Kitty));
+    fn the_override_names_match_and_only_kitty_clears() {
+        assert_eq!(forced("quadrants"), Some(Protocol::Glyphs));
+        assert_eq!(forced("kitty"), Some(Protocol::Kitty));
         assert_eq!(forced(""), None);
+        assert_eq!(glyph_set("octants"), glyphs::Set::Octants);
+        assert!(clear(Protocol::Sixel, 1).is_empty());
+        assert!(clear(Protocol::Kitty, 1).starts_with(b"\x1b_G"));
+    }
+
+    fn vars(pairs: &[(&str, &str)]) -> impl Fn(&str) -> String {
+        let pairs: Vec<(String, String)> = pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_string(), (*v).to_string()))
+            .collect();
+        move |k: &str| {
+            pairs
+                .iter()
+                .find(|(n, _)| n == k)
+                .map(|(_, v)| v.clone())
+                .unwrap_or_default()
+        }
+    }
+
+    #[test]
+    fn the_answer_picks_the_protocol() {
+        let none = vars(&[]);
+        let a = |bytes: &[u8]| probe::parse(bytes);
+        let kitty = a(b"\x1b_Gi=31;OK\x1b\\\x1b[?62;c");
+        assert_eq!(choose(Some(&kitty), &none), Protocol::Kitty);
+        let wez = a(b"\x1b_Gi=31;OK\x1b\\\x1bP>|WezTerm 20240203\x1b\\\x1b[?65;4c");
+        assert_eq!(choose(Some(&wez), &none), Protocol::Iterm2);
+        let foot = a(b"\x1b[?62;4;22c");
+        assert_eq!(choose(Some(&foot), &none), Protocol::Sixel);
+        let apple = a(b"\x1b[?1;2c");
+        assert_eq!(choose(Some(&apple), &none), Protocol::Glyphs);
+    }
+
+    #[test]
+    fn inside_tmux_only_the_sixel_tmux_draws() {
+        let tmux = vars(&[("TMUX", "/tmp/tmux-501/default,1,0")]);
+        let with = probe::parse(b"\x1bP>|tmux 3.5a\x1b\\\x1b[?65;4c");
+        assert_eq!(choose(Some(&with), &tmux), Protocol::Sixel);
+        // kitty outside tmux answered through it: still not drawn there.
+        let kitty = probe::parse(b"\x1b_Gi=31;OK\x1b\\\x1b[?62;c");
+        assert_eq!(choose(Some(&kitty), &tmux), Protocol::Glyphs);
+        assert_eq!(choose(None, &tmux), Protocol::Glyphs);
+    }
+
+    #[test]
+    fn no_answer_falls_back_to_the_variables() {
+        let ghostty = vars(&[("TERM_PROGRAM", "ghostty")]);
+        assert_eq!(choose(None, &ghostty), Protocol::Kitty);
+        let iterm = vars(&[("LC_TERMINAL", "iTerm2")]);
+        assert_eq!(choose(None, &iterm), Protocol::Iterm2);
+        // a reply cut before DA1 is no answer either.
+        let cut = probe::parse(b"\x1b_Gi=31;OK\x1b\\");
+        assert_eq!(choose(Some(&cut), &vars(&[])), Protocol::Glyphs);
     }
 }

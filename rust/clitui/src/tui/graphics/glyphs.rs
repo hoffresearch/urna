@@ -6,8 +6,8 @@
 //! in every monospace font (the symbols chafa and TerminalImageViewer draw
 //! with everywhere); plus the sextants and the quarter blocks of Unicode
 //! 13 (U+1FB00..U+1FB8B); plus the octants of Unicode 16. A font cannot be
-//! asked which glyphs it has, so the set comes from the terminal
-//! (`graphics::detect`), never from a guess at the font.
+//! asked which glyphs it has, so the set is the one `URNA_GLYPHS` names
+//! (`graphics::glyph_set`), never a guess at the font.
 
 use std::sync::OnceLock;
 

@@ -216,11 +216,10 @@ impl App {
                     self.sec_scroll = 0;
                     // a fresh ask for the new corpus, keeping what the
                     // terminal answered it can draw (probed once, at start).
-                    let picker = self.ask.media.take_picker();
-                    let glyphs = self.ask.media.glyphs();
+                    let terminal = self.ask.media.take_terminal();
                     self.ask = ask::Ask::default();
-                    if let Some(p) = picker {
-                        self.ask.media.set_picker(p, glyphs);
+                    if let Some(t) = terminal {
+                        self.ask.media.set_terminal(t);
                     }
                     self.go(land);
                     if let Some(q) = self.ask_on_open.take()
@@ -284,6 +283,10 @@ impl App {
             let dt = self.clock.tick();
             self.spinner.tick(dt);
             self.draw(terminal, dt)?;
+            // the pixels of the ask tab's image go out after the frame, at
+            // their anchor cell; off the tab, the image the terminal keeps
+            // is removed.
+            self.ask.media.flush(&mut std::io::stdout())?;
             if let Some((t0, _)) = &self.leaving
                 && t0.elapsed() > Duration::from_millis(380)
             {
@@ -303,6 +306,9 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
     let sample = || home.as_deref().and_then(setup::sample::installed);
     let saved = state::file().map(|f| state::State::read(&f));
     let mut launch = Launch::pick(file, saved.as_ref().and_then(state::State::last));
+    // the terminal is asked once: a trip through setup does not change what
+    // it draws, and every query a terminal leaves unanswered costs a timeout.
+    let mut probed: Option<crate::tui::graphics::Terminal> = None;
     loop {
         let mut terminal = term::fullscreen()?;
         // a query to ask lands the file on the ask tab instead of corpus;
@@ -314,10 +320,8 @@ pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32
         };
         let mut app = App::new(launch_now, sample());
         app.ask_on_open = ask_now;
-        app.ask.media.set_picker(
-            crate::tui::graphics::picker(),
-            crate::tui::graphics::glyph_set(),
-        );
+        let graphics = *probed.get_or_insert_with(crate::tui::graphics::detect);
+        app.ask.media.set_terminal(graphics);
         // a terminal that does not know a query may have printed some of
         // it: the first frame starts from a clean screen. `CSI 2J`, not
         // `Terminal::clear`, which reads the cursor position (one more
