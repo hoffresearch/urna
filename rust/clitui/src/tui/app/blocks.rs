@@ -6,6 +6,8 @@
 //! one whose two means explain the most of the cell. The means and the
 //! error are taken in Oklab, where a distance is a perceived difference.
 
+use std::sync::LazyLock;
+
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Color;
@@ -14,6 +16,11 @@ use crate::tui::graphics::Rgba;
 use crate::tui::graphics::glyphs::{self, GH, GW, Glyph, Set};
 
 type Lab = [f32; 3];
+
+/// Two splits closer than this fraction of the score are a tie, which the
+/// earlier glyph wins: the summed-area differences round at about 1e-6 of
+/// it, and a flat cell would otherwise draw whichever glyph rounded up.
+const TIE: f32 = 1e-5;
 
 /// One drawn cell: the glyph, its foreground and its background.
 pub type Cell = (&'static str, Color, Color);
@@ -88,7 +95,7 @@ fn best(glyphs: &'static [Glyph], sums: &[Lab]) -> Cell {
         let nb = n - nf;
         let bg = [total[0] - fg[0], total[1] - fg[1], total[2] - fg[2]];
         let score = energy(fg, nf) + energy(bg, nb);
-        if pick.is_none_or(|(_, _, s)| score > s + 1e-9) {
+        if pick.is_none_or(|(_, _, s)| score > s * (1.0 + TIE)) {
             pick = Some((g, fg, score));
         }
     }
@@ -115,13 +122,20 @@ fn energy(s: Lab, k: f32) -> f32 {
     }
 }
 
+/// sRGB to linear light, one entry per byte value: the pane's 192
+/// subpixels per cell would otherwise take three `powf` each.
 fn to_linear(c: u8) -> f32 {
-    let c = f32::from(c) / 255.0;
-    if c <= 0.04045 {
-        c / 12.92
-    } else {
-        ((c + 0.055) / 1.055).powf(2.4)
-    }
+    static TABLE: LazyLock<[f32; 256]> = LazyLock::new(|| {
+        std::array::from_fn(|i| {
+            let c = i as f32 / 255.0;
+            if c <= 0.04045 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        })
+    });
+    TABLE[usize::from(c)]
 }
 
 fn to_srgb(c: f32) -> u8 {
@@ -206,6 +220,34 @@ mod tests {
         // flat: one color, both sides the same.
         let flat = cells(&image(8, 24, |_, _| [9, 90, 200]), 1, 1, Set::Blocks);
         assert_eq!(flat[0].1, flat[0].2);
+    }
+
+    #[test]
+    fn a_flat_cell_is_the_first_glyph_whatever_the_rounding() {
+        let steps = || (0..=255u8).step_by(15);
+        for rgb in steps().flat_map(|r| steps().flat_map(move |g| steps().map(move |b| [r, g, b])))
+        {
+            let img = image(8, 24, |_, _| rgb);
+            for set in [Set::Blocks, Set::Sextants, Set::Octants] {
+                for (ch, fg, bg) in cells(&img, 1, 1, set) {
+                    assert_eq!(ch, " ", "{rgb:?} {set:?}");
+                    assert_eq!(fg, bg);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_table_is_the_formula() {
+        for c in 0..=255u8 {
+            let x = f32::from(c) / 255.0;
+            let want = if x <= 0.04045 {
+                x / 12.92
+            } else {
+                ((x + 0.055) / 1.055).powf(2.4)
+            };
+            assert_eq!(to_linear(c), want);
+        }
     }
 
     #[test]

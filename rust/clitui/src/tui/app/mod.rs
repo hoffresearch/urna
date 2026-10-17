@@ -214,13 +214,14 @@ impl App {
                     self.corpus = Some(c);
                     self.first_run = false;
                     self.sec_scroll = 0;
-                    // a fresh ask for the new corpus, keeping what the
-                    // terminal answered it can draw (probed once, at start).
-                    let terminal = self.ask.media.take_terminal();
+                    // a fresh ask for the new corpus, keeping the image
+                    // pane: what the terminal answered it can draw (probed
+                    // once, at start) and the image still on screen, which
+                    // the next flush removes.
+                    let mut media = std::mem::take(&mut self.ask.media);
+                    media.forget();
                     self.ask = ask::Ask::default();
-                    if let Some(t) = terminal {
-                        self.ask.media.set_terminal(t);
-                    }
+                    self.ask.media = media;
                     self.go(land);
                     if let Some(q) = self.ask_on_open.take()
                         && let Some(c) = &self.corpus

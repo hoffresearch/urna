@@ -22,8 +22,8 @@ pub enum Predicate {
         column: String,
         value: String,
     },
-    /// a list column holds `value`; on a dictionary of single letters a
-    /// longer value holds each of its letters (`rg`).
+    /// a list column holds `value`; a value that is not an entry but whose
+    /// every letter is one holds each of its letters (`rg`).
     Has {
         column: String,
         value: String,
@@ -143,6 +143,10 @@ fn eval(p: &Predicate, table: &ScalarTable, n: usize) -> Result<Bitset, RuntimeE
             let ColumnData::Text(v) = &c.data else {
                 return Err(err(format!("{name} is not a text column")));
             };
+            // every text contains the empty one: a filter that keeps all.
+            if value.is_empty() {
+                return Err(err(format!("{name}: the value is empty")));
+            }
             let want = value.to_lowercase();
             Bitset::from_fn(n, |i| c.present(i) && v[i].to_lowercase().contains(&want))
         }
@@ -157,20 +161,26 @@ fn eval(p: &Predicate, table: &ScalarTable, n: usize) -> Result<Bitset, RuntimeE
             let held = |code: u32| Bitset::from_fn(n, |i| c.data.codes_at(i).contains(&code));
             match code_of(dict, value) {
                 Some(code) => held(code),
-                // `rg` on a dictionary of single letters (colors) holds
-                // every letter; any letter the dictionary lacks keeps none,
-                // and so does no letter at all.
-                None if !value.is_empty() && dict.values.iter().all(|v| v.chars().count() == 1) => {
-                    let mut b = Bitset::full(n);
-                    for ch in value.chars() {
-                        match code_of(dict, ch.encode_utf8(&mut [0; 4])) {
-                            Some(code) => b.and(&held(code)),
-                            None => return Ok(Bitset::empty(n)),
+                // `rg` where the dictionary holds `R` and `G` as entries
+                // (colors, beside a `none` or a hybrid) holds every letter;
+                // a letter that is not an entry keeps none, and so does no
+                // letter at all.
+                None => {
+                    let letters: Option<Vec<u32>> = value
+                        .chars()
+                        .map(|ch| code_of(dict, ch.encode_utf8(&mut [0; 4])))
+                        .collect();
+                    match letters {
+                        Some(codes) if !codes.is_empty() => {
+                            let mut b = Bitset::full(n);
+                            for code in codes {
+                                b.and(&held(code));
+                            }
+                            b
                         }
+                        _ => Bitset::empty(n),
                     }
-                    b
                 }
-                None => Bitset::empty(n),
             }
         }
         Predicate::Range {
@@ -314,6 +324,11 @@ mod tests {
         assert_eq!(ones(Filter::default().and(has("g"))), vec![0, 2]);
         assert_eq!(ones(Filter::default().and(has("gx"))), Vec::<usize>::new());
         assert_eq!(ones(Filter::default().and(has(""))), Vec::<usize>::new());
+        let empty = Predicate::Contains {
+            column: "type_line".into(),
+            value: String::new(),
+        };
+        assert!(Filter::default().and(empty).bitset(&table(), 4).is_err());
         let cmc1 = Predicate::Eq {
             column: "cmc".into(),
             value: "1".into(),
@@ -325,6 +340,34 @@ mod tests {
         };
         assert_eq!(ones(Filter::default().and(star)), vec![1]);
         assert_eq!(ones(Filter::default()), vec![0, 1, 2, 3]);
+    }
+
+    #[test]
+    fn letters_split_on_a_dictionary_that_also_holds_words() {
+        let mut t = table();
+        t.columns[2].data = ColumnData::EnumList {
+            dict: Dictionary {
+                values: vec!["G".into(), "R".into(), "none".into(), "W/U".into()],
+                numeric: None,
+            },
+            offsets: vec![0, 1, 2, 4, 5],
+            codes: vec![0, 1, 0, 1, 2],
+        };
+        let has = |v: &str| {
+            Filter::default()
+                .and(Predicate::Has {
+                    column: "colors".into(),
+                    value: v.into(),
+                })
+                .bitset(&t, 4)
+                .expect("filter")
+                .ones()
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(has("rg"), vec![2]);
+        assert_eq!(has("none"), vec![3]);
+        assert_eq!(has("w/u"), Vec::<usize>::new());
+        assert_eq!(has("rx"), Vec::<usize>::new());
     }
 
     #[test]

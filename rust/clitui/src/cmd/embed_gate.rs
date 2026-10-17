@@ -277,6 +277,7 @@ pub fn embed_and_route(
     let is_potion = model.starts_with("minishlab/potion");
     let truncated = runtime.full_dim().is_some();
     let cand = candidates.unwrap_or(((k as usize) * 4).max(64));
+    let unchecked = hash_skipped(skip_model_hash_check, &declared_model_hash);
 
     // a potion corpus queried with the default embedder embeds in process
     // (#205): same recipe, same model_hash, no interpreter. the script stays
@@ -285,8 +286,8 @@ pub fn embed_and_route(
     if is_potion && embedder.is_none() && model_path.is_none() && !truncated {
         let table = super::potion::table_dir(&default_potion_embedder_path());
         if let Some(dir) = table {
-            if skip_model_hash_check {
-                unchecked(&model, &format!("the potion table in {}", dir.display()));
+            if unchecked {
+                say_unchecked(&model, &format!("the potion table in {}", dir.display()));
             }
             let p = super::potion::shared(&dir)?;
             let payload = EmbedderOutput {
@@ -322,8 +323,8 @@ pub fn embed_and_route(
         extra.push("--mrl-dim".into());
         extra.push(declared_dim.to_string());
     }
-    if skip_model_hash_check {
-        unchecked(&model, &embedder.display().to_string());
+    if unchecked {
+        say_unchecked(&model, &embedder.display().to_string());
     }
     let payload = spawn_embedder(&embedder, model_path.as_ref(), &extra, &model, query)?;
     validate_gate(
@@ -340,9 +341,27 @@ pub fn embed_and_route(
     Ok(runtime.search_routed_where(&payload.vector, Some(query), k, cand, keep)?)
 }
 
+/// The flag skips the gate only on the legacy placeholder (`validate_gate`);
+/// a real fingerprint is checked whatever the flag says.
+fn hash_skipped(skip_model_hash_check: bool, declared_model_hash: &str) -> bool {
+    skip_model_hash_check && declared_model_hash == PLACEHOLDER_MODEL_HASH
+}
+
 /// With the model_hash gate off, nothing proves the query was embedded the
 /// way the corpus was: the line names what embedded it, so a ranking that
 /// looks off can be traced to the embedder.
-fn unchecked(model: &str, via: &str) {
+fn say_unchecked(model: &str, via: &str) {
     eprintln!("[urna] model_hash not checked: embedding the query with {model} via {via}");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_flag_skips_only_the_placeholder() {
+        assert!(hash_skipped(true, PLACEHOLDER_MODEL_HASH));
+        assert!(!hash_skipped(true, "sha256:real"));
+        assert!(!hash_skipped(false, PLACEHOLDER_MODEL_HASH));
+    }
 }

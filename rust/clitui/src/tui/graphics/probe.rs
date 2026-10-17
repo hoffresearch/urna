@@ -11,13 +11,27 @@
 //!   reply closes the read; attribute 4 is sixel.
 //!
 //! A terminal that answers nothing costs the deadline and keeps nothing
-//! reading stdin after it.
+//! reading stdin after it. The read takes one byte at a time, so a key
+//! typed after DA1 stays for the explorer; replies that come after the
+//! deadline (a slow link) are taken out of the key stream by `Late`.
 
-use std::time::Duration;
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
+
+use crossterm::event::{Event, KeyCode, KeyModifiers};
 
 /// The longest the replies are waited for; DA1 ends the wait sooner on
 /// every terminal that answers.
 pub const DEADLINE: Duration = Duration::from_millis(1000);
+
+/// When `ask` stopped before DA1: the replies may still be on their way.
+static GAVE_UP: OnceLock<Instant> = OnceLock::new();
+
+/// How long after the deadline a late reply is still looked for.
+const LATE: Duration = Duration::from_secs(10);
+
+/// A reply arrives in one burst: one still open after this was a key.
+const BURST: Duration = Duration::from_millis(100);
 
 /// What the terminal said; `None` where it said nothing.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -123,7 +137,6 @@ fn find(hay: &[u8], needle: &[u8]) -> Option<usize> {
 pub fn ask(deadline: Duration) -> Option<Answer> {
     use std::io::{IsTerminal, Write};
     use std::os::fd::AsRawFd;
-    use std::time::Instant;
 
     let stdin = std::io::stdin();
     if !stdin.is_terminal() {
@@ -135,7 +148,8 @@ pub fn ask(deadline: Duration) -> Option<Answer> {
     let fd = stdin.as_raw_fd();
     let until = Instant::now() + deadline;
     let mut got = Vec::new();
-    let mut buf = [0u8; 256];
+    // one byte per read: nothing past DA1 leaves the kernel's queue.
+    let mut byte = 0u8;
     loop {
         let left = until.saturating_duration_since(Instant::now());
         if left.is_zero() {
@@ -158,23 +172,65 @@ pub fn ask(deadline: Duration) -> Option<Answer> {
         if ready == 0 {
             break;
         }
-        // SAFETY: `buf` is valid for `buf.len()` bytes; poll said fd reads.
-        let n = unsafe { libc::read(fd, buf.as_mut_ptr().cast(), buf.len()) };
+        // SAFETY: `byte` is valid for one byte; poll said fd reads.
+        let n = unsafe { libc::read(fd, (&raw mut byte).cast(), 1) };
         if n <= 0 {
             break;
         }
-        got.extend_from_slice(&buf[..n as usize]);
-        if parse(&got).done {
+        got.push(byte);
+        if byte == b'c' && parse(&got).done {
             break;
         }
     }
-    Some(parse(&got))
+    let answer = parse(&got);
+    if !answer.done {
+        let _ = GAVE_UP.set(Instant::now());
+    }
+    Some(answer)
 }
 
 /// Windows reads the console as input records, not bytes: no query there.
 #[cfg(not(unix))]
 pub fn ask(_deadline: Duration) -> Option<Answer> {
     None
+}
+
+/// The kitty and XTVERSION replies that arrive after `ask` gave up, as
+/// crossterm reads them: `Alt+_` (APC) or `Alt+P` (DCS), the reply's
+/// characters as keys, `Alt+\` (ST). DA1 and the cell size are CSI, which
+/// crossterm drops itself.
+#[derive(Default)]
+pub struct Late {
+    open: Option<Instant>,
+}
+
+impl Late {
+    /// `ev` is part of a late reply, not a key.
+    pub fn swallows(&mut self, ev: &Event, now: Instant) -> bool {
+        let armed = GAVE_UP
+            .get()
+            .is_some_and(|t| now.saturating_duration_since(*t) < LATE);
+        self.swallows_when(armed, ev, now)
+    }
+
+    fn swallows_when(&mut self, armed: bool, ev: &Event, now: Instant) -> bool {
+        let Event::Key(k) = ev else { return false };
+        let alt = k.modifiers.contains(KeyModifiers::ALT);
+        if let Some(t) = self.open {
+            if now.saturating_duration_since(t) <= BURST {
+                if alt && k.code == KeyCode::Char('\\') {
+                    self.open = None;
+                }
+                return true;
+            }
+            self.open = None;
+        }
+        if armed && alt && matches!(k.code, KeyCode::Char('_' | 'P')) {
+            self.open = Some(now);
+            return true;
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -213,6 +269,31 @@ mod tests {
         let a = parse(whole);
         assert_eq!(a.name.as_deref(), Some("WezTerm 20240203"));
         assert!(a.done && a.sixel);
+    }
+
+    #[test]
+    fn a_late_reply_is_not_typed_and_a_key_after_it_is() {
+        use crossterm::event::KeyEvent;
+        let key = |c: char, m: KeyModifiers| Event::Key(KeyEvent::new(KeyCode::Char(c), m));
+        let t0 = Instant::now();
+        let at = |ms: u64| t0 + Duration::from_millis(ms);
+        let mut late = Late::default();
+        // `\x1b_Gi=31;OK\x1b\\` as crossterm reads it.
+        assert!(late.swallows_when(true, &key('_', KeyModifiers::ALT), at(0)));
+        for c in "Gi=31;OK".chars() {
+            assert!(late.swallows_when(true, &key(c, KeyModifiers::NONE), at(1)));
+        }
+        assert!(late.swallows_when(true, &key('\\', KeyModifiers::ALT), at(1)));
+        assert!(!late.swallows_when(true, &key('a', KeyModifiers::NONE), at(2)));
+        // an Alt+P that no reply follows lets the next key through.
+        assert!(late.swallows_when(
+            true,
+            &key('P', KeyModifiers::ALT | KeyModifiers::SHIFT),
+            at(10)
+        ));
+        assert!(!late.swallows_when(true, &key('b', KeyModifiers::NONE), at(500)));
+        // disarmed (DA1 came back, or long after): Alt+_ is a key.
+        assert!(!late.swallows_when(false, &key('_', KeyModifiers::ALT), at(600)));
     }
 
     #[test]

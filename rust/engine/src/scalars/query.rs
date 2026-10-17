@@ -41,25 +41,33 @@ pub fn parse(line: &str, schema: &[SchemaField]) -> Result<ParsedQuery, RuntimeE
             free.push(unquote(&raw));
             continue;
         };
-        if prefix.eq_ignore_ascii_case("o") {
+        let oracle = prefix.eq_ignore_ascii_case("o");
+        let field = schema.iter().find(|f| {
+            f.prefix
+                .as_deref()
+                .is_some_and(|p| p.eq_ignore_ascii_case(prefix))
+        });
+        // `note:` is a word ending in a colon, not a column.
+        if value.is_empty() && !oracle && field.is_none() {
             if negate {
                 return Err(cannot_exclude(&raw));
             }
-            free.push(unquote(value));
+            free.push(raw.clone());
             continue;
         }
-        let field = schema
-            .iter()
-            .find(|f| {
-                f.prefix
-                    .as_deref()
-                    .is_some_and(|p| p.eq_ignore_ascii_case(prefix))
-            })
-            .ok_or_else(|| RuntimeError::Filter(format!("unknown search prefix {prefix:?}")))?;
         let value = unquote(value);
         if value.is_empty() {
             return Err(RuntimeError::Filter(format!("{raw}: the value is empty")));
         }
+        if oracle {
+            if negate {
+                return Err(cannot_exclude(&raw));
+            }
+            free.push(value);
+            continue;
+        }
+        let field = field
+            .ok_or_else(|| RuntimeError::Filter(format!("unknown search prefix {prefix:?}")))?;
         let p = predicate(field, op, &value)?;
         out.filter.predicates.push(if negate {
             Predicate::Not(Box::new(p))
@@ -169,7 +177,8 @@ fn cannot_exclude(raw: &str) -> RuntimeError {
 }
 
 /// `prefix`, operator and value of a term, split at its first operator
-/// (`>=` before `>` at the same place), so a value may hold operators.
+/// (`>=` before `>` at the same place), so a value may hold operators. The
+/// value may be empty: `parse` tells a bare prefix from a word.
 fn split_term(term: &str) -> Option<(&str, &str, &str)> {
     let (i, op) = term.char_indices().find_map(|(i, _)| {
         [">=", "<=", "!=", ":", "=", ">", "<"]
@@ -182,8 +191,7 @@ fn split_term(term: &str) -> Option<(&str, &str, &str)> {
     let valid = !prefix.is_empty()
         && prefix
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_')
-        && !value.is_empty();
+            .all(|c| c.is_ascii_alphanumeric() || c == '_');
     valid.then_some((prefix, op, value))
 }
 
@@ -333,6 +341,18 @@ mod tests {
             let e = parse(line, &schema()).expect_err(line);
             assert!(e.to_string().contains("the value is empty"), "{line}: {e}");
         }
+    }
+
+    #[test]
+    fn a_bare_prefix_is_an_empty_value_and_any_other_word_stays_text() {
+        for line in ["t:", "-t:", "cmc>=", "o:", "T:"] {
+            let e = parse(line, &schema()).expect_err(line);
+            assert!(e.to_string().contains("the value is empty"), "{line}: {e}");
+        }
+        assert_eq!(
+            parse("note: bolt", &schema()).expect("text").text,
+            "note: bolt"
+        );
     }
 
     #[test]

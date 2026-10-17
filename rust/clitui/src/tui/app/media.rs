@@ -46,14 +46,19 @@ pub struct Media {
     pending: Option<Rect>,
     /// the blob and the rect of the pixels on screen since the last flush.
     on_screen: Option<(usize, Rect)>,
+    /// a resize cleared the screen since `on_screen` was drawn: its pixels
+    /// go out again, or the image a terminal may keep is removed.
+    stale: bool,
     /// the frame's size at the last settle: a resize clears the screen.
     frame: Rect,
 }
 
 impl Media {
-    /// The probed terminal, handed over to the next ask.
-    pub fn take_terminal(&mut self) -> Option<Terminal> {
-        self.terminal.take()
+    /// A new corpus: nothing is shown, but what is on screen and what the
+    /// terminal draws stay known, so the next flush removes the old image.
+    pub fn forget(&mut self) {
+        self.shown = None;
+        self.pending = None;
     }
 
     pub fn set_terminal(&mut self, terminal: Terminal) {
@@ -173,8 +178,8 @@ impl Media {
         match &s.drawn {
             Some((r, Drawn::Glyphs(cells))) => super::blocks::draw(buf, *r, cells),
             Some((r, Drawn::Pixels(_))) => {
-                for (x, y) in cells(*r) {
-                    if let Some(c) = buf.cell_mut((x, y)) {
+                for p in r.positions() {
+                    if let Some(c) = buf.cell_mut(p) {
                         c.reset();
                     }
                 }
@@ -191,9 +196,10 @@ impl Media {
     /// since ratatui would not repaint a blank over a blank.
     pub fn settle(&mut self, buf: &mut Buffer, covers: &[Rect]) {
         if buf.area != self.frame {
-            // a resize clears the screen: nothing is on it any more.
+            // a resize clears the screen; kitty may keep its image, so
+            // the one on screen is still deleted if nothing replaces it.
             self.frame = buf.area;
-            self.on_screen = None;
+            self.stale = self.on_screen.is_some();
         }
         let blob = self.shown.as_ref().map(|s| s.blob);
         self.pending = self
@@ -201,9 +207,9 @@ impl Media {
             .filter(|r| !covers.iter().any(|c| c.intersects(*r)));
         if let Some((_, old)) = self.on_screen {
             let stays = self.pending;
-            for (x, y) in cells(old.intersection(buf.area)) {
-                if !stays.is_some_and(|r| r.contains((x, y).into()))
-                    && let Some(c) = buf.cell_mut((x, y))
+            for p in old.intersection(buf.area).positions() {
+                if !stays.is_some_and(|r| r.contains(p))
+                    && let Some(c) = buf.cell_mut(p)
                 {
                     c.set_diff_option(CellDiffOption::AlwaysUpdate);
                 }
@@ -212,10 +218,11 @@ impl Media {
         // the first frame of a placement draws its blanks, so nothing the
         // pixels leave transparent shows the text that was there.
         if let (Some(r), Some(b)) = (self.pending, blob)
+            && !self.stale
             && self.on_screen == Some((b, r))
         {
-            for (x, y) in cells(r.intersection(buf.area)) {
-                if let Some(c) = buf.cell_mut((x, y)) {
+            for p in r.intersection(buf.area).positions() {
+                if let Some(c) = buf.cell_mut(p) {
                     c.set_diff_option(CellDiffOption::Skip);
                 }
             }
@@ -236,7 +243,7 @@ impl Media {
             }
         });
         match placed {
-            Some((blob, r, _)) if self.on_screen == Some((blob, r)) => Ok(()),
+            Some((blob, r, _)) if !self.stale && self.on_screen == Some((blob, r)) => Ok(()),
             Some((blob, r, bytes)) => {
                 // save the cursor, go to the anchor (1-based), draw, restore.
                 out.write_all(b"\x1b7")?;
@@ -245,9 +252,11 @@ impl Media {
                 out.write_all(b"\x1b8")?;
                 out.flush()?;
                 self.on_screen = Some((blob, r));
+                self.stale = false;
                 Ok(())
             }
             None => {
+                self.stale = false;
                 if self.on_screen.take().is_some() {
                     let bytes = graphics::clear(t.protocol, IMAGE_ID);
                     if !bytes.is_empty() {
@@ -270,10 +279,6 @@ impl Media {
             None => graphics::glyphs::Set::default().name(),
         }
     }
-}
-
-fn cells(r: Rect) -> impl Iterator<Item = (u16, u16)> {
-    (r.top()..r.bottom()).flat_map(move |y| (r.left()..r.right()).map(move |x| (x, y)))
 }
 
 /// `size` pixels fitted in `area` cells with the aspect kept, centered;
@@ -351,7 +356,10 @@ mod tests {
         assert_eq!(m.mode(), "blocks");
         assert_eq!(m.cells_wide(10), 20);
         let (buf, out) = frame(&mut m, Some(Rect::new(0, 0, 20, 10)), &[]);
-        assert_ne!(buf[(5, 5)].symbol(), " ");
+        // a flat image: a blank in its color on both sides.
+        let c = &buf[(5, 5)];
+        assert_eq!(c.bg, ratatui::style::Color::Rgb(200, 200, 200));
+        assert_eq!(c.fg, c.bg);
         assert!(out.is_empty());
     }
 
@@ -403,5 +411,27 @@ mod tests {
         m.frame = Rect::new(0, 0, 80, 24);
         let (_, out) = frame(&mut m, Some(pane), &[]);
         assert!(out.starts_with(b"\x1b7"));
+    }
+
+    #[test]
+    fn a_resize_that_hides_the_pane_still_deletes_the_kept_image() {
+        let mut m = media(Protocol::Kitty);
+        let (_, out) = frame(&mut m, Some(Rect::new(0, 0, 10, 5)), &[]);
+        assert!(out.starts_with(b"\x1b7"));
+        m.frame = Rect::new(0, 0, 80, 24);
+        let (_, out) = frame(&mut m, None, &[]);
+        assert!(out.starts_with(b"\x1b_Ga=d"), "{out:?}");
+    }
+
+    #[test]
+    fn a_new_corpus_deletes_the_image_the_last_one_left() {
+        let mut m = media(Protocol::Kitty);
+        let pane = Rect::new(4, 2, 10, 5);
+        frame(&mut m, Some(pane), &[]);
+        m.forget();
+        let (buf, out) = frame(&mut m, None, &[]);
+        assert!(out.starts_with(b"\x1b_Ga=d"), "{out:?}");
+        assert_eq!(buf[(7, 3)].diff_option, CellDiffOption::AlwaysUpdate);
+        assert_eq!(m.mode(), "kitty");
     }
 }
