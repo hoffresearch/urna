@@ -57,6 +57,9 @@ pub fn parse(line: &str, schema: &[SchemaField]) -> Result<ParsedQuery, RuntimeE
             })
             .ok_or_else(|| RuntimeError::Filter(format!("unknown search prefix {prefix:?}")))?;
         let value = unquote(value);
+        if value.is_empty() {
+            return Err(RuntimeError::Filter(format!("{raw}: the value is empty")));
+        }
         let p = predicate(field, op, &value)?;
         out.filter.predicates.push(if negate {
             Predicate::Not(Box::new(p))
@@ -322,6 +325,14 @@ mod tests {
             parse("-1/-1 counter", &schema()).expect("text").text,
             "-1/-1 counter"
         );
+    }
+
+    #[test]
+    fn an_empty_quoted_value_is_an_error_not_every_row() {
+        for line in [r#"c:"""#, r#"t:"""#, r#"-c:"""#, r#"cmc>="""#] {
+            let e = parse(line, &schema()).expect_err(line);
+            assert!(e.to_string().contains("the value is empty"), "{line}: {e}");
+        }
     }
 
     #[test]

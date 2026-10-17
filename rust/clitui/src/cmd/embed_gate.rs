@@ -285,6 +285,9 @@ pub fn embed_and_route(
     if is_potion && embedder.is_none() && model_path.is_none() && !truncated {
         let table = super::potion::table_dir(&default_potion_embedder_path());
         if let Some(dir) = table {
+            if skip_model_hash_check {
+                unchecked(&model, &format!("the potion table in {}", dir.display()));
+            }
             let p = super::potion::shared(&dir)?;
             let payload = EmbedderOutput {
                 model_hash: p.model_hash().to_string(),
@@ -319,6 +322,9 @@ pub fn embed_and_route(
         extra.push("--mrl-dim".into());
         extra.push(declared_dim.to_string());
     }
+    if skip_model_hash_check {
+        unchecked(&model, &embedder.display().to_string());
+    }
     let payload = spawn_embedder(&embedder, model_path.as_ref(), &extra, &model, query)?;
     validate_gate(
         &payload,
@@ -332,4 +338,11 @@ pub fn embed_and_route(
     // the declared `index_type`: a `hybrid` preset file declares "hnsw" and
     // carries its bm25 section as a capability.
     Ok(runtime.search_routed_where(&payload.vector, Some(query), k, cand, keep)?)
+}
+
+/// With the model_hash gate off, nothing proves the query was embedded the
+/// way the corpus was: the line names what embedded it, so a ranking that
+/// looks off can be traced to the embedder.
+fn unchecked(model: &str, via: &str) {
+    eprintln!("[urna] model_hash not checked: embedding the query with {model} via {via}");
 }

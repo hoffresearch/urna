@@ -158,8 +158,9 @@ fn eval(p: &Predicate, table: &ScalarTable, n: usize) -> Result<Bitset, RuntimeE
             match code_of(dict, value) {
                 Some(code) => held(code),
                 // `rg` on a dictionary of single letters (colors) holds
-                // every letter; any letter the dictionary lacks keeps none.
-                None if dict.values.iter().all(|v| v.chars().count() == 1) => {
+                // every letter; any letter the dictionary lacks keeps none,
+                // and so does no letter at all.
+                None if !value.is_empty() && dict.values.iter().all(|v| v.chars().count() == 1) => {
                     let mut b = Bitset::full(n);
                     for ch in value.chars() {
                         match code_of(dict, ch.encode_utf8(&mut [0; 4])) {
@@ -312,6 +313,7 @@ mod tests {
         assert_eq!(ones(Filter::default().and(has("rg"))), vec![2]);
         assert_eq!(ones(Filter::default().and(has("g"))), vec![0, 2]);
         assert_eq!(ones(Filter::default().and(has("gx"))), Vec::<usize>::new());
+        assert_eq!(ones(Filter::default().and(has(""))), Vec::<usize>::new());
         let cmc1 = Predicate::Eq {
             column: "cmc".into(),
             value: "1".into(),

@@ -40,6 +40,12 @@
 
 set -euo pipefail
 
+# a corpus named relative to where the script was called from, resolved
+# before the cd below; cargo test runs each crate from its own directory too.
+abspath() { if [[ -z "$1" || "$1" == /* ]]; then printf '%s' "$1"; else printf '%s/%s' "$PWD" "$1"; fi; }
+[[ -n "${URNA_CORPUS:-}" ]] && URNA_CORPUS="$(abspath "$URNA_CORPUS")"
+[[ -n "${URNA_CARDS_CORPUS:-}" ]] && URNA_CARDS_CORPUS="$(abspath "$URNA_CARDS_CORPUS")" && export URNA_CARDS_CORPUS
+
 cd "$(dirname "$0")/../.."
 ROOT="$(pwd)"
 

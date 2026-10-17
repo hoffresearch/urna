@@ -144,27 +144,19 @@ impl Index {
         }
         // a label with two words that start with q is one hit, at its first
         // such word: the word index sorts by word, so the two can sit any
-        // distance apart in it.
-        let mut first_at: std::collections::HashMap<usize, u16> = Default::default();
-        let mut order = Vec::new();
-        for i in self.words.prefix(&q) {
-            let Some(w) = self.words.payload(i) else {
-                continue;
-            };
-            let id = w.id as usize;
-            if whole.contains(&id) {
-                continue;
-            }
-            first_at
-                .entry(id)
-                .and_modify(|at| *at = (*at).min(w.at))
-                .or_insert_with(|| {
-                    order.push(id);
-                    w.at
-                });
-        }
-        for id in order {
-            if let Some(hit) = self.hit(id, first_at[&id] as usize, &q, keep) {
+        // distance apart in it; sorted by (id, at), a label's first word
+        // leads its run.
+        let mut words: Vec<(usize, u16)> = self
+            .words
+            .prefix(&q)
+            .filter_map(|i| self.words.payload(i))
+            .map(|w| (w.id as usize, w.at))
+            .filter(|(id, _)| !whole.contains(id))
+            .collect();
+        words.sort_unstable();
+        words.dedup_by_key(|(id, _)| *id);
+        for (id, at) in words {
+            if let Some(hit) = self.hit(id, at as usize, &q, keep) {
                 out.push(hit);
             }
         }
