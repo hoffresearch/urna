@@ -93,14 +93,7 @@ pub fn load(path: &Path) -> Result<Corpus> {
                 .collect()
         })
         .unwrap_or_default();
-    let valid = (|| -> Result<()> {
-        let data = std::fs::read(path)?;
-        let view = urna_format::UrnaView::from_bytes(&data)?;
-        view.validate_embeddings_values()?;
-        view.search_contract()?;
-        Ok(())
-    })()
-    .map_err(|e| format!("{e:#}"));
+    let valid = rt.revalidate().map_err(|e| format!("{e:#}"));
     Ok(Corpus {
         path: path.to_path_buf(),
         size,
