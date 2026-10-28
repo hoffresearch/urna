@@ -9,7 +9,7 @@ use crate::cmd;
 /// when the `tui` feature (`setup`, `tui`) is compiled in.
 macro_rules! help_footer {
     () => {
-        "start here (the five verbs that cover the loop):\n  build     creates the base       rows + embedding model in, one .urna out     urna build --spec corpus.toml\n  ask       queries it             text in, one cited answer out                urna ask corpus.urna \"question\"\n  retrieve  results for a program  json/jsonl of cited spans, exact score       urna retrieve corpus.urna \"question\" --format jsonl\n  cite      resolves the source    a urna:// citation back to its stored text   urna cite corpus.urna 'urna://...'\n  validate  proves the file        every checksum, every hash, the contract     urna validate corpus.urna\n\nverb groups:\n  engine  inspect, validate, stats, media, search, search-ann, search-graph,\n          search-space, search-text, benchmark, cite, doctor  (file + vector in, hits out; python only in search-text and doctor)\n  agent   ask, retrieve, build  (text or spec in, cited answers out; shells out to the offline python embedder / forge)\n"
+        "start here (the five verbs that cover the loop):\n  build     creates the base       rows + embedding model in, one .urna out     urna build --spec corpus.toml\n  ask       queries it             text in, one cited answer out                urna ask corpus.urna \"question\"\n  retrieve  results for a program  json/jsonl of cited spans, exact score       urna retrieve corpus.urna \"question\" --format jsonl\n  cite      resolves the source    a urna:// citation back to its stored text   urna cite corpus.urna 'urna://...'\n  validate  proves the file        every checksum, every hash, the contract     urna validate corpus.urna\n\nverb groups:\n  engine  inspect, validate, stats, media, search, search-ann, search-graph,\n          search-space, search-text, benchmark, cite, doctor  (file + vector in, hits out; python only in search-text on a non-potion corpus and doctor --build)\n  agent   ask, retrieve, build  (text or spec in, cited answers out; a potion query embeds in process, build runs the python forge)\n"
     };
 }
 
@@ -30,11 +30,11 @@ const AFTER_HELP: &str = concat!(
 
 /// Two products share one binary and one engine. The ENGINE verbs take a
 /// `.urna` file and (where relevant) a query VECTOR; none of them needs
-/// python except `search-text` (the sentence-transformers embedder) and
-/// `doctor` (it probes the python env). The AGENT verbs (`ask`,
-/// `retrieve`, `build`) take TEXT or a build spec,
-/// shell out to the offline python embedder / forge, and speak in cited
-/// answers. `--help` lists the engine first, the agent verbs last, and
+/// python except `search-text` on a corpus of another model than potion
+/// and `doctor --build`. The AGENT verbs (`ask`, `retrieve`, `build`) take
+/// TEXT or a build spec: a potion query embeds in process, any other model
+/// runs its offline python embedder, `build` runs the python forge; they
+/// speak in cited answers. `--help` lists the engine first, the agent verbs last, and
 /// tags each group in its summary line; the implementations mirror the
 /// split (`cmd/*` vs `cmd/agent/*`).
 #[derive(Parser)]
@@ -320,8 +320,9 @@ pub enum Commands {
         #[arg(long)]
         build: bool,
     },
-    /// [setup] Interactive installer: the offline embedder payload and a
-    /// python env (numpy + tokenizers), proven by the doctor checks. plain
+    /// [setup] Interactive installer: the offline embedder payload, proven
+    /// by the doctor checks; --python adds the env corpus builds need
+    /// (numpy + tokenizers). plain
     /// output with --yes or without a terminal; --model adds catalog models.
     /// exit: 0 ready, 2..=6 a doctor check, 10 download, 11 checksum, 12
     /// unpack, 13 python env, 14 blocked, 15 a model install.

@@ -8,7 +8,7 @@ domain: naming
 
 # Terms
 
-The abbreviations used in the repository's names, one meaning each. Names follow the equal-length rule of [ADR-0003](adr/structure/0003-equal-length-siblings-and-a-shared-lexicon.md): siblings of the same kind have the same length, and the length table there says which length each folder's children take.
+The abbreviations used in the repository's names, one meaning each. Names follow the equal-length rule of [CONTRIBUTING](CONTRIBUTING.md#naming): siblings of the same kind have the same length, and the `LEVELS` table of `tool/tasks/namecheck.py` says which length each folder's children take.
 
 Three rules keep the lexicon useful:
 

@@ -1,11 +1,12 @@
 //! Type-ahead for the ask tab over the corpus's own labels: the first line
 //! of each chunk's stored text (a card name, a title, a diagnosis), or the
-//! card names, English and Portuguese, when the corpus carries fields.
+//! schema's label columns (a name and its translation) when the corpus
+//! carries fields.
 //! The engine's label index folds, stores and matches them; this module
 //! ranks the hits by tier first (the whole label, a prefix of it, a prefix
 //! of one of its words, then a fuzzy match), then by the score, then
-//! shorter. With fields, the playable card leads its art-series twin, the
-//! more played card (EDHREC rank) leads inside a name tier, and the many
+//! shorter. With fields, a ranked label leads its unranked twin (a card's
+//! art series), the better rank leads inside a name tier, and the many
 //! tokens that share a name collapse into one line.
 
 use std::collections::HashSet;
@@ -21,14 +22,15 @@ struct Label {
     text: String,
     /// the chunk the label names, for the caller's filter.
     ordinal: usize,
-    /// what one line stands for: the card's name, so its twins collapse.
+    /// what one line stands for: the first label, so its twins collapse.
     key: String,
-    playable: bool,
-    /// `u32::MAX - edhrec_rank`, so higher sorts first; 0 when unranked.
+    /// the rank column has a value for the chunk.
+    ranked: bool,
+    /// `u32::MAX - rank`, so higher sorts first; 0 when unranked.
     popularity: u32,
 }
 
-/// (playable, tier, popularity in name tiers, score, -len): sorted descending.
+/// (ranked, tier, popularity in name tiers, score, -len): sorted descending.
 type Rank = (bool, u8, u32, u32, i64);
 
 pub struct Labels {
@@ -54,7 +56,7 @@ impl Labels {
                         text: l.to_string(),
                         ordinal: i,
                         key: l.to_string(),
-                        playable: true,
+                        ranked: true,
                         popularity: 0,
                     },
                 )
@@ -102,7 +104,7 @@ impl Labels {
                         text: shown.clone(),
                         ordinal: i,
                         key: first.to_string(),
-                        playable: popularity > 0,
+                        ranked: popularity > 0,
                         popularity,
                     },
                 ));
@@ -141,11 +143,11 @@ impl Labels {
             let l = self.items.get(h.id)?;
             let popularity = if h.tier > 0 { l.popularity } else { 0 };
             let len = i64::try_from(h.len).unwrap_or(i64::MAX);
-            Some(((l.playable, h.tier, popularity, h.score, -len), l))
+            Some(((l.ranked, h.tier, popularity, h.score, -len), l))
         };
         let exact = self.index.exact(query, keep);
         let mut scored: Vec<(Rank, &Label)> = exact.iter().filter_map(rank).collect();
-        // a playable label that q is a prefix of, or of one of its words,
+        // a ranked label that q is a prefix of, or of one of its words,
         // outranks every subsequence match: with k of them the scan over
         // all the labels has nothing to add.
         let mut names: HashSet<&str> = HashSet::new();

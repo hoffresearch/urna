@@ -1,6 +1,6 @@
 //! The explorer's frame: the header (the mark, the tabs as pills, the open
-//! corpus) and the footer (the keys for the current tab, ratatui-cheese's
-//! help). the pill shape is two half blocks around a raised label, the
+//! corpus) and the footer (the keys for the current tab, drawn by
+//! `widgets::Help`). the pill shape is two half blocks around a raised label, the
 //! same shape comfy-tabs draws, done with plain glyphs so no font needs
 //! powerline symbols.
 

@@ -9,7 +9,6 @@
 pub mod backend;
 pub mod model;
 pub mod potion;
-pub mod quant;
 pub mod registry;
 pub mod safetensors;
 pub mod tokenizer;

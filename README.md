@@ -23,7 +23,7 @@ brew install hoffresearch/urna/urna
 urna setup
 ```
 
-Most channels install the release's own binary; `cargo install`, nix and the PPA build the same version from source. `urna setup` then completes the install the same way on each: it downloads the offline embedder, prepares a Python env, checks the install and offers a sample corpus to ask.
+Most channels install the release's own binary; `cargo install`, nix and the PPA build the same version from source. `urna setup` then completes the install the same way on each: it downloads the offline embedder, checks the install and offers a sample corpus to ask; `urna setup --python` also prepares the Python env corpus builds need.
 
 <details>
 <summary><strong>macOS and Linux</strong>: Homebrew, the one-line installer, nix</summary>
@@ -216,7 +216,7 @@ urna.build(
 
 ## CLI
 
-The engine verbs take a file and a vector; two of them run Python (`search-text` for its embedder, `doctor` to probe the environment), the other ten never do. The agent verbs (`ask`, `retrieve`, `build`) take text and use the offline embedder; `ask` and `retrieve` search by what the file carries: BM25 plus vectors when the file has a BM25 index, HNSW when it has one, exact otherwise. `setup` and `tui` are the terminal UI. `urna --help` lists all three groups.
+The engine verbs take a file and a vector; only `search-text` on a corpus of another model than potion, and `doctor --build`, run Python. The agent verbs (`ask`, `retrieve`, `build`) take text and use the offline embedder; `ask` and `retrieve` search by what the file carries: BM25 plus vectors when the file has a BM25 index, HNSW when it has one, exact otherwise. `setup` and `tui` are the terminal UI. `urna --help` lists all three groups.
 
 <details>
 <summary>Agent verbs</summary>
@@ -359,7 +359,7 @@ Cite the version you used: its release tag holds the `CITATION.cff` with that ve
 - [docs/ATLAS.toml](https://github.com/hoffresearch/urna/blob/main/docs/ATLAS.toml): the architecture map
 - [docs/adr](https://github.com/hoffresearch/urna/blob/main/docs/adr/README.md): architecture decision records, by category
 
-The crates are `urna-format` (the container), `urna-engine` (search), `urna` (the binary) and `urna-bridge` (the PyO3 bridge behind the Python package).
+The crates are `urna-format` (the container), `urna-engine` (search), `urna` (the binary), `urna-bridge` (the PyO3 bridge behind the Python package), `urna-neural` (the in-process query embedder), `urna-images` and `urna-av1dec` (the AVIF container and the vendored rav1d decoder) and `urna-cbinds` (the C ABI for native apps).
 
 > Renamed from `nest` after 0.4.0. A `.nest` file written by 0.4.0 still opens.
 
