@@ -85,6 +85,10 @@ impl Decoder {
         settings.n_threads = threads.min(8) as _;
         settings.max_frame_delay = 1;
         settings.apply_grain = 1;
+        // dav1d's 0 is no limit on 64-bit: a hostile sequence header could
+        // ask for a 65536x65536 frame and abort on allocation. 8192x8192 is
+        // the cap dav1d itself applies on 32-bit, far above any stored card.
+        settings.frame_size_limit = 8192 * 8192;
         let mut ctx = None;
         // SAFETY: both pointers come from live locals, and `ctx` receives a
         // context this struct closes in `Drop`.

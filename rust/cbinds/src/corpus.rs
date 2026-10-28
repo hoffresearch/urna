@@ -248,7 +248,8 @@ pub unsafe extern "C" fn urna_schema_json(c: *const Corpus) -> *mut c_char {
     .map_or(std::ptr::null_mut(), give_string)
 }
 
-/// The corpus's content hash (`sha256:…`), valid while the corpus is open.
+/// The corpus's content hash (`sha256:…`), to be freed with
+/// `urna_string_free`. Null on a null corpus.
 ///
 /// # Safety
 /// `c` is null or a live corpus.

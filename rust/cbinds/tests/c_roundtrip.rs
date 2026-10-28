@@ -76,15 +76,17 @@ fn have(cmd: &str) -> bool {
 }
 
 fn staticlib() -> PathBuf {
-    let lib = target_dir().join("liburna_cbinds.a");
-    if !lib.is_file() {
-        let status = Command::new(env!("CARGO"))
-            .args(["build", "-p", "urna-cbinds"])
-            .current_dir(root())
-            .status()
-            .expect("cargo build");
-        assert!(status.success(), "cargo build -p urna-cbinds");
+    let dir = target_dir();
+    let lib = dir.join("liburna_cbinds.a");
+    // built every time, in the profile this test runs under, so the C
+    // program links the library of this checkout and never a stale one.
+    let mut build = Command::new(env!("CARGO"));
+    build.args(["build", "-p", "urna-cbinds"]);
+    if dir.ends_with("release") {
+        build.arg("--release");
     }
+    let status = build.current_dir(root()).status().expect("cargo build");
+    assert!(status.success(), "cargo build -p urna-cbinds");
     assert!(lib.is_file(), "{} missing", lib.display());
     lib
 }

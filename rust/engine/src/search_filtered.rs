@@ -71,6 +71,12 @@ impl MmapUrnaFile {
             .into_iter()
             .filter(|&i| keep.get(i))
             .collect();
+        // a filter that keeps a small fraction of a large corpus can leave
+        // the capped beam with fewer than k kept candidates; the exact kept
+        // scan keeps the promise of never coming back short.
+        if candidates.len() < (k as usize).min(kept) {
+            return self.search_where(query, k, keep);
+        }
         let ann_candidates = candidates.len();
         let mut reranked = self.score_subset(&qnorm, &candidates)?;
         sort_scores_desc(&mut reranked);
@@ -108,21 +114,30 @@ impl MmapUrnaFile {
         let kept = keep.count();
         let want = candidates_per_path.max(k as usize);
 
-        let has_ann = self.ann_index.is_some() && kept > EXACT_BELOW;
-        let vec_candidates: Vec<usize> =
-            if let Some(idx) = self.ann_index.as_ref().filter(|_| has_ann) {
+        let ann: Option<Vec<usize>> = self
+            .ann_index
+            .as_ref()
+            .filter(|_| kept > EXACT_BELOW)
+            .map(|idx| {
                 let ef = widened(want, kept, self.n_embeddings);
                 idx.search(&qnorm, ef)
                     .into_iter()
                     .filter(|&i| keep.get(i))
                     .take(want)
-                    .collect()
-            } else {
+                    .collect::<Vec<usize>>()
+            })
+            // as in `search_ann_where`: a beam left short goes to the exact kept scan.
+            .filter(|c| c.len() >= want.min(kept));
+        let has_ann = ann.is_some();
+        let vec_candidates: Vec<usize> = match ann {
+            Some(c) => c,
+            None => {
                 let all: Vec<usize> = keep.ones().collect();
                 let mut scored = self.score_subset(&qnorm, &all)?;
                 sort_scores_desc(&mut scored);
                 scored.iter().take(want).map(|p| p.0).collect()
-            };
+            }
+        };
         let lex_candidates: Vec<usize> = match self.bm25_index.as_ref() {
             Some(bm) if !query_text.trim().is_empty() => bm
                 .search_where(query_text, want, &|i| keep.get(i))
