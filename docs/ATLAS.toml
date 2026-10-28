@@ -6,14 +6,14 @@
 # updates the entry it touches instead of appending a dated paragraph.
 
 project = "urna"
-last-updated = "2026-10-10"
+last-updated = "2026-10-28"
 domain = "architecture"
 summary = "urna is a single-file semantic knowledge stack: one `.urna` file carries the canonical text, the embeddings, the optional indices and the citations, in a container format frozen at v1 (rust/format). rust/engine opens it through mmap and runs exact, ANN, graph and hybrid search with an exact-cosine rerank; the `urna` CLI (rust/clitui) and the Python bridge (rust/bridge: the PyO3 extension and the `urna` package with the declarative build and the model registry) sit on top of it. rust/ingest, a cargo workspace of its own, holds the frozen .fci schema of the ingestion layer."
 
 system_view = [
     "urna-format is the frozen v1 container contract. It owns layout, manifest, reader, writer, canonical sections, hashes, and wire encodings. Embeddings stay raw float32, float16, int8, or int4 (fixed-stride quant only); zstd is reserved for non-embedding sections.",
     "urna-engine opens .urna files through mmap, validates queries, dispatches SIMD, and executes exact, ANN, graph, and hybrid search while reranking candidates with real cosine. That hot path is why embeddings are never zstd-compressed.",
-    "The CLI crate (rust/clitui, package urna) is a thin clap surface over the runtime and format crates. It carries the twelve engine subcommands (inspect, validate, stats, media, search, search-text, search-ann, search-graph, search-space, benchmark, cite, doctor: file + vector in; only search-text and doctor spawn Python) and the three agent verbs (ask, retrieve, build: text or spec in, shell out to the offline Python embedder / forge), tagged [engine] / [agent] in --help. ask and retrieve are the agent-native flagship verbs layered over the engine (text query in, cited answer out; both embed the query offline with the default potion static table, validate the embedder's model_hash against the manifest exactly like search-text, and route by what the file carries through MmapUrnaFile::search_routed: hybrid when a BM25 section is present, hnsw when an HNSW section is present, exact otherwise; ask prints one cited answer (--disclose answer) or adds the rerank-source honesty line + route + candidate counts (--disclose explain); retrieve emits the agent-shaped JSON/JSONL answer-pack where each hit's score IS the exact-cosine rerank value). doctor is the post-install health check with typed exit codes (0 ok, 2 Python missing, 3 deps missing, 4 embedder missing, 5 potion table missing, 6 embedder run failed). Behind the default-on `tui` feature the CLI also carries the terminal UI in src/tui: `setup` (the interactive installer, exit codes 10 download, 11 checksum, 12 unpack, 13 Python env, 14 blocked, 15 a model install; --model installs catalog models) and `tui` (the corpus explorer; a bare `urna` on a terminal opens it, in a pipe it prints the help and exits 2). Verb-collapse, the urna dev namespace, and the urna-profile crate are deferred.",
+    "The CLI crate (rust/clitui, package urna) is a thin clap surface over the runtime and format crates. It carries the thirteen engine subcommands (inspect, validate, stats, media, scalars, search, search-text, search-ann, search-graph, search-space, benchmark, cite, doctor: file + vector in; a potion corpus embeds in process through urna-neural, so only search-text on another model and doctor --build spawn Python) and the three agent verbs (ask, retrieve, build: text or spec in, shell out to the offline Python embedder / forge), tagged [engine] / [agent] in --help. ask and retrieve are the agent-native flagship verbs layered over the engine (text query in, cited answer out; both embed the query offline, a potion corpus in process through urna-neural and any other model through its Python query embedder, validate the embedder's model_hash against the manifest exactly like search-text, and route by what the file carries through MmapUrnaFile::search_routed: hybrid when a BM25 section is present, hnsw when an HNSW section is present, exact otherwise; ask prints one cited answer (--disclose answer) or adds the rerank-source honesty line + route + candidate counts (--disclose explain); retrieve emits the agent-shaped JSON/JSONL answer-pack where each hit's score IS the exact-cosine rerank value). doctor is the post-install health check with typed exit codes (0 ok, 4 embedder payload missing, 5 potion table missing, 6 the in-process embed failed; with --build also 2 Python missing and 3 deps missing). Behind the default-on `tui` feature the CLI also carries the terminal UI in src/tui: `setup` (the interactive installer, exit codes 10 download, 11 checksum, 12 unpack, 13 Python env, 14 blocked, 15 a model install; --model installs catalog models) and `tui` (the corpus explorer; a bare `urna` on a terminal opens it, in a pipe it prints the help and exits 2). Verb-collapse, the urna dev namespace, and the urna-profile crate are deferred.",
     "The distribution layer (issue #75) turns tags on main into installs: cargo-dist builds the CLI for five targets with SHA256 checksums, Sigstore keyless attestations on the five archives, one CycloneDX SBOM for the CLI package, a Homebrew tap formula (`urna`) and an npm package (`@urna/cli`), and publishes urna-format / urna-engine / urna (the CLI crate, binary `urna`) to crates.io; maturin builds the `urna` abi3 wheel with the potion table bundled (offline embedding after pip install); tool/tasks/installer.sh / installer.ps1 are the one-liner installers (verify-before-write, --version, --uninstall); urna doctor validates the install offline and `urna setup` completes the channels that ship the bare binary (Homebrew, npm, crates.io); .github/workflows/setuptest.yml tests the INSTALLED product per platform after each release, including a job per package channel that waits for the exact version on its registry and ends in `urna setup --yes` + `urna doctor`; .github/workflows/runreport.yml summarizes every completed release run, failed or cancelled included. Three levels of evidence, not interchangeable: tool/tasks/fullcheck.sh is the full local gate (no release build), rehearsal.yml builds the release on pull requests and publishes nothing, and only a tag exercises publishing, setuptest and the report.",
     "urna-bridge is the PyO3 bridge. rust/bridge/python/urna/__init__.py loads the compiled extension, rust/bridge/python/urna/pipes/buildfile.py orchestrates chunking and caching, and rust/bridge/python/urna/embed/searchtxt.py embeds the query for a sentence-transformers model no preset names, with the model_hash the corpus was built with. The agent-native flagship is UrnaFile.retrieve(query, k, ...): a pre-embedded query in, cited spans out, whose score IS the exact rerank value, with tier-1 stored canonical text + hashes + citation_id + rerank-source marker.",
     "tool/tasks/fullcheck.sh is the release gate: rebuilds the extension, runs Rust and Python suites, checks lint and format, measures presets, and compares against the committed baseline.",
@@ -23,8 +23,8 @@ system_view = [
 ]
 
 contract = [
-    "Required sections are chunk_ids, chunks_canonical, chunks_original_spans, embeddings, provenance, and search_contract. Optional sections are hnsw_index, bm25_index, graph_adjacency (0x0C, G1), blob_refs (0x14), space_table (0x15), blob_span_overlay (0x16), and blob_data (0x17).",
-    "Additive section ids past the implemented 0x01-0x08 are reserved in one reconciled, disjoint map in layout/mod.rs: 0x09-0x10 (scalar reservations: embeddings_fp, dictionary, dedup_map, graph_adjacency, chunk_scalars, tokenizer_model, edit_journal, repro_manifest), 0x11-0x17 (graph_nodes, graph_edge_props, graph_entity_map, blob_refs, space_table, blob_span_overlay, blob_data), and the per-space bands 0x20-0x2F (space embeddings) and 0x30-0x3F (space fp). All are excluded from content_hash and unresolved by section_name until their feature ships. graph_adjacency (0x0C), blob_refs (0x14), space_table (0x15), blob_span_overlay (0x16), and blob_data (0x17) are ACTIVE: they join OPTIONAL_SECTIONS behind the additive manifest capabilities graph_present, blobs_present, and supports_multimodal, stay OUT of CANONICAL_SECTIONS, and keep a media or multimodal corpus citation-identical to its text-only twin. rust/format/tests/reserved_ids.rs asserts the bands stay disjoint and content_hash-safe.",
+    "Required sections are chunk_ids, chunks_canonical, chunks_original_spans, embeddings, provenance, and search_contract. Optional sections are hnsw_index, bm25_index, graph_adjacency (0x0C, G1), chunk_scalars (0x0D), blob_refs (0x14), space_table (0x15), blob_span_overlay (0x16), and blob_data (0x17).",
+    "Additive section ids past the implemented 0x01-0x08 are reserved in one reconciled, disjoint map in layout/mod.rs: 0x09-0x10 (scalar reservations: embeddings_fp, dictionary, dedup_map, graph_adjacency, chunk_scalars, tokenizer_model, edit_journal, repro_manifest), 0x11-0x17 (graph_nodes, graph_edge_props, graph_entity_map, blob_refs, space_table, blob_span_overlay, blob_data), and the per-space bands 0x20-0x2F (space embeddings) and 0x30-0x3F (space fp). All are excluded from content_hash and unresolved by section_name until their feature ships. graph_adjacency (0x0C), chunk_scalars (0x0D), blob_refs (0x14), space_table (0x15), blob_span_overlay (0x16), and blob_data (0x17) are ACTIVE: they join OPTIONAL_SECTIONS behind the additive manifest capabilities graph_present, scalars_present, blobs_present, and supports_multimodal, stay OUT of CANONICAL_SECTIONS, and keep a media or multimodal corpus citation-identical to its text-only twin. rust/format/tests/reserved_ids.rs asserts the bands stay disjoint and content_hash-safe.",
     "The graph pillar (G1) ships the chunk-to-chunk CSR in SECTION_GRAPH_ADJACENCY (0x0C): intpack offsets, a per-(src,edge_type)-run delta-gapped neighbor-id blob, and an edge-type column (NEXT_CHUNK=0, SEMANTIC=1, CITATION=2), canonically sorted so two builds are byte-identical. Runtime graph::CsrIndex parses it off mmap into flat offsets+neighbors; graph::Traversal::bounded_bfs walks it with a generational visited buffer. search_graph seeds the exact-cosine top-ef, bounded-bfs-expands the union, then feeds it to the same score_subset exact rerank; falls back to exact when no 0x0C section is present.",
     "The media blob pillar ships the self-contained single-file layout in SECTION_BLOB_REFS (0x14) and SECTION_BLOB_SPAN_OVERLAY (0x16), both typed-error on every truncation and hostile-count bounds before any allocation. blob_refs is a table of media records (URI, byte length, SHA256, media kind); the overlay maps chunk ordinals to blob-relative spans and rewrites blob-pointing spans in place at open, so cite and retrieve report real blob-relative byte ranges instead of ordinal placeholders. SECTION_BLOB_DATA (0x17) completes it: an offset table PARALLEL to the 0x14 record order plus the raw inlined media bytes, opened lazily (the runtime slices one blob off the mmap, never copies the section), populated by [output] embed_media in the forge and served by `urna media <file> [--export DIR]` with per-blob SHA256 verification in both export and `urna validate`. All three stay OUT of CANONICAL_SECTIONS, so adding or inlining blobs never moves a citation. Frame extraction stays in the Python tooling: decode needs the codec, and the sovereign runtime does not take that dependency.",
     "The multimodal space pillar ships SECTION_SPACE_TABLE (0x15) plus the per-space vector bands 0x20-0x2F (fp sources 0x30-0x3F) behind capabilities_ext.supports_multimodal. Each space carries its own name, model_hash, dim, and dtype; bands follow the embeddings encoding rule (dtype encodings only, never zstd). Runtime search_space(name, query, k, expected_model_hash) scores the band with the shared exact-cosine kernel off mmap; the text paths never read a band and the space path never reads 0x04, so a text query can never be scored against vision by accident.",
@@ -61,7 +61,7 @@ risks = [
 
 [[layers]]
 name = "urna-format"
-role = "Frozen v1 binary format, manifest, reader, writer, encodings, and hashes"
+role = "Frozen v1 binary format, manifest, reader, writer, encodings, and hashes; chunk_scalars (0x0D) carries typed per-chunk columns that the manifest schema, dataset and media describe, written additively by writer/append.rs so content_hash and every citation stay the same"
 entrypoints = ["rust/format/src/lib.rs"]
 links = [
     "rust/format/src/reader/mod.rs",
@@ -70,7 +70,7 @@ links = [
 
 [[layers]]
 name = "urna-engine"
-role = "mmap-backed search runtime with SIMD, ANN, BM25, chunk-to-chunk graph (G1), and exact rerank"
+role = "mmap-backed search runtime with SIMD, ANN, BM25, chunk-to-chunk graph (G1), and exact rerank; scalars/ resolves the schema's search syntax to a bitset applied before scoring on every path (search_filtered.rs), and labels/ is the folded, front-coded label index the type-ahead matches"
 entrypoints = [
     "rust/engine/src/lib.rs",
     "rust/engine/src/mmap_file.rs",
@@ -84,7 +84,7 @@ links = [
 
 [[layers]]
 name = "urna"
-role = "Thin clap front-end over format and runtime APIs, two verb groups in one binary: the ENGINE verbs in cmd/*.rs (inspect, validate, stats, media, search, search-ann, search-graph, search-space over named bands, search-text, benchmark, cite, doctor: file + vector in; only search-text and doctor spawn Python) and the AGENT verbs in cmd/agent/*.rs (ask, retrieve, build: text or spec in, offline embed routed by manifest model through the ONE three-layer model gate in cmd/embed_gate.rs, capability route, tier-1 cited spans, --disclose answer|explain honesty, the declarative build launcher); --help orders and tags the groups; build.rs names the binary a release (its tag, which must be v + the crate version) or a development build (<version>+dev.<sha>)"
+role = "Thin clap front-end over format and runtime APIs, two verb groups in one binary: the ENGINE verbs in cmd/*.rs (inspect, validate, stats, media, scalars, search, search-ann, search-graph, search-space over named bands, search-text, benchmark, cite, doctor: file + vector in; a potion corpus embeds in process through cmd/potion.rs, so only search-text on another model and doctor --build spawn Python) and the AGENT verbs in cmd/agent/*.rs (ask, retrieve, build: text or spec in, offline embed routed by manifest model through the ONE three-layer model gate in cmd/embed_gate.rs, capability route, tier-1 cited spans, --disclose answer|explain honesty, the declarative build launcher); --help orders and tags the groups; build.rs names the binary a release (its tag, which must be v + the crate version) or a development build (<version>+dev.<sha>)"
 entrypoints = ["rust/clitui/src/main.rs"]
 links = [
     "rust/clitui/build.rs",
@@ -100,7 +100,7 @@ links = [
 
 [[layers]]
 name = "urna terminal ui"
-role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack (a development build stages its own checkout instead) and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts; it opens the file it is given, else the last corpus it opened, else a first-run screen). The urna.dev palette folded to the terminal's color depth, tachyonfx on every screen change. No network stack is linked; no format or runtime API is touched"
+role = "The default-on `tui` feature of urna: `urna setup` (inline installer: scan the machine, plan with checkboxes, install the payload via a curl child + SHA256 + staged unpack (a development build stages its own checkout instead) and the managed Python env, verify with the doctor checks; plain printer for --yes / no terminal, both reading one worker) and `urna tui` (full-screen explorer: home with the hash rain, corpus, ask, health, a file picker, toasts; it opens the file it is given, else the last corpus it opened, else a first-run screen). The urna.dev palette folded to the terminal's color depth, the effects of tui/fx on every screen change, the widgets of tui/widgets, and the ask tab's image through tui/graphics (kitty, iTerm2 and sixel encoders, block glyphs elsewhere) over urna-images. No network stack is linked; no format or runtime API is touched"
 entrypoints = ["rust/clitui/src/tui/mod.rs"]
 links = [
     "rust/clitui/src/tui/setup/mod.rs",
@@ -109,6 +109,39 @@ links = [
     "rust/clitui/src/cmd/health.rs",
     "rust/clitui/src/cmd/paths.rs",
     "rust/clitui/src/cmd/embed_gate.rs",
+]
+
+[[layers]]
+name = "urna-neural"
+role = "The inference runtime for the models urna ships, each written once over the Backend trait that declares every operation and implements only what a shipped model uses: the native CPU backend (scalar, NEON and AVX2 lanes), the safetensors loader, the WordPiece tokenizer with its Unicode tables generated from the vendored character database, the registry that maps a manifest embedding_model to its graph, and the potion static embedder ask, retrieve, search-text and the C ABI run in process"
+entrypoints = ["rust/neural/src/lib.rs"]
+links = [
+    "rust/neural/src/potion.rs",
+    "rust/neural/src/tokenizer/mod.rs",
+    "rust/neural/src/backend/mod.rs",
+    "rust/neural/src/registry.rs",
+    "rust/clitui/src/cmd/potion.rs",
+]
+
+[[layers]]
+name = "urna-images"
+role = "The AVIF still-image path, no system library: an ISOBMFF reader for what an AVIF carries (ftyp, meta, iloc, iinf, iref, iprp, idat), every box and extent bounded by the bytes before use, handing the primary and alpha items to urna-av1dec (rav1d 1.1.0 vendored as pure Rust, no assembly, its provenance in rust/av1dec/UPSTREAM) and converting the planes to RGBA in fixed point"
+entrypoints = ["rust/images/src/lib.rs"]
+links = [
+    "rust/images/src/boxes.rs",
+    "rust/images/src/decoder.rs",
+    "rust/av1dec/lib.rs",
+    "rust/av1dec/UPSTREAM",
+]
+
+[[layers]]
+name = "urna-cbinds"
+role = "The C ABI the native apps link (include/urna.h): one opaque handle per corpus and per answer; open, ask in the schema's search syntax with the potion embedder in process, read each hit's chunk, exact cosine, stored text and citation, take a chunk's stored image bytes, read the schema as JSON, close; null refused, no panic across the boundary, the last error per thread"
+entrypoints = ["rust/cbinds/src/lib.rs"]
+links = [
+    "rust/cbinds/include/urna.h",
+    "rust/cbinds/src/corpus.rs",
+    "rust/cbinds/tests/c_roundtrip.rs",
 ]
 
 [[layers]]
@@ -697,7 +730,7 @@ links = [
 [[inventory.workspace]]
 path = "rust/clitui/src/tui"
 kind = "directory"
-purpose = "The terminal UI (feature `tui`): pal (urna.dev palette + depth fold), art (the symbol and wordmark as braille), fx (the tachyonfx presets), rain (hash rain, adapted from tui-rain), hud + row + txt (panel, gauge, leader, checkbox, badges, text fitting; adapted from noble and tui-checkbox), toast (adapted from ratatui-toaster), term (terminal lifecycle), setup/ (the installer), app/ (the explorer)"
+purpose = "The terminal UI (feature `tui`): pal (urna.dev palette + depth fold), art (the symbol and wordmark as braille), fx (the effect presets, run by fx/engine), widgets (input, help, scrollbar, spinner, link, file picker), graphics (the terminal image protocols and the probe that asks which one), rain (hash rain, adapted from tui-rain), hud + row + txt (panel, gauge, leader, checkbox, badges, text fitting; adapted from noble and tui-checkbox), toast (adapted from ratatui-toaster), term (terminal lifecycle), setup/ (the installer), app/ (the explorer)"
 links = [
     "rust/clitui/src/tui/setup",
     "rust/clitui/src/tui/app",
@@ -712,7 +745,7 @@ links = ["rust/clitui/src/tui/setup/mod.rs"]
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/app"
 kind = "directory"
-purpose = "urna tui: the explorer state and loop (mod: what it opens on, the file given, the last corpus or the first-run screen, and the sample just downloaded after setup), state (the corpora it opened, in <root>/urna/tui.json), draw, keys (keyboard + mouse routing), chrome (header tabs + footer help), home (also the first-run screen: open the sample, open a file), corpus (inspect + validate model and view), ask (query worker + error wording, the failure's model when an install can fix it) and hits (its view), offer (the install panel over the ask tab: plan, y/r/n consents, progress, retry), health, pick (the ratatui-explorer overlay)"
+purpose = "urna tui: the explorer state and loop (mod: what it opens on, the file given, the last corpus or the first-run screen, and the sample just downloaded after setup), state (the corpora it opened, in <root>/urna/tui.json), draw, keys (keyboard + mouse routing), chrome (header tabs + footer help), home (also the first-run screen: open the sample, open a file), corpus (inspect + validate model and view), ask (query worker + error wording, the failure's model when an install can fix it) and hits (its view), offer (the install panel over the ask tab: plan, y/r/n consents, progress, retry), health, pick (the file picker overlay), session, labels, card, blocks, media and headless (the ask tab: the open corpus, the type-ahead, the record laid out from the schema, the image in glyphs or pixels, and --snapshot / --eval)"
 links = ["rust/clitui/src/tui/app/mod.rs"]
 
 [[inventory.workspace]]
@@ -846,6 +879,84 @@ path = "rust/engine/src/simd"
 kind = "directory"
 purpose = "SIMD kernels and dispatch"
 links = ["rust/engine/src/simd/mod.rs"]
+
+[[inventory.workspace]]
+path = "rust/engine/src/scalars"
+kind = "directory"
+purpose = "Per-chunk fields at query time: the bitset of kept chunks, the predicates and the schema's search syntax"
+links = ["rust/engine/src/scalars/mod.rs", "rust/engine/src/search_filtered.rs"]
+
+[[inventory.workspace]]
+path = "rust/engine/src/labels"
+kind = "directory"
+purpose = "The label index the type-ahead matches: folding, front-coded sorted labels and words, the subsequence fallback"
+links = ["rust/engine/src/labels/mod.rs"]
+
+[[inventory.workspace]]
+path = "rust/format/src/sections/scalars"
+kind = "directory"
+purpose = "The chunk_scalars (0x0D) codec and the JSON rows reader the scalars verb and the forge share"
+links = ["rust/format/src/sections/scalars/mod.rs", "rust/format/src/manifest/schema.rs"]
+
+[[inventory.workspace]]
+path = "rust/clitui/src/tui/graphics"
+kind = "directory"
+purpose = "The terminal image protocols written here (kitty, iTerm2 with its PNG, sixel), the one-time terminal probe and the glyph sets"
+links = ["rust/clitui/src/tui/graphics/mod.rs", "rust/images/src/lib.rs"]
+
+[[inventory.workspace]]
+path = "rust/clitui/src/tui/widgets"
+kind = "directory"
+purpose = "The widgets the screens draw with: text input, key help, scrollbar, spinner, OSC 8 link, file picker"
+links = ["rust/clitui/src/tui/widgets/mod.rs"]
+
+[[inventory.workspace]]
+path = "rust/clitui/src/tui/fx"
+kind = "directory"
+purpose = "The effect engine behind tui/fx.rs: a tree of timed atoms over the drawn frame"
+links = ["rust/clitui/src/tui/fx.rs"]
+
+[[inventory.workspace]]
+path = "rust/neural"
+kind = "crate-dir"
+purpose = "Inference runtime crate (urna-neural)"
+links = ["Cargo.toml", "rust/neural/src/lib.rs"]
+
+[[inventory.workspace]]
+path = "rust/neural/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: the tokenizer parity against the reference library, kept out of the urna lock and cargo-deny"
+links = ["rust/neural/src/tokenizer/mod.rs", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
+path = "rust/neural/ucd"
+kind = "data-dir"
+purpose = "The vendored Unicode character database the tokenizer tables are generated from"
+links = ["rust/neural/build.rs"]
+
+[[inventory.workspace]]
+path = "rust/images"
+kind = "crate-dir"
+purpose = "AVIF container and RGBA crate (urna-images)"
+links = ["Cargo.toml", "rust/images/src/lib.rs"]
+
+[[inventory.workspace]]
+path = "rust/images/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: the AV1 planes and RGBA parity against the crates.io decoders"
+links = ["rust/images/src/lib.rs", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
+path = "rust/av1dec"
+kind = "crate-dir"
+purpose = "rav1d 1.1.0 vendored whole as urna-av1dec, pure Rust; outside the 639-line guard, its files keep upstream's shape"
+links = ["rust/av1dec/UPSTREAM", "rust/images/src/decoder.rs"]
+
+[[inventory.workspace]]
+path = "rust/cbinds"
+kind = "crate-dir"
+purpose = "C ABI crate (urna-cbinds) and its header"
+links = ["Cargo.toml", "rust/cbinds/include/urna.h"]
 
 [[inventory.workspace]]
 path = "rust/engine/tests"

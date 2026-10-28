@@ -2,7 +2,7 @@
 project: urna
 audience: users and integrators
 status: active
-last-updated: 2026-10-14
+last-updated: 2026-10-28
 domain: usage
 ---
 
@@ -10,7 +10,7 @@ domain: usage
 
 `urna` is a single-file binary container for distributing semantic knowledge bases. One file: chunks, canonical text, byte-spans, embeddings, search contract, hashes. Copy it, share it, search it.
 
-This guide covers the commands you'll actually use: the agent verbs `ask`, `retrieve` and `build` (the front door; they shell out to the offline Python embedder or the forge), and the engine subcommands beneath them (validate, stats, inspect, media, search/search-ann/search-graph/search-space/search-text, benchmark, cite, doctor), which take a file and a vector; two of them run Python (`search-text`, for its sentence-transformers embedder, and `doctor`, which probes the Python env), the other ten never do. `urna --help` lists them in the same two groups. Getting the binary onto a machine (every install channel, verification, offline notes, the maintainer checklist) is the reference section at the end of this document; the short form is `curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh` (or brew, npm, cargo) followed by `urna setup`, the interactive installer that completes every channel (section 16).
+This guide covers the commands you'll actually use: the agent verbs `ask`, `retrieve` and `build` (the front door: a potion corpus embeds the query in process, any other model through its offline Python embedder, and `build` runs the forge), and the engine subcommands beneath them (validate, stats, inspect, media, scalars, search/search-ann/search-graph/search-space/search-text, benchmark, cite, doctor), which take a file and a vector; only `search-text` on a corpus of another model than potion, and `doctor --build`, run Python. `urna --help` lists them in the same two groups. Getting the binary onto a machine (every install channel, verification, offline notes, the maintainer checklist) is the reference section at the end of this document; the short form is `curl -sSf https://raw.githubusercontent.com/hoffresearch/urna/main/tool/tasks/installer.sh | sh` (or brew, npm, cargo) followed by `urna setup`, the interactive installer that completes every channel (section 16).
 
 ## Quickstart
 
@@ -177,7 +177,7 @@ urna search my_corpus.urna "[0.1, 0.2, ...]" -k 10
 
 ### Search by text
 
-Embed the query with the same model the corpus was built with (the manifest declares it), then route by what the file carries: BM25 plus vectors (the hybrid path) when the file has a BM25 section, HNSW when it has an HNSW section, exact otherwise. The manifest's `index_type` names the vector index only, so a `hybrid` preset file (it declares `hnsw` and carries BM25 as the `supports_bm25` capability) takes the hybrid path. The runtime cross-checks the embedder's `model_hash` against the manifest before running search and refuses on mismatch. See §7.
+Embed the query with the same model the corpus was built with (the manifest declares it), then route by what the file carries: BM25 plus vectors (the hybrid path) when the file has a BM25 section, HNSW when it has an HNSW section, exact otherwise. The manifest's `index_type` names the vector index only, so a `hybrid` preset file (it declares `hnsw` and carries BM25 as the `supports_bm25` capability) takes the hybrid path. The runtime cross-checks the embedder's `model_hash` against the manifest before running search and refuses on mismatch. See §7. A potion corpus embeds the query in process, with urna's own WordPiece tokenizer over the payload's potion table, so no Python runs; any other model runs its Python query embedder, as `ask` does below.
 
 ```sh
 urna search-text my_corpus.urna "vacina contra covid funciona" -k 5
@@ -212,7 +212,7 @@ urna benchmark my_corpus.urna -q 100 -k 10 --space "wemm-2b@256"
 
 ### The flagship: ask and retrieve
 
-`ask` and `retrieve` are the agent-native front door: text query in, cited answer out, no flags needed. They embed the query OFFLINE and route the embedder BY THE MANIFEST MODEL: a potion corpus keeps the potion static table (`rust/bridge/python/urna/embed/potionqry.py`, the unchanged fast path), and a corpus whose default text space is any registry model (wemm, Jina, CLIP; see §12) goes through `rust/bridge/python/urna/embed/presetqry.py`, which encodes the query with that model's query route and, for an MRL-truncated default space, slices + renormalizes to the manifest dim (`--mrl-dim`, passed automatically). The pt-BR MiniLM demo corpus resolves to the `minilm-multilingual` preset, and any other sentence-transformers model no preset names takes the same path: the query is embedded by `rust/bridge/python/urna/embed/searchtxt.py`, the `search-text` embedder, with the `model_hash` the corpus was built with. It needs `sentence-transformers` in the Python urna runs and the model in the local HF cache (`URNA_ALLOW_DOWNLOAD=1` fetches it once); a missing one is named with its fix. Both paths validate the embedder's `model_hash` against the manifest exactly like `search-text`, and route by what the file carries: the hybrid path (BM25 candidates plus the vector shortlist, fused, then the exact rerank) when the file has a BM25 section, HNSW when it has an HNSW section, exact otherwise. The graph is never routed to automatically; `search-graph` is its verb. Every printed score IS the exact-cosine rerank value, so on the hybrid path the BM25 leg widens the candidate set and the cosine orders it: a lexical match reaches the answer when its cosine earns a place in the top-k.
+`ask` and `retrieve` are the agent-native front door: text query in, cited answer out, no flags needed. They embed the query OFFLINE and route the embedder BY THE MANIFEST MODEL: a potion corpus embeds in process with the payload's potion table (`urna-neural`: the recipe and the `model_hash` of `rust/bridge/python/urna/embed/potionqry.py`, no interpreter; the script still runs for `--embedder`, `--model-path`, an MRL-truncated corpus or a payload without the table), and a corpus whose default text space is any registry model (wemm, Jina, CLIP; see §12) goes through `rust/bridge/python/urna/embed/presetqry.py`, which encodes the query with that model's query route and, for an MRL-truncated default space, slices + renormalizes to the manifest dim (`--mrl-dim`, passed automatically). The pt-BR MiniLM demo corpus resolves to the `minilm-multilingual` preset, and any other sentence-transformers model no preset names takes the same path: the query is embedded by `rust/bridge/python/urna/embed/searchtxt.py`, the `search-text` embedder, with the `model_hash` the corpus was built with. It needs `sentence-transformers` in the Python urna runs and the model in the local HF cache (`URNA_ALLOW_DOWNLOAD=1` fetches it once); a missing one is named with its fix. Both paths validate the embedder's `model_hash` against the manifest exactly like `search-text`, and route by what the file carries: the hybrid path (BM25 candidates plus the vector shortlist, fused, then the exact rerank) when the file has a BM25 section, HNSW when it has an HNSW section, exact otherwise. The graph is never routed to automatically; `search-graph` is its verb. Every printed score IS the exact-cosine rerank value, so on the hybrid path the BM25 leg widens the candidate set and the cosine orders it: a lexical match reaches the answer when its cosine earns a place in the top-k.
 
 `ask` prints one low-cognitive-load cited answer:
 
@@ -230,7 +230,7 @@ urna retrieve my_corpus.urna "can I use this offline" -k 5 --format jsonl
 
 Each hit is `{chunk_id, score, score_type=cosine, source_uri, offset_start, offset_end, citation_id, text, file_hash, content_hash, rerank_source}`. The `score` is the exact rerank value (never a candidate-generator proxy), `text` is the tier-1 stored canonical text, and `citation_id` round-trips through `urna cite`. `--format json` emits a single pretty array instead of one object per line.
 
-The embedder picks its interpreter in a fixed order (the same ladder section 11 states for `doctor`): `URNA_PYTHON` if set, else the venv `urna setup` built (`<data root>/urna/venv`), else the nearest `.venv/bin/python` walking up from the CWD (the repo's carries the embed deps: numpy + tokenizers + the vendored potion table), else `python3` on PATH. So the setup venv, or the repo `.venv` in a checkout, is used automatically; set `URNA_PYTHON` only to force a specific interpreter. An interpreter found by that `.venv` search is printed to stderr (`URNA_PYTHON` and the setup venv were chosen on purpose and stay silent); and since discovery executes the nearest ancestor `.venv/bin/python`, set `URNA_PYTHON` explicitly if you run `urna` from inside an untrusted directory tree. Point `--model-path` at a copied potion table dir for a fully sealed offline run.
+When a query runs a Python embedder (any model but potion, or the potion cases above), it picks its interpreter in a fixed order (the same ladder section 11 states for `doctor`): `URNA_PYTHON` if set, else the venv `urna setup` built (`<data root>/urna/venv`), else the nearest `.venv/bin/python` walking up from the CWD (the repo's carries the embed deps: numpy + tokenizers + the vendored potion table), else `python3` on PATH. So the setup venv, or the repo `.venv` in a checkout, is used automatically; set `URNA_PYTHON` only to force a specific interpreter. An interpreter found by that `.venv` search is printed to stderr (`URNA_PYTHON` and the setup venv were chosen on purpose and stay silent); and since discovery executes the nearest ancestor `.venv/bin/python`, set `URNA_PYTHON` explicitly if you run `urna` from inside an untrusted directory tree. Point `--model-path` at a copied potion table dir for a fully sealed offline run.
 
 The Python convenience is `python rust/bridge/python/urna/reads/retrieval.py`: it builds a `.urna` from the demo corpus with the potion embedder, asks a question, and prints the cited answer with a `urna://` citation, all offline and deterministic (the one-GIF demo).
 
@@ -370,17 +370,18 @@ actionlint is the gate: syntax, `${{ }}` expressions, `needs`, runner labels and
 
 ## 11. Install health check (`urna doctor`)
 
-`doctor` takes no file. It validates the install surface after a one-liner / tarball install (the channels are in the reference section below): urna and format versions, the detected SIMD backend, the Python interpreter the embedder will run under, the numpy + tokenizers deps, the potion embedder script, the potion table (a git-lfs pointer is rejected), and one real offline embed of a fixed probe string.
+`doctor` takes no file. It validates what `ask` needs after a one-liner / tarball install (the channels are in the reference section below): urna and format versions, the detected SIMD backend, the potion embedder payload, the potion table (a git-lfs pointer is rejected), and one real embed of a fixed probe string in process, through urna's own runtime. Python is the corpus-building toolchain, not the query's: the interpreter and its numpy + tokenizers are reported as warnings.
 
 ```sh
 urna doctor
+urna doctor --build    # also require python with numpy + tokenizers, and run the embedder script under it
 ```
 
-The exit code is typed so installers and CI branch on codes, not text: `0` ok, `2` Python interpreter missing, `3` Python deps missing, `4` potion embedder script not found, `5` potion table missing or a git-lfs pointer, `6` embedder run failed. A scalar SIMD fallback prints a warning but still exits `0`. The embedder check opens no socket, so doctor itself stays offline-by-construction.
+The exit code is typed so installers and CI branch on codes, not text: `0` ok, `4` potion embedder payload not found, `5` potion table missing or a git-lfs pointer, `6` the embed failed; with `--build`, `2` Python interpreter missing and `3` Python deps missing. A scalar SIMD fallback prints a warning but still exits `0`. The embedder check opens no socket, so doctor itself stays offline-by-construction.
 
-The embedder script resolves in this order: the repo layout (`rust/bridge/python/urna/embed/potionqry.py`, dev checkout), then `<root>/urna/python/urna/` for each data root in turn: `URNA_DATA_DIR`, `XDG_DATA_HOME`, `~/.local/share`, `%LOCALAPPDATA%` (where `installer.ps1` and `urna setup` on Windows put it), `<exe>/../share` (tarball layouts). The interpreter resolves in this order: `URNA_PYTHON`, the venv `urna setup` builds (`<root>/urna/venv`), the nearest `.venv` walking up from the working directory, then `python3` on `PATH`.
+The embedder script resolves in this order: the repo layout (`rust/bridge/python/urna/embed/potionqry.py`, dev checkout), then `<root>/urna/python/urna/` for each data root in turn: `URNA_DATA_DIR`, `XDG_DATA_HOME`, `~/.local/share`, `%LOCALAPPDATA%` (where `installer.ps1` and `urna setup` on Windows put it), `<exe>/../share` (tarball layouts). With `--build`, the interpreter resolves in this order: `URNA_PYTHON`, the venv `urna setup` builds (`<root>/urna/venv`), the nearest `.venv` walking up from the working directory, then `python3` on `PATH`.
 
-A failing doctor names its fix: every code except `6` prints `next: urna setup`, which lays down the payload and the Python env and then re-runs these checks (section 16).
+A failing doctor names its fix: `4` and `5` print `next: urna setup`, which lays down the payload and then re-runs these checks (section 16); `2` and `3` print `urna setup --python`, which builds the env corpus builds need.
 
 ## 12. Model registry and multi-model spaces
 
@@ -508,7 +509,7 @@ urna media corpus.urna --export DIR    # write every inlined blob to DIR, verify
 
 ## 16. Setup and the terminal explorer (`urna setup`, `urna tui`)
 
-The package channels (Homebrew, npm, crates.io) ship the bare binary; the binary cannot carry the ~30 MB embedder payload or a Python env. `urna setup` lays both down, proves the install and offers a sample corpus to ask:
+The package channels (Homebrew, npm, crates.io) ship the bare binary; the binary cannot carry the ~30 MB embedder payload. `urna setup` lays it down, proves the install and offers a sample corpus to ask. Queries embed in process, so the Python env is a build-time step: setup builds it with `--python` or when a model is chosen:
 
 ```sh
 urna setup
@@ -517,7 +518,7 @@ urna setup
 On a terminal it runs inline, in four steps with the screen left in the scrollback when it ends:
 
 1. Scan: how urna got here (Homebrew, npm, cargo, install script, dev build), the data dir, whether the payload and a Python with numpy + tokenizers are present, and which tools the steps can use (`curl`, `uv`, a `python3` with `venv`). Read-only. On macOS it never runs `/usr/bin/python3` while `xcode-select -p` fails: that file is Apple's stub, which opens the Command Line Tools installer when anything runs it. `urna doctor` and the embedder fallback skip it the same way, and uv runs with `/usr/bin` off its PATH there, since its interpreter discovery and its `install_name_tool` call would run the same shim.
-2. Plan: one checkbox per step (payload, Python env, models, verify, sample corpus). A satisfied step starts unticked (ticking it reinstalls); a step this machine cannot run is shown blocked with the reason. The payload counts as satisfied only when setup's own data dir holds one from the release it wants (this binary's, or `--version`), read from `<data root>/urna/VERSION`: a payload from another release, or from before the stamp (0.5.1 and older), is replaced, so upgrading the binary and running `urna setup` upgrades the scripts it runs. A development build (see "crates.io and cargo binstall" in the reference) wants its own name instead, so a build from another commit replaces the payload too. A payload missing a required file is reinstalled the same way, whatever its stamp. The venv next to it is never touched.
+2. Plan: one checkbox per step (payload, Python env, models, verify, sample corpus). A satisfied step starts unticked (ticking it reinstalls); a step this machine cannot run is shown blocked with the reason. The Python env is proposed only with `--python` or a chosen model. The payload counts as satisfied only when setup's own data dir holds one from the release it wants (this binary's, or `--version`), read from `<data root>/urna/VERSION`: a payload from another release, or from before the stamp (0.5.1 and older), is replaced, so upgrading the binary and running `urna setup` upgrades the scripts it runs. A development build (see "crates.io and cargo binstall" in the reference) wants its own name instead, so a build from another commit replaces the payload too. A payload missing a required file is reinstalled the same way, whatever its stamp. The venv next to it is never touched.
 3. Install: the payload (`urna-embedder-payload.tar.gz` from the release that matches the binary's version, its SHA256 checked while it streams, unpacked into a staging dir, refused if any required file is missing, then laid down as one step: `python/` (the `urna` package with the query embedders and the potion table), then `VERSION` last; if anything fails the previous payload is put back as it was, and if putting it back fails too its files are kept at `<data root>/.urna-previous-<pid>-<time>` and the error names that path) and the Python env (`<data root>/urna/venv`), with the tools' output live in a log. The env is built with `uv`: the one on `PATH`, else the uv release the payload's catalogue names, downloaded into `<data root>/urna/bin/uv` and refused unless its SHA256 is the catalogue's. It is built on the Python range the catalogue names, the minors torch publishes wheels for (`>=3.10,<3.15` today): uv takes a matching interpreter already on the machine and fetches one when there is none, so a machine with no Python, or whose newest is 3.15, gets an env the models can install torch into. An existing env on a Python outside the range is deleted and built again, and the models whose weights are in the cache get their packages back. Without uv (no `curl` to download it), `python3 -m venv` + pip from an interpreter inside the range. Neither the uv release nor the range is written by hand: `tool/tasks/upstreams.py` reads them from uv's latest GitHub release and the wheels on PyPI of the torch the model lock resolves to into `upstreams.json` when the catalogue is generated, and CI refuses a catalogue that differs, so setup never asks the network which version is the latest. A development build never fetches a release payload by the version it reports: it copies the payload from the checkout it was built from into the same staging dir, stamps it with its own name and lays it down the same way. When that checkout holds only the Git LFS pointer of the potion table (`cargo install --git` fetches no LFS object), the table is downloaded from Hugging Face at the revision `tool/tasks/getpotion.sh` pins and refused unless its SHA256 is the pointer's oid. `--version` and `URNA_RELEASE_BASE` still fetch a release payload.
 4. Verify: the doctor checks (section 11) on the payload in setup's own data dir, whatever the current directory resolves (a checkout nearby does not count), with a `payload` row that fails when a required file is missing.
 5. Sample corpus: the release of the [fakenews-ptbr benchmark](https://github.com/brennercruvinel/fakenews-ptbr-urna-benchmark) the payload's catalogue names, about 20 MB of Brazilian Portuguese news articles and fact-checked claims, true and fake side by side, built with potion so it needs nothing beyond the payload. A hit carries no true or fake label, so an answer can be a fake claim quoted as it was published. It is downloaded from Hugging Face at the dataset commit the catalogue pins, refused unless its SHA256 is the catalogue's and every `urna validate` check passes, and saved as `<data root>/urna/sample/fakenews.urna`; one already there with those bytes is kept. The commit, the size and the SHA256 come from `tool/tasks/upstreams.py --sample <release>` (the release by name, read at one commit, refused unless its manifest names the payload's potion `model_hash`), never from the network when setup runs. Then what to run next (`urna tui` and `urna ask` on the sample), or on failure each step's error and how to retry.
@@ -526,7 +527,7 @@ On a terminal it runs inline, in four steps with the screen left in the scrollba
 urna setup --yes                     # the default plan, no questions, plain lines (ci, scripts)
 urna setup --version v0.5.3          # the payload of a given release (replaces one from another)
 urna setup --force                   # reinstall the payload even when it matches
-urna setup --no-python               # payload only; bring your own interpreter via URNA_PYTHON
+urna setup --python                  # also build the Python env corpus builds need (a chosen model builds it too)
 urna setup --no-sample               # skip the sample corpus
 urna setup --model minilm-multilingual  # also install a catalog model (repeatable; `all` picks every offered one)
 urna setup --uninstall               # remove the payload, the env, setup's uv, the sample and tui.json (never the binary, never the hf cache)
@@ -553,10 +554,17 @@ The binary links no network stack: setup downloads through the system `curl` (HT
 
 The explorer opens a `.urna` and shows it: the manifest and the verdict of the same checks `urna validate` runs, the section table with a size bar per section, an ask tab that embeds offline through the same routed embedder and `model_hash` gate as `urna ask` and shows each hit's stored text, citation and source, and the doctor checks.
 
+The ask tab keeps the corpus open for the whole session. While you type it offers the corpus's labels (the first line of each chunk, or the schema's `label` column), matched by prefix of the label, of its alias or of any word, then by subsequence; `tab` takes the one pointed at, and a label spelled exactly comes first as a name hit. On a corpus with per-chunk fields (section 17) the line also takes the schema's search syntax (`t:creature c:r pow>=3 bolt`): the predicates narrow the suggestions and the hits before scoring, a line of predicates alone browses the kept chunks by the `rank` column, and the facet counts under the line say what the next term can be. The selected hit is laid out from the schema (labels, symbols, chips, numbers) when the file has one, plain text otherwise. A hit whose source is an inlined AVIF blob shows its image, decoded in the tree (`urna-images` over `urna-av1dec`, the vendored rav1d): kitty's graphics protocol, iTerm2's inline images or sixel, whichever the terminal answers for when the explorer asks it once at start (inside tmux only sixel, which tmux draws itself), and block glyphs where it answers for none. `URNA_GRAPHICS=kitty|iterm|sixel|blocks` overrides what the terminal says, and `URNA_GLYPHS=sextants|octants` lets the block drawing use the finer glyphs of Unicode 13 and 16 when the font has them. `ctrl+v` hands the stored image to the system viewer (`open`, `xdg-open`, `start`).
+
+Two flags run the ask tab with no terminal, for checks and CI: `--snapshot QUERY` asks once and prints one 120x40 frame as text, image in block glyphs; `--eval N` types the labels of the N best-ranked chunks key by key, searches each and prints where each lands and how long each keystroke took. Both need the file's `label` column, and `--eval` its `rank` column too; without them they exit `2`. `--ask QUERY` opens the explorer on the ask tab with the question asked.
+
 When a query fails because the corpus's model needs packages or weights this machine lacks, and the payload's catalog offers that model, the ask tab opens an install panel instead of an error: the packages it adds to the managed venv, the megabytes it fetches from huggingface.co at the pinned revision, and the `model_hash` it must come out as, checked against the corpus's. `y` installs (the download consent), `r` allows the model's repo code (the separate consent, when it runs any), `n` or `esc` declines; the install streams its steps, a progress bar and the log into the panel, a failure keeps the facts and offers a retry, and success runs the query again. When queries do not run the managed venv (an `URNA_PYTHON` pin, or no setup yet) the panel names the reason and the `urna setup --model` line instead of installing anything.
 
 ```sh
 urna tui corpus.urna
+urna tui cards.urna --ask "lightning bolt"       # open on the ask tab with the question asked
+urna tui cards.urna --snapshot "lightning bolt"  # one frame as text, no terminal
+urna tui cards.urna --eval 1000                  # type-ahead ranks and latencies over 1000 labels
 urna                                 # a bare urna on a terminal opens the explorer
 ```
 
@@ -569,12 +577,45 @@ What it opens on: the file it is given (on the corpus tab), else the corpus it o
 | `1`..`9` | Home | Open a `.urna` found in the working dir or one level below |
 | `enter` | First-run screen | Open the sample corpus on the ask tab |
 | `enter`, `↑↓`, `pgup/pgdn`, `esc` | Ask | Ask, pick a hit, scroll its text, clear the query |
+| `tab` | Ask, while it suggests | Take the suggestion pointed at |
+| `ctrl+v` | Ask | Open the hit's stored image in the system viewer |
 | `y`, `r`, `n` / `esc` | Ask, install panel open | Install (download consent), allow repo code (separate consent), decline |
 | `r` | Health | Re-run the checks |
 | `s` | Everywhere but ask | Hand the terminal to `urna setup`, then come back with the same corpus open |
 | `q` (`ctrl+q` in ask), `esc` on home | Everywhere | Quit |
 
 Both screens follow the terminal: 24-bit color when the terminal advertises it (`COLORTERM=truecolor` and the known truecolor terminals), the nearest xterm-256 color otherwise (Terminal.app, tmux without `Tc`), and no color with `NO_COLOR` set or `URNA_COLOR=none`. `URNA_COLOR=truecolor|256|none` overrides the probe. `cargo install urna --no-default-features` builds the CLI without the `tui` feature: every engine and agent verb, no `setup`, no `tui`.
+
+## 17. Per-chunk fields and filtered search (`urna scalars`)
+
+A corpus can carry typed fields per chunk inside the file, in the `chunk_scalars` section (0x0D): named columns parallel to chunk order, of kind `int`, `real`, `bool`, `text`, `uuid`, `enum` (with an optional number per value) or `enum_list`, each with its validity bitmap. The manifest says what they mean: `schema` (per column its `label`, `unit`, `roles` (`filter`, `facet`, `label`, `rank`, `display`), search `prefix` and `display`), `dataset` (source name, version, url, fetch date, license and the sha256 of the bulk) and `media` (the codec, profile and quality of the stored media, and whether it is lossy). All of it is additive: the section is out of `content_hash`, so a corpus with fields cites exactly like its twin without them.
+
+`urna scalars` writes them into an existing corpus:
+
+```sh
+urna scalars cards.urna --rows rows.json --schema schema.json --out cards.scalars.urna \
+  --dataset dataset.json --media media.json
+urna scalars cards.urna --schema schema.json --out cards.scalars.urna   # declare the schema again over the columns FILE has
+```
+
+`ROWS` is a JSON array with one object per chunk, in chunk order; `SCHEMA` is a JSON array of fields, each with `name` and `kind` and optionally `source` (the row key, `name` by default), `numeric` and the schema keys above. Two kinds exist only in the schema file: `enum_map` turns an object into one `enum` column per key (`legal.modern`, `legal.pauper`), and `chunk` writes no column, only a schema entry that points at the stored text. Every stored section is copied as is, so `content_hash` and every citation stay the same; `--out` must be another file, and a path that reaches `FILE` through a symlink or a hard link is refused. The forge writes the same columns at build time from the spec's `[scalars] fields` and `[dataset]` tables (`sha256 = "auto"` hashes the source bulk), through the same reader of rows.
+
+The fields make a search syntax, read from the schema's prefixes and never from code: `prefix:value` (or `prefix=value`) is equality, membership on a list and substring on a text; `>`, `>=`, `<`, `<=` are ranges on a numeric column and `!=` compares; `-prefix:value` negates (a bare `-word` and `-o:` are refused rather than read without their sign); `o:` words go to the lexical search over the stored text; words without a prefix are the free text of the query. On a list of single letters (colors), `c:rg` holds every letter. A predicate resolves to a bitset of kept chunks before scoring: the exact scan skips the rest, BM25 drops their postings, and HNSW widens its beam and keeps only kept candidates, falling back to the exact scan over the kept chunks when they are few or when the beam comes back short, so the top-k is never short while kept chunks remain. The ask tab of `urna tui` (section 16) and the C ABI (section 18) take this syntax.
+
+## 18. C ABI (`urna-cbinds`)
+
+`rust/cbinds` is the C ABI the native apps link: `include/urna.h` over a static or dynamic library (`cargo build --release -p urna-cbinds` writes the static `liburna_cbinds.a` and the platform's dynamic library under `target/release`).
+
+| Call | What it does |
+|---|---|
+| `urna_open(path, model_dir)` / `urna_close` | Open a corpus once; `model_dir` is the potion table dir, or `NULL` to read `URNA_POTION_DIR` on the first ask |
+| `urna_ask(corpus, query, k)` | Free text plus the schema's search syntax (section 17), top `k`; a potion corpus only, embedded in process and checked against the corpus `model_hash` |
+| `urna_hits_len`, `urna_hit_chunk`, `urna_hit_score`, `urna_hit_text`, `urna_hit_citation`, `urna_hits_free` | Read each hit: chunk index, exact cosine, stored text, `urna://` citation |
+| `urna_image(corpus, chunk, &len)` | The chunk's stored image bytes (an AVIF the platform decodes), valid while the corpus is open |
+| `urna_schema_json`, `urna_content_hash`, `urna_string_free` | The manifest schema as JSON, the content hash; both freed by the caller |
+| `urna_n_chunks`, `urna_version`, `urna_last_error` | Chunk count, library version, this thread's last error |
+
+Strings are UTF-8 with a NUL; a function that fails returns `NULL` (or `0`) and leaves the reason in `urna_last_error()`, per thread; no panic crosses the boundary. A corpus may be shared by threads for `urna_ask` and `urna_image`, and `urna_close` is the last call on it. `rust/cbinds/tests/c_roundtrip.rs` compiles a C program against the header and runs the round trip.
 
 ## Reference
 
@@ -594,6 +635,9 @@ Every `URNA_*` variable read anywhere in the codebase (installers, CLI, forge, d
 | `URNA_BIN_DIR` | Install | `~/.local/bin` (`~\.local\bin` on Windows) | Where the installer puts the `urna` binary |
 | `URNA_DATA_DIR` | Install, setup, runtime | `${XDG_DATA_HOME:-~/.local/share}` (`%LOCALAPPDATA%` on Windows) | Parent dir for the embedder payload and the `urna setup` venv; the CLI searches it first (section 11) |
 | `URNA_PYTHON` | Runtime, dev | The `urna setup` venv, else the nearest `.venv`, else `python3` | Python interpreter the CLI, `urna doctor`, and the dev scripts shell out to; must carry the forge deps (numpy, tokenizers). It wins over the setup venv, so setup reports it as blocking when it lacks the deps |
+| `URNA_GRAPHICS` | Runtime | Asked of the terminal | `kitty`, `iterm`, `sixel` or `blocks`: how the ask tab of `urna tui` draws a hit's image; `blocks` asks the terminal nothing |
+| `URNA_GLYPHS` | Runtime | `blocks` | `sextants` or `octants`: the finer Unicode 13 / 16 glyphs the block drawing may use, when the terminal font carries them |
+| `URNA_POTION_DIR` | C ABI | Unset | The potion table dir `urna_ask` loads when `urna_open` got no `model_dir` |
 | `URNA_COLOR` | Runtime | Probed from the terminal | `truecolor`, `256` or `none`: color depth of `urna setup`, `urna tui` and the colored `doctor` output |
 | `NO_COLOR` | Runtime | Unset | Any value turns every color off (no-color.org); modifiers stay |
 | `URNA_FORCE_SCALAR` | Runtime | Unset | Forces the scalar SIMD kernel over AVX2 / NEON, for A/B benchmarking |
@@ -614,6 +658,9 @@ Every `URNA_*` variable read anywhere in the codebase (installers, CLI, forge, d
 | `URNA_CORPUS` | Dev | The benchmark corpus | The corpus `presetrun.py` measures via `fullcheck.sh`. Unset, it is `fakenews.urna` (MiniLM, exact) of `brennercruvinel/fakenews-ptbr-urna-benchmark` at a pinned commit, in the Hugging Face cache, checked against its sha-256; `tool/tasks/benchdata.py fetch` downloads it only with `URNA_ALLOW_DOWNLOAD=1` |
 | `URNA_BASELINE` | Dev | `tool/bench/reference.json` | The metrics `benchgate.py` compares against via `fullcheck.sh`, measured on the default corpus. They must come from the corpus the run measures: before any step, `fullcheck.sh` stops with exit 9 when the file is missing or unreadable and with exit 10 when its `baseline_file_hash` is not the corpus's sha-256 (`tool/tasks/benchdata.py match`); exit 3 stays the uncached corpus |
 | `URNA_FRESH` | Dev | `0` | `1` makes `fullcheck.sh` run every step, ignoring the steps that already passed with the same inputs |
+| `URNA_CARDS_CORPUS` | Dev | Unset | The card corpus the tokenizer and AV1 parity (`rust/neural/parity`, `rust/images/parity`) compare on; `fullcheck.sh` runs that step only with it set and reports it skipped otherwise |
+| `URNA_PARITY_LIMIT` | Dev | `2000` in `fullcheck.sh` | How many chunks of `URNA_CARDS_CORPUS` the parity tests compare |
+| `URNA_REQUIRE_PARITY` | Dev | Unset; `1` in `fullcheck.sh` | Turns the potion parity's skip (no table, no python with numpy + tokenizers) into a failure |
 
 <details>
 <summary>One-liner (Linux, macOS)</summary>
