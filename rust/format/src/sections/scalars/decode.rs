@@ -43,6 +43,9 @@ pub fn decode_chunk_scalars(bytes: &[u8], n_rows: usize) -> Result<ScalarTable, 
         if name.is_empty() {
             return Err(malformed("chunk_scalars: empty column name"));
         }
+        if columns.iter().any(|c: &Column| c.name == name) {
+            return Err(malformed(format!("chunk_scalars: column {name} twice")));
+        }
         let kind = ColumnKind::from_byte(cur.u8()?)
             .ok_or_else(|| malformed(format!("chunk_scalars: unknown kind in column {name}")))?;
         let validity = match cur.u8()? {

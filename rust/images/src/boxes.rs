@@ -272,7 +272,23 @@ fn parse_iloc(b: Box<'_>) -> Result<Vec<(u32, Vec<Extent>)>> {
         c.u16("iloc data reference index")?;
         let base = c.sized(base_offset_size, "iloc base offset")?;
         let n = c.u16("iloc extent count")?;
-        let mut extents = Vec::new();
+        let per_extent =
+            usize::from(index_size) + usize::from(offset_size) + usize::from(length_size);
+        // an extent with no offset and no length can never name bytes
+        // (item_bytes refuses len == 0), and a run of them is a hostile count
+        // the payload would not bound.
+        if per_extent == 0 && n > 1 {
+            return Err(Error::Malformed(
+                "iloc extents carry neither offset nor length",
+            ));
+        }
+        if usize::from(n) * per_extent > c.left() {
+            return Err(Error::Truncated {
+                at: c.base + c.pos,
+                what: "iloc extents",
+            });
+        }
+        let mut extents = Vec::with_capacity(usize::from(n));
         for _ in 0..n {
             if index_size > 0 {
                 c.sized(index_size, "iloc extent index")?;
@@ -585,6 +601,21 @@ mod tests {
             Err(Error::HostileSize { .. })
         ));
         assert!(matches!(parse(b"\0\0"), Err(Error::Truncated { .. })));
+        // iloc v0, no field sizes, one item declaring 65535 extents: refused
+        // before any allocation; with 4-byte fields the count must fit.
+        let empty = [0, 0, 0, 0, 0x00, 0x00, 0, 1, 0, 1, 0, 0, 0xff, 0xff];
+        let iloc = |body| Box {
+            name: *b"iloc",
+            body,
+            at: 0,
+        };
+        assert!(matches!(parse_iloc(iloc(&empty)), Err(Error::Malformed(_))));
+        let mut short = empty;
+        short[4] = 0x44;
+        assert!(matches!(
+            parse_iloc(iloc(&short)),
+            Err(Error::Truncated { .. })
+        ));
         assert!(matches!(
             parse(&[0, 0, 0, 8, b'f', b'r', b'e', b'e']),
             Err(Error::NotAvif(_))

@@ -188,3 +188,23 @@ fn random_byte_flips_never_panic() {
         let _ = decode_chunk_scalars(&mutated, N);
     }
 }
+
+#[test]
+fn a_column_name_given_twice_is_refused_on_both_sides() {
+    let mut t = table();
+    t.columns[1].name = "rank".into();
+    assert!(encode_chunk_scalars(&t).is_err());
+    // "cmc" and "abc" have the same length, so renaming the second in the
+    // bytes keeps every offset: the decoder refuses the repeat on its own.
+    let mut t = table();
+    t.columns[1].name = "abc".into();
+    t.columns[2].name = "cmc".into();
+    t.columns[2].data = ColumnData::Real(vec![0.0; N]);
+    let mut bytes = encode_chunk_scalars(&t).unwrap();
+    let at = bytes.windows(3).position(|w| w == b"abc").unwrap();
+    bytes[at..at + 3].copy_from_slice(b"cmc");
+    assert!(matches!(
+        decode_chunk_scalars(&bytes, N),
+        Err(UrnaError::MalformedSectionPayload { .. })
+    ));
+}

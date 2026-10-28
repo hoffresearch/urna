@@ -55,8 +55,11 @@ impl SafeTensors {
             .and_then(|b| b.try_into().ok())
             .ok_or_else(|| fail("truncated"))?;
         let n = u64::from_le_bytes(head) as usize;
+        let end = 8usize
+            .checked_add(n)
+            .ok_or_else(|| fail("header past the file"))?;
         let header = bytes
-            .get(8..8 + n)
+            .get(8..end)
             .ok_or_else(|| fail("header past the file"))?;
         let mut raw: BTreeMap<String, serde_json::Value> = serde_json::from_slice(header)?;
         raw.remove("__metadata__");

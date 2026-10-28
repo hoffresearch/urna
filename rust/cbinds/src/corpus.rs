@@ -14,6 +14,13 @@ use urna_neural::Potion;
 use crate::hits::{Hit, Hits};
 use crate::{arg_str, give_string, guarded, set_error};
 
+// the header lets threads share a corpus for urna_ask and urna_image; a
+// field that is not Send + Sync would break that contract, so it fails here.
+const _: () = {
+    const fn shared<T: Send + Sync>() {}
+    shared::<Corpus>();
+};
+
 /// One opened `.urna`.
 #[derive(Debug)]
 pub struct Corpus {

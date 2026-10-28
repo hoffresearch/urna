@@ -280,6 +280,9 @@ pub fn encode_chunk_scalars(table: &ScalarTable) -> Result<Vec<u8>, UrnaError> {
                 c.data.len()
             )));
         }
+        if table.columns.iter().filter(|o| o.name == c.name).count() > 1 {
+            return Err(malformed(format!("column {} given twice", c.name)));
+        }
         if c.name.is_empty() {
             return Err(malformed("a column has an empty name"));
         }
