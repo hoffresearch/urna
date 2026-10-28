@@ -274,7 +274,7 @@ pub fn embed_and_route(
     // route by manifest model: potion corpora keep the potion script; any
     // registry model goes through the generic embedder, with --mrl-dim when
     // the default space was truncated (full_dim recorded).
-    let is_potion = model.starts_with("minishlab/potion");
+    let is_potion = urna_neural::Registry::for_model(&model).is_some();
     let truncated = runtime.full_dim().is_some();
     let cand = candidates.unwrap_or(((k as usize) * 4).max(64));
     let unchecked = hash_skipped(skip_model_hash_check, &declared_model_hash);

@@ -1,4 +1,4 @@
-//! Drawing the ask tab: the query line (ratatui-cheese input), the status,
+//! Drawing the ask tab: the query line (`widgets::Input`), the status,
 //! the suggestions while typing or the hits with the exact-rerank score as a
 //! thermometer bar, and the selected hit: its image when its source is one,
 //! beside its stored text, citation and source.

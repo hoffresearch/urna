@@ -23,15 +23,17 @@ pub struct ModelSpec {
 pub struct Registry;
 
 impl Registry {
-    /// The spec for `embedding_model` as the manifest names it.
+    /// The spec for `embedding_model` as the manifest names it: every
+    /// potion table (`minishlab/potion-base-8M/v1`, ...) is a static
+    /// graph over WordPiece; the model_hash gate then proves it is the
+    /// table on disk.
     pub fn for_model(embedding_model: &str) -> Option<ModelSpec> {
-        match embedding_model {
-            "minishlab/potion-base-8M" => Some(ModelSpec {
+        embedding_model
+            .starts_with("minishlab/potion")
+            .then_some(ModelSpec {
                 graph: Graph::Static,
                 tokenizer: TokenizerKind::WordPiece,
-            }),
-            _ => None,
-        }
+            })
     }
 }
 
@@ -41,7 +43,7 @@ mod tests {
 
     #[test]
     fn the_potion_is_registered_and_strangers_are_not() {
-        let spec = Registry::for_model("minishlab/potion-base-8M").expect("potion");
+        let spec = Registry::for_model("minishlab/potion-base-8M/v1").expect("potion");
         assert_eq!(spec.graph, Graph::Static);
         assert_eq!(spec.tokenizer, TokenizerKind::WordPiece);
         assert_eq!(Registry::for_model("org/other"), None);

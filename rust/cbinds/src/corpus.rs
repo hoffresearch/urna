@@ -71,7 +71,7 @@ impl Corpus {
         self.potion
             .get_or_init(|| {
                 let model = self.rt.embedding_model();
-                if !model.starts_with("minishlab/potion") {
+                if urna_neural::Registry::for_model(model).is_none() {
                     return Err(format!(
                         "the corpus was embedded with {model}; this ABI embeds potion corpora only"
                     ));
