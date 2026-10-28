@@ -126,7 +126,8 @@ pub const SECTION_BM25_INDEX: u32 = 0x08;
 //   0x0B dedup_map:     WRITTEN + READ, the ordinal -> unique-string map the
 //        `dedup` text codec expands to the byte-identical canonical payload.
 //   0x0C graph_adjacency: WRITTEN + READ, in OPTIONAL_SECTIONS below.
-//   0x0D-0x10:          claimed names only, no codec and no manifest
+//   0x0D chunk_scalars: WRITTEN + READ, in OPTIONAL_SECTIONS below.
+//   0x0E-0x10:          claimed names only, no codec and no manifest
 //        capability yet; a reader rejects them via validate_encoding.
 // 0x0A / 0x0B resolve through the text codec (never by section_name) on
 // purpose: they are private companions of chunks_canonical, not user-facing
@@ -197,6 +198,11 @@ pub const OPTIONAL_SECTIONS: &[(u32, &str)] = &[
     // graph_adjacency (0x0C, G1): additive chunk-to-chunk csr. resolves via
     // section_name but stays OUT of CANONICAL_SECTIONS (content_hash-excluded).
     (SECTION_GRAPH_ADJACENCY, "graph_adjacency"),
+    // chunk_scalars (0x0D): named typed columns parallel to chunk order, the
+    // per-chunk fields a corpus carries beyond its text. resolves via
+    // section_name and stays OUT of CANONICAL_SECTIONS (content_hash-excluded),
+    // so adding columns never moves a citation.
+    (SECTION_CHUNK_SCALARS, "chunk_scalars"),
     // blob_refs (0x14) + blob_span_overlay (0x16): content-hash references to
     // source media blobs and the per-chunk blob-relative span overlay. both
     // resolve via section_name and stay OUT of CANONICAL_SECTIONS, so a

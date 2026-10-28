@@ -8,7 +8,6 @@ use std::sync::mpsc::{Receiver, TryRecvError};
 use std::time::{Duration, Instant};
 
 use crossterm::event::{KeyCode, KeyModifiers};
-use ratatui_cheese::spinner::{SpinnerState, SpinnerType};
 
 use super::job::{self, Ev};
 use super::plan::{self, Item, Opts, Task};
@@ -18,6 +17,7 @@ use crate::cmd::tone::{self, Depth};
 use crate::tui::fx::Fx;
 use crate::tui::hud::Badge;
 use crate::tui::term::Clock;
+use crate::tui::widgets::Spinner;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Step {
@@ -74,7 +74,7 @@ pub struct Ui {
     pub flashes: Vec<(Task, bool)>,
     /// the run row the traveling glint is on.
     pub glint_on: Option<usize>,
-    pub spinner: SpinnerState,
+    pub spinner: Spinner,
     pub fx: Fx,
     pub clock: Clock,
     pub depth: Depth,
@@ -111,7 +111,7 @@ impl Ui {
             entered: true,
             flashes: Vec::new(),
             glint_on: None,
-            spinner: SpinnerState::new(SpinnerType::Dot),
+            spinner: Spinner::dots(),
             fx: Fx::default(),
             clock: Clock::new(),
             depth: tone::depth(),

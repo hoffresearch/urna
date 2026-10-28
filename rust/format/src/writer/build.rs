@@ -12,11 +12,11 @@ use crate::chunk::{chunk_id, validate_chunk};
 use crate::error::UrnaError;
 use crate::layout::{
     REQUIRED_SECTIONS, SECTION_ALIGNMENT, SECTION_BLOB_DATA, SECTION_BLOB_REFS,
-    SECTION_BLOB_SPAN_OVERLAY, SECTION_BM25_INDEX, SECTION_CHUNK_IDS, SECTION_CHUNKS_CANONICAL,
-    SECTION_CHUNKS_ORIGINAL_SPANS, SECTION_EMBEDDINGS, SECTION_ENCODING_INTPACK,
-    SECTION_ENCODING_RAW, SECTION_GRAPH_ADJACENCY, SECTION_HNSW_INDEX, SECTION_PROVENANCE,
-    SECTION_SEARCH_CONTRACT, SECTION_SPACE_TABLE, SectionEntry, URNA_FOOTER_SIZE, URNA_HEADER_SIZE,
-    URNA_SECTION_ENTRY_SIZE, UrnaFooter, UrnaHeader, align_up,
+    SECTION_BLOB_SPAN_OVERLAY, SECTION_BM25_INDEX, SECTION_CHUNK_IDS, SECTION_CHUNK_SCALARS,
+    SECTION_CHUNKS_CANONICAL, SECTION_CHUNKS_ORIGINAL_SPANS, SECTION_EMBEDDINGS,
+    SECTION_ENCODING_INTPACK, SECTION_ENCODING_RAW, SECTION_GRAPH_ADJACENCY, SECTION_HNSW_INDEX,
+    SECTION_PROVENANCE, SECTION_SEARCH_CONTRACT, SECTION_SPACE_TABLE, SectionEntry,
+    URNA_FOOTER_SIZE, URNA_HEADER_SIZE, URNA_SECTION_ENTRY_SIZE, UrnaFooter, UrnaHeader, align_up,
 };
 use crate::sections::{
     OriginalSpan, SearchContract, encode_chunk_ids, encode_chunk_ids_intpack,
@@ -202,6 +202,12 @@ impl UrnaFileBuilder {
             // runtime decodes eagerly at open; RAW like blob_refs. OPTIONAL
             // and EXCLUDED from content_hash.
             sections.push((SECTION_SPACE_TABLE, SECTION_ENCODING_RAW, payload));
+        }
+        if let Some(payload) = self.chunk_scalars.take() {
+            // chunk_scalars (0x0D) bitpacks its own columns with intpack; RAW
+            // like graph, so the runtime decodes it off the mmap. OPTIONAL and
+            // EXCLUDED from content_hash.
+            sections.push((SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW, payload));
         }
         for (band_id, encoding, payload) in std::mem::take(&mut self.space_bands) {
             // space bands are fixed-stride vector slabs scored by the simd

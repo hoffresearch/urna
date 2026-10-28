@@ -61,6 +61,9 @@ fn manifest(n: u64) -> Manifest {
         mrl_dim: None,
         full_dim: None,
         capabilities_ext: None,
+        schema: None,
+        dataset: None,
+        media: None,
         extra: Default::default(),
     }
 }

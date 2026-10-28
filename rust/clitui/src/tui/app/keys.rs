@@ -87,7 +87,21 @@ fn key(app: &mut App, code: KeyCode, mods: KeyModifiers) {
     match code {
         KeyCode::Char('c') | KeyCode::Char('q') if ctrl => return app.leave(Exit::Quit),
         KeyCode::Char('o') if ctrl => return open_picker(app),
-        KeyCode::Tab => return cycle(app, false),
+        KeyCode::Char('v') if ctrl && app.tab == Tab::Ask => {
+            let opened = app
+                .ask
+                .session
+                .clone()
+                .ok_or_else(|| anyhow::anyhow!("select a hit first"))
+                .and_then(|s| app.ask.media.open_external(&s));
+            match opened {
+                Ok(msg) => app.toasts.push(msg, Kind::Info),
+                Err(e) => app.toasts.push(format!("{e:#}"), Kind::Warn),
+            }
+            return;
+        }
+        // on the ask tab, tab takes the pointed suggestion while there is one.
+        KeyCode::Tab if !(app.tab == Tab::Ask && app.ask.suggesting()) => return cycle(app, false),
         KeyCode::BackTab => return cycle(app, true),
         _ => {}
     }
@@ -145,32 +159,91 @@ fn offer_key(app: &mut App, code: KeyCode) {
 }
 
 fn ask_key(app: &mut App, code: KeyCode) {
+    let session = app.corpus.as_ref().map(|c| c.session.clone());
+    let suggesting = app.ask.suggesting();
     let input = &mut app.ask.input;
-    match code {
-        KeyCode::Enter => match &app.corpus {
-            Some(c) => app.ask.submit(c.path.clone()),
-            None => app.toasts.push("open a corpus first: ctrl+o", Kind::Warn),
-        },
-        KeyCode::Esc if input.value().is_empty() => app.go(Tab::Home),
-        KeyCode::Esc => input.set_value(String::new()),
-        KeyCode::Char(c) => input.insert_char(c),
-        KeyCode::Backspace => input.delete_before(),
-        KeyCode::Delete => input.delete_at(),
-        KeyCode::Left => input.move_left(),
-        KeyCode::Right => input.move_right(),
-        KeyCode::Home => input.home(),
-        KeyCode::End => input.end(),
+    let edited = match code {
+        KeyCode::Enter => {
+            match session {
+                Some(s) => app.ask.submit(s),
+                None => app.toasts.push("open a corpus first: ctrl+o", Kind::Warn),
+            }
+            false
+        }
+        KeyCode::Tab if suggesting => {
+            if let Some(s) = session {
+                app.ask.take_suggestion(s);
+            }
+            false
+        }
+        KeyCode::Esc if input.value().is_empty() => {
+            app.go(Tab::Home);
+            false
+        }
+        KeyCode::Esc => {
+            input.set_value(String::new());
+            true
+        }
+        KeyCode::Char(c) => {
+            input.insert_char(c);
+            true
+        }
+        KeyCode::Backspace => {
+            input.delete_before();
+            true
+        }
+        KeyCode::Delete => {
+            input.delete_at();
+            true
+        }
+        KeyCode::Left => {
+            input.move_left();
+            false
+        }
+        KeyCode::Right => {
+            input.move_right();
+            false
+        }
+        KeyCode::Home => {
+            input.home();
+            false
+        }
+        KeyCode::End => {
+            input.end();
+            false
+        }
+        KeyCode::Up if suggesting => {
+            app.ask.sug_sel = app.ask.sug_sel.saturating_sub(1);
+            false
+        }
+        KeyCode::Down if suggesting => {
+            app.ask.sug_sel =
+                (app.ask.sug_sel + 1).min(app.ask.suggestions.len().saturating_sub(1));
+            false
+        }
         KeyCode::Up => {
             app.ask.sel = app.ask.sel.saturating_sub(1);
             app.ask.scroll = 0;
+            false
         }
         KeyCode::Down => {
             app.ask.sel = (app.ask.sel + 1).min(app.ask.answers.len().saturating_sub(1));
             app.ask.scroll = 0;
+            false
         }
-        KeyCode::PageDown => scroll(app, 8, true),
-        KeyCode::PageUp => scroll(app, 8, false),
-        _ => {}
+        KeyCode::PageDown => {
+            scroll(app, 8, true);
+            false
+        }
+        KeyCode::PageUp => {
+            scroll(app, 8, false);
+            false
+        }
+        _ => false,
+    };
+    if edited {
+        let session = app.corpus.as_ref().map(|c| c.session.clone());
+        app.ask.retype(session.as_deref());
     }
 }
 

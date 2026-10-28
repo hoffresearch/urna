@@ -1,0 +1,25 @@
+[package]
+name = "urna-images-parity"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "parity of urna-images and urna-av1dec against the decoders from crates.io; a workspace of its own so the references never enter urna's build or its gates"
+
+# its own workspace, like rust/neural/parity: the reference decoders (and the
+# `paste` and `to_method` crates they drag in) stay out of the urna
+# workspace build, the lock and the cargo-deny gates. run: `cargo test` here
+# with URNA_CARDS_CORPUS set; URNA_PARITY_LIMIT caps the blobs compared.
+[workspace]
+
+[dependencies]
+urna-images = { path = ".." }
+urna-engine = { path = "../../engine" }
+# the rgba parity: the decoder the explorer used before urna-images.
+avif-decode = { version = "3", default-features = false }
+# the plane parity: the same decoder from crates.io, no asm.
+rav1d = { version = "1.1", default-features = false, features = ["bitdepth_8"] }
+
+[lib]
+path = "lib.rs"

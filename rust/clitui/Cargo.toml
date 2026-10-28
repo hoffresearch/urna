@@ -62,12 +62,16 @@ clap = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+zstd = { workspace = true }
 memmap2 = { workspace = true }
 rand = "0.10"
 hex = "0.4"
 sha2 = { workspace = true }
 # rgb -> xterm-256 for terminals without truecolor (Terminal.app); no deps.
 coolor = "1.1"
+# the potion query embedder in process (#205): urna's own runtime, with the
+# wordpiece tokenizer and the native backend the table is read through.
+urna-neural = { workspace = true }
 
 # the terminal ui: `urna setup` (the interactive installer every channel
 # ends in) and `urna tui` (the corpus explorer). on by default so brew, npm,
@@ -77,11 +81,10 @@ coolor = "1.1"
 # system `curl`, so the binary itself never links a network stack.
 ratatui = { version = "0.30.2", optional = true }
 crossterm = { version = "0.29", optional = true }
-tachyonfx = { version = "0.25.2", optional = true }
-ratatui-explorer = { version = "0.3", optional = true }
-ratatui-cheese = { version = "0.7", optional = true }
-hyperrat = { version = "0.1.3", optional = true }
-tui-scrollbar = { version = "0.2.8", optional = true }
+# the ask tab's image pane: avif decoded by urna-images (the AV1 decoder
+# carried in the tree); the terminal protocols, and the query that asks the
+# terminal which one it speaks, are written in tui/graphics.
+urna-images = { path = "../images", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
 # the machine's total ram, for the model screen's fit mark; only its memory
@@ -95,20 +98,22 @@ sysinfo = { version = "0.38", default-features = false, features = ["system"], o
 [target.'cfg(windows)'.dependencies]
 zip = { version = "9", default-features = false, features = ["deflate-flate2"], optional = true }
 
+# `poll` on stdin with a deadline, for the reply to the terminal query in
+# tui/graphics/probe.rs; already in the tree through cpufeatures.
+[target.'cfg(unix)'.dependencies]
+libc = { version = "0.2", optional = true }
+
 [features]
 default = ["tui"]
 tui = [
     "dep:ratatui",
     "dep:crossterm",
-    "dep:tachyonfx",
-    "dep:ratatui-explorer",
-    "dep:ratatui-cheese",
-    "dep:hyperrat",
-    "dep:tui-scrollbar",
     "dep:flate2",
     "dep:tar",
     "dep:zip",
     "dep:sysinfo",
+    "dep:urna-images",
+    "dep:libc",
 ]
 
 [build-dependencies]
@@ -118,6 +123,7 @@ vergen-gitcl = "9.1.0"
 anyhow = { workspace = true }
 
 [dev-dependencies]
+tempfile = "3"
 # tests/setup_e2e.rs packs a real payload tarball for `urna setup` to fetch
 # from a file:// release.
 flate2 = "1.1"

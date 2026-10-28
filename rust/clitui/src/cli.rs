@@ -76,6 +76,27 @@ pub enum Commands {
         #[arg(long)]
         export: Option<PathBuf>,
     },
+    /// [engine] Write per-chunk columns (chunk_scalars, 0x0D) and their schema into a
+    /// corpus, additively: every citation stays the same. ROWS is a JSON array of
+    /// objects, one per chunk; SCHEMA names and types the columns.
+    #[command(display_order = 4)]
+    Scalars {
+        file: PathBuf,
+        /// Rows to write; without it the columns already in FILE stay and only
+        /// the schema, dataset and media are declared again.
+        #[arg(long, value_name = "ROWS")]
+        rows: Option<PathBuf>,
+        #[arg(long, value_name = "SCHEMA")]
+        schema: PathBuf,
+        #[arg(long, value_name = "OUT")]
+        out: PathBuf,
+        /// JSON with the dataset's `name`, `version`, `url`, `fetched`, `license`, `sha256`.
+        #[arg(long, value_name = "JSON")]
+        dataset: Option<PathBuf>,
+        /// JSON with the media derivation: `codec`, `profile`, `quality`, `lossy`.
+        #[arg(long, value_name = "JSON")]
+        media: Option<PathBuf>,
+    },
     /// [engine] Search a `.urna` file with a JSON-array query vector (exact path).
     #[command(display_order = 5)]
     Search {
@@ -87,8 +108,8 @@ pub enum Commands {
     /// [engine] Search by raw text - embeds the query with the model declared in
     /// the manifest, then routes by what the file carries: hybrid when it
     /// has a bm25 section, hnsw when it has an hnsw section, else exact.
-    /// One of the two engine verbs that run python (the other is
-    /// `doctor`). Validates the
+    /// A potion corpus embeds in process; any other model runs its python
+    /// query embedder, as `ask` and `retrieve` do. Validates the
     /// embedder's model_hash against the manifest before running search;
     /// a mismatch fails with a typed error rather than returning
     /// silently-bad results.
@@ -98,8 +119,9 @@ pub enum Commands {
         query: String,
         #[arg(short, long, default_value = "10")]
         k: i32,
-        /// Override the embedder script. Default: `rust/bridge/python/urna/embed/searchtxt.py` in a
-        /// checkout, else the installed payload's `<data root>/urna/python/urna/embed/searchtxt.py`.
+        /// Override the embedder script. Default: the potion table in
+        /// process for a potion corpus, else `urna/embed/presetqry.py` from
+        /// a checkout or the installed payload.
         #[arg(long)]
         embedder: Option<PathBuf>,
         /// `ef` (HNSW) / candidates-per-path (hybrid). Default: 4*k or 64.
@@ -286,12 +308,18 @@ pub enum Commands {
         #[arg(long)]
         model_path: Option<PathBuf>,
     },
-    /// [engine] Post-install health check: versions, simd backend, python deps, and
-    /// one real offline potion embed. exits with a typed code (0 ok, 2 python
-    /// missing, 3 python deps missing, 4 embedder missing, 5 potion table
-    /// missing, 6 embedder run failed).
+    /// [engine] Post-install health check: versions, simd backend, the potion
+    /// payload and table, one real embed in process. exits with a typed code
+    /// (0 ok, 4 embedder payload missing, 5 potion table missing, 6 embed
+    /// failed). python is only reported; --build makes it count.
     #[command(display_order = 12)]
-    Doctor,
+    Doctor {
+        /// Also require the corpus-building toolchain: python with numpy and
+        /// tokenizers, and the embedder script running under it (exit 2 when
+        /// python is missing, 3 when its deps are).
+        #[arg(long)]
+        build: bool,
+    },
     /// [setup] Interactive installer: the offline embedder payload and a
     /// python env (numpy + tokenizers), proven by the doctor checks. plain
     /// output with --yes or without a terminal; --model adds catalog models.
@@ -312,8 +340,13 @@ pub enum Commands {
         /// Skip the embedder payload step.
         #[arg(long)]
         no_payload: bool,
-        /// Skip the python env step (bring your own via URNA_PYTHON).
+        /// Build the python env for corpus builds (numpy, tokenizers; the
+        /// models' packages go there). Querying needs none of it, so the
+        /// step is off unless asked for or a model is chosen.
         #[arg(long)]
+        python: bool,
+        /// Skip the python env step even when a model was chosen.
+        #[arg(long, hide = true)]
         no_python: bool,
         /// Skip the sample corpus setup downloads to try urna on
         /// (Brazilian Portuguese news, true and fake).
@@ -331,14 +364,28 @@ pub enum Commands {
         allow_remote_code: Vec<String>,
         /// Remove the payload and the env setup created (never the binary;
         /// the hugging face cache is shared and stays).
-        #[arg(long, conflicts_with_all = ["force", "no_payload", "no_python", "no_sample", "version", "models"])]
+        #[arg(long, conflicts_with_all = ["force", "no_payload", "python", "no_python", "no_sample", "version", "models"])]
         uninstall: bool,
     },
     /// [setup] Terminal explorer: open a .urna, read its sections, ask it,
     /// check the install. what a bare `urna` opens on a terminal.
     #[cfg(feature = "tui")]
     #[command(display_order = 31)]
-    Tui { file: Option<PathBuf> },
+    Tui {
+        file: Option<PathBuf>,
+        /// Open on the ask tab with this question already asked.
+        #[arg(long, value_name = "QUERY")]
+        ask: Option<String>,
+        /// No terminal: ask QUERY, draw one 120x40 frame of the ask tab as
+        /// text and exit. needs chunk_scalars with a label column.
+        #[arg(long, value_name = "QUERY", conflicts_with = "ask", requires = "file")]
+        snapshot: Option<String>,
+        /// No terminal: type N ranked chunks' labels key by key and search
+        /// each, report the ranks and latencies, exit. needs chunk_scalars
+        /// with label and rank columns.
+        #[arg(long, value_name = "N", conflicts_with_all = ["ask", "snapshot"], requires = "file")]
+        eval: Option<usize>,
+    },
 }
 
 #[cfg(test)]

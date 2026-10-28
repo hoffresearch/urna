@@ -4,11 +4,10 @@
 //! same shape comfy-tabs draws, done with plain glyphs so no font needs
 //! powerline symbols.
 
+use crate::tui::widgets::{Binding, Help, HelpStyles};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
-use ratatui::widgets::Widget;
-use ratatui_cheese::help::{Binding, Help, HelpStyles};
 
 use super::Tab;
 use crate::tui::{art, hud, pal};
@@ -94,6 +93,7 @@ pub fn footer(
             b("enter", "ask"),
             b("↑↓", "hit"),
             b("pgup/pgdn", "text"),
+            b("ctrl+v", "open image"),
             b("esc", "clear"),
         ],
         Tab::Health => vec![b("r", "re-run"), b("s", "setup")],
@@ -110,19 +110,13 @@ pub fn footer(
         }
     }
     let styles = HelpStyles {
+        key: pal::key(),
+        desc: pal::faint(),
+        separator: Style::new().fg(pal::LINE),
         ellipsis: pal::faint(),
-        short_key: pal::key(),
-        short_desc: pal::faint(),
-        short_separator: Style::new().fg(pal::LINE),
-        full_key: pal::key(),
-        full_desc: pal::faint(),
-        full_separator: Style::new().fg(pal::LINE),
     };
-    let help = Help::default()
-        .bindings(keys)
-        .styles(styles)
-        .short_separator(" · ");
-    (&help).render(
+    let help = Help::new(keys).styles(styles).separator(" · ");
+    help.render(
         Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1),
         buf,
     );

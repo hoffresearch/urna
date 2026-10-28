@@ -1,0 +1,23 @@
+[package]
+name = "urna-cbinds"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "The C ABI over urna's engine and inference runtime, for the native apps"
+
+[lints]
+workspace = true
+
+[lib]
+crate-type = ["rlib", "cdylib", "staticlib"]
+
+[dependencies]
+urna-engine = { path = "../engine" }
+urna-neural = { path = "../neural" }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+# the C round trip builds its own potion corpus from demo/starter/docs.jsonl.
+urna-format = { workspace = true }

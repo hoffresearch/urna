@@ -65,4 +65,4 @@ pub use sections::{
     decode_search_contract, decode_space_table, decode_txt_streams, encode_chunks_canonical,
     encode_space_table,
 };
-pub use writer::{EmbeddingDType, SectionEncoding, UrnaFileBuilder};
+pub use writer::{EmbeddingDType, SectionEncoding, UrnaFileBuilder, add_sections};

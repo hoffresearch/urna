@@ -6,7 +6,7 @@
 //! benchmark tables use (low / mid / high).
 //!
 //! everything renders in rgb; `fit` downsamples the finished frame once for
-//! terminals without truecolor, so tachyonfx can interpolate in full color.
+//! terminals without truecolor, so the effects can interpolate in full color.
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

@@ -20,6 +20,14 @@ fn main() -> Result<()> {
         Commands::Inspect { file, json } => cmd::inspect::run(file, json),
         Commands::Validate { file } => cmd::validate::run(file),
         Commands::Media { file, export } => cmd::media::run(file, export),
+        Commands::Scalars {
+            file,
+            rows,
+            schema,
+            out,
+            dataset,
+            media,
+        } => cmd::scalars::run(file, rows, schema, out, dataset, media),
         Commands::Search { file, query, k } => cmd::search::run(file, query, k),
         Commands::SearchText {
             file,
@@ -102,13 +110,14 @@ fn main() -> Result<()> {
             candidates,
             model_path,
         } => cmd::agent::retrieve::run(file, query, k, format, embedder, candidates, model_path),
-        Commands::Doctor => cmd::doctor::run(),
+        Commands::Doctor { build } => cmd::doctor::run(build),
         #[cfg(feature = "tui")]
         Commands::Setup {
             yes,
             version,
             force,
             no_payload,
+            python,
             no_python,
             no_sample,
             models,
@@ -123,6 +132,7 @@ fn main() -> Result<()> {
                     version,
                     force,
                     no_payload,
+                    python,
                     no_python,
                     no_sample,
                     models,
@@ -132,7 +142,19 @@ fn main() -> Result<()> {
             std::process::exit(code)
         }
         #[cfg(feature = "tui")]
-        Commands::Tui { file } => std::process::exit(tui::app::run(file)?),
+        Commands::Tui {
+            file,
+            ask,
+            snapshot,
+            eval,
+        } => {
+            let code = match (file, snapshot, eval) {
+                (Some(f), Some(q), _) => tui::app::headless::snapshot(&f, &q)?,
+                (Some(f), _, Some(n)) => tui::app::headless::eval(&f, n)?,
+                (file, _, _) => tui::app::run(file, ask)?,
+            };
+            std::process::exit(code)
+        }
     }
 }
 
@@ -143,7 +165,7 @@ fn no_command() -> Result<()> {
     if std::io::IsTerminal::is_terminal(&std::io::stdin())
         && std::io::IsTerminal::is_terminal(&std::io::stdout())
     {
-        std::process::exit(tui::app::run(None)?);
+        std::process::exit(tui::app::run(None, None)?);
     }
     let _ = <Cli as clap::CommandFactory>::command().print_help();
     std::process::exit(2);

@@ -1,7 +1,8 @@
 //! `ask`, `retrieve` and `search-text` find their python embedders outside a
 //! checkout: the payload lays the `urna` package down at
-//! `<data root>/urna/python/urna/`, `searchtxt.py` and the registry embedder
-//! in its `embed/`, and the one resolution ladder
+//! `<data root>/urna/python/urna/`, the registry embedder (which hands a
+//! model no preset names to `searchtxt.py`) in its `embed/`, and the one
+//! resolution ladder
 //! (`embed_gate::installed_script_in`) reaches both there.
 //! the binary is copied out of `target/` first, because a dev-built binary
 //! also resolves against its own checkout and would always find the repo's
@@ -111,7 +112,7 @@ fn every_query_verb_finds_its_embedder_in_the_data_root() {
     lay_down(&embed);
     let embed = embed.join("embed");
     let cases = [
-        ("search-text", embed.join("searchtxt.py")),
+        ("search-text", embed.join("presetqry.py")),
         ("ask", embed.join("presetqry.py")),
         ("retrieve", embed.join("presetqry.py")),
     ];
@@ -132,7 +133,7 @@ fn without_a_payload_every_verb_names_the_missing_script() {
     let dir = scratch("missing");
     let bin = detached_binary(&dir);
     for (verb, script) in [
-        ("search-text", tail(&[PKG, "embed", "searchtxt.py"])),
+        ("search-text", tail(&[PKG, "embed", "presetqry.py"])),
         ("ask", tail(&[PKG, "embed", "presetqry.py"])),
         ("retrieve", tail(&[PKG, "embed", "presetqry.py"])),
     ] {
@@ -154,7 +155,7 @@ fn a_checkout_in_the_cwd_wins_over_the_data_root() {
     for (verb, rel) in [
         (
             "search-text",
-            tail(&["checkout", PKG, "embed", "searchtxt.py"]),
+            tail(&["checkout", PKG, "embed", "presetqry.py"]),
         ),
         ("ask", tail(&["checkout", PKG, "embed", "presetqry.py"])),
     ] {

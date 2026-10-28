@@ -15,6 +15,7 @@
     clippy::expect_used,
     reason = "test code: a failing unwrap is a failing test"
 )]
+use urna_format::manifest::schema::{DatasetSource, MediaDerivation, SchemaField};
 use urna_format::manifest::{CapabilitiesExt, Manifest};
 
 fn valid_manifest() -> Manifest {
@@ -44,6 +45,9 @@ fn unset_additive_fields_are_omitted() {
         "mrl_dim",
         "full_dim",
         "capabilities_ext",
+        "schema",
+        "dataset",
+        "media",
     ] {
         assert!(
             !json.contains(&format!("\"{key}\"")),
@@ -173,4 +177,47 @@ fn capabilities_ext_is_additive() {
     assert_eq!(back, with_ext, "capabilities_ext must round-trip exactly");
     // an unset flag inside the ext struct is also omitted, not serialized as null.
     assert!(!ext_str.contains("null"));
+}
+
+/// the schema, dataset and media declarations serialize only when set,
+/// round-trip exactly, and a manifest that lacks them still opens.
+#[test]
+fn schema_dataset_and_media_are_additive() {
+    let mut m = valid_manifest();
+    m.schema = Some(vec![SchemaField {
+        name: "power".into(),
+        kind: "enum".into(),
+        label: Some("Power".into()),
+        unit: None,
+        roles: vec!["filter".into(), "display".into()],
+        prefix: Some("pow".into()),
+        display: Some("number".into()),
+    }]);
+    m.dataset = Some(DatasetSource {
+        name: "bulk".into(),
+        sha256: Some("abc".into()),
+        ..Default::default()
+    });
+    m.media = Some(MediaDerivation {
+        codec: "avif".into(),
+        quality: Some(48),
+        lossy: Some(true),
+        profile: None,
+    });
+    let json = m.to_canonical_json().unwrap();
+    let text = String::from_utf8(json.clone()).unwrap();
+    assert!(text.contains("\"schema\":[{\"name\":\"power\",\"kind\":\"enum\",\"label\":\"Power\",\"roles\":[\"filter\",\"display\"],\"prefix\":\"pow\",\"display\":\"number\"}]"), "{text}");
+    assert!(
+        text.contains("\"dataset\":{\"name\":\"bulk\",\"sha256\":\"abc\"}"),
+        "{text}"
+    );
+    assert!(
+        text.contains("\"media\":{\"codec\":\"avif\",\"quality\":48,\"lossy\":true}"),
+        "{text}"
+    );
+    let back: Manifest = serde_json::from_slice(&json).unwrap();
+    assert_eq!(back, m);
+    let bare: Manifest =
+        serde_json::from_slice(&valid_manifest().to_canonical_json().unwrap()).unwrap();
+    assert!(bare.schema.is_none() && bare.dataset.is_none() && bare.media.is_none());
 }

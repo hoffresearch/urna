@@ -98,6 +98,7 @@ fn reserved_additive_ids_are_in_range_and_distinct() {
     for &s in sec.iter().chain(recon.iter()) {
         match s {
             SECTION_GRAPH_ADJACENCY => assert_eq!(section_name(s), Some("graph_adjacency")),
+            SECTION_CHUNK_SCALARS => assert_eq!(section_name(s), Some("chunk_scalars")),
             SECTION_BLOB_REFS => assert_eq!(section_name(s), Some("blob_refs")),
             SECTION_BLOB_SPAN_OVERLAY => {
                 assert_eq!(section_name(s), Some("blob_span_overlay"))

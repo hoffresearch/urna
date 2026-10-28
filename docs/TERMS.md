@@ -27,13 +27,14 @@ Three rules keep the lexicon useful:
 | `api` | application programming interface | `test_pythonapi.py` |
 | `b8m` | base-8M, the size of the potion model (`minishlab/potion-base-8M`) | `potionb8m/` |
 | `bench` | benchmark | `tool/bench/`, `BENCH.md`, `benchgate.py` |
+| `cbinds` | C bindings, the C ABI the native apps link | `cbinds/` |
 | `chan` | distribution channel | `chanprobe.py` |
 | `choco` | Chocolatey, the Windows package manager | `pkgs/choco/` |
 | `cli` | command-line interface | `clitui/`, `clidriver.py`, `test_clispaces.py` |
 | `cmp` | compare | `recallcmp.py`, `vectorcmp.py` |
 | `crf` | constant rate factor, the video encoder's quality knob | `crfpicker.py` |
 | `dbs` | databases | `vectordbs.py` |
-| `dec` | decode | `decframes.py` |
+| `dec` | decode | `av1dec/`, `decframes.py` |
 | `dev` | development | `.devops/` |
 | `docs` | documentation | `docs/` |
 | `emb` | embedding | `visionemb.py` |

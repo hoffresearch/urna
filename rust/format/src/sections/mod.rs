@@ -20,6 +20,7 @@ mod codec;
 mod contract;
 pub mod graph;
 mod provenance;
+pub mod scalars;
 mod space_table;
 mod spans;
 
@@ -43,6 +44,10 @@ pub use chunk_ids::{
 };
 pub use contract::{SearchContract, decode_search_contract, encode_search_contract};
 pub use provenance::{decode_provenance, encode_provenance};
+pub use scalars::{
+    CHUNK_SCALARS_PAYLOAD_VERSION, Column, ColumnData, ColumnKind, Dictionary, ScalarTable,
+    decode_chunk_scalars, encode_chunk_scalars,
+};
 pub use space_table::{
     SPACE_DTYPE_F16, SPACE_DTYPE_F32, SPACE_DTYPE_I4, SPACE_DTYPE_I8, SPACE_TABLE_PAYLOAD_VERSION,
     SpaceEntry, decode_space_table, encode_space_table,

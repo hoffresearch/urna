@@ -84,9 +84,12 @@ pub fn stub_hint(interp: &str) -> String {
 /// is kept out of it (the ui shows the interpreter in its own doctor view).
 static QUIET: AtomicBool = AtomicBool::new(false);
 
-#[cfg_attr(not(feature = "tui"), allow(dead_code))]
 pub fn set_quiet(quiet: bool) {
     QUIET.store(quiet, Ordering::Relaxed);
+}
+
+pub fn is_quiet() -> bool {
+    QUIET.load(Ordering::Relaxed)
 }
 
 /// The python interpreter the embedder scripts run under. `URNA_PYTHON` wins;

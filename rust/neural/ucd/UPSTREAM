@@ -1,0 +1,5 @@
+source   https://www.unicode.org/Public/16.0.0/ucd/UnicodeData.txt
+version  Unicode 16.0.0
+sha256   ff58e5823bd095166564a006e47d111130813dcf8bf234ef79fa51a870edb48f
+license  Unicode License v3 (https://www.unicode.org/license.txt)
+files    UnicodeData.txt, ReadMe.txt

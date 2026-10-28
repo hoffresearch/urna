@@ -1,5 +1,5 @@
 //! `urna tui`: the corpus explorer, full screen. four tabs (home, corpus,
-//! ask, health), a file picker overlay, toasts, and tachyonfx on every
+//! ask, health), a file picker overlay, toasts, and an effect on every
 //! change of screen. slow work (opening a corpus, asking it, the doctor
 //! checks) runs on worker threads; this loop only draws and routes input.
 //! `s` hands the terminal to `urna setup` and comes back when it ends.
@@ -11,15 +11,21 @@
 //! forgotten, so the next launch does not try it again.
 
 pub mod ask;
+mod blocks;
+mod card;
 mod chrome;
 pub mod corpus;
 mod draw;
+pub mod headless;
 mod health;
 mod hits;
 mod home;
 mod keys;
+mod labels;
+mod media;
 mod offer;
 mod pick;
+pub mod session;
 mod state;
 
 use std::path::{Path, PathBuf};
@@ -28,8 +34,6 @@ use std::time::{Duration, Instant};
 
 use ratatui::DefaultTerminal;
 use ratatui::layout::Rect;
-use ratatui_cheese::spinner::{SpinnerState, SpinnerType};
-use ratatui_explorer::FileExplorer;
 
 use crate::cmd::pyenv;
 use crate::cmd::tone::{self, Depth};
@@ -37,6 +41,7 @@ use crate::tui::fx::{self, Fx};
 use crate::tui::setup;
 use crate::tui::term::{self, Clock};
 use crate::tui::toast::{Kind, Toasts};
+use crate::tui::widgets::{Picker, Spinner};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Tab {
@@ -93,7 +98,7 @@ struct App {
     sec_scroll: usize,
     ask: ask::Ask,
     health: health::Health,
-    picker: Option<FileExplorer>,
+    picker: Option<Picker>,
     picker_new: bool,
     files: Vec<(PathBuf, u64)>,
     cwd: PathBuf,
@@ -101,11 +106,13 @@ struct App {
     toasts: Toasts,
     fx: Fx,
     clock: Clock,
-    spinner: SpinnerState,
+    spinner: Spinner,
     depth: Depth,
     booted: bool,
     area: Rect,
     leaving: Option<(Instant, Exit)>,
+    /// `urna tui FILE --ask QUERY`: asked as soon as the corpus is open.
+    ask_on_open: Option<String>,
 }
 
 impl App {
@@ -130,11 +137,12 @@ impl App {
             toasts: Toasts::default(),
             fx: Fx::default(),
             clock: Clock::new(),
-            spinner: SpinnerState::new(SpinnerType::Dot),
+            spinner: Spinner::dots(),
             depth: tone::depth(),
             booted: false,
             area: Rect::default(),
             leaving: None,
+            ask_on_open: None,
         };
         app.health.refresh();
         match launch {
@@ -206,8 +214,22 @@ impl App {
                     self.corpus = Some(c);
                     self.first_run = false;
                     self.sec_scroll = 0;
+                    // a fresh ask for the new corpus, keeping the image
+                    // pane: what the terminal answered it can draw (probed
+                    // once, at start) and the image still on screen, which
+                    // the next flush removes.
+                    let mut media = std::mem::take(&mut self.ask.media);
+                    media.forget();
                     self.ask = ask::Ask::default();
+                    self.ask.media = media;
                     self.go(land);
+                    if let Some(q) = self.ask_on_open.take()
+                        && let Some(c) = &self.corpus
+                    {
+                        self.ask.input.set_value(q);
+                        self.ask.input.end();
+                        self.ask.submit(c.session.clone());
+                    }
                 }
                 Err(e) => {
                     self.toasts.push(format!("{name}: {e}"), Kind::Err);
@@ -239,7 +261,7 @@ impl App {
             self.toasts
                 .push(format!("installed {msg}; asking again"), Kind::Ok);
             if let Some(c) = &self.corpus {
-                self.ask.retry(c.path.clone());
+                self.ask.retry(c.session.clone());
             }
         }
         if self.health.poll() && self.tab == Tab::Health {
@@ -262,6 +284,10 @@ impl App {
             let dt = self.clock.tick();
             self.spinner.tick(dt);
             self.draw(terminal, dt)?;
+            // the pixels of the ask tab's image go out after the frame, at
+            // their anchor cell; off the tab, the image the terminal keeps
+            // is removed.
+            self.ask.media.flush(&mut std::io::stdout())?;
             if let Some((t0, _)) = &self.leaving
                 && t0.elapsed() > Duration::from_millis(380)
             {
@@ -275,15 +301,37 @@ impl App {
 }
 
 /// Runs the explorer; returns the exit code.
-pub fn run(file: Option<PathBuf>) -> anyhow::Result<i32> {
+pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32> {
     pyenv::set_quiet(true);
     let home = crate::cmd::paths::urna_home();
     let sample = || home.as_deref().and_then(setup::sample::installed);
     let saved = state::file().map(|f| state::State::read(&f));
     let mut launch = Launch::pick(file, saved.as_ref().and_then(state::State::last));
+    // the terminal is asked once: a trip through setup does not change what
+    // it draws, and every query a terminal leaves unanswered costs a timeout.
+    let mut probed: Option<crate::tui::graphics::Terminal> = None;
     loop {
         let mut terminal = term::fullscreen()?;
-        let res = App::new(launch, sample()).run(&mut terminal);
+        // a query to ask lands the file on the ask tab instead of corpus;
+        // it is asked once, not again after a trip through setup.
+        let ask_now = ask.take();
+        let launch_now = match (launch, &ask_now) {
+            (Launch::File(f), Some(_)) => Launch::Ask(f),
+            (l, _) => l,
+        };
+        let mut app = App::new(launch_now, sample());
+        app.ask_on_open = ask_now;
+        let graphics = *probed.get_or_insert_with(crate::tui::graphics::detect);
+        app.ask.media.set_terminal(graphics);
+        // a terminal that does not know a query may have printed some of
+        // it: the first frame starts from a clean screen. `CSI 2J`, not
+        // `Terminal::clear`, which reads the cursor position (one more
+        // query a terminal may not answer); ratatui's buffer is still empty.
+        crossterm::execute!(
+            std::io::stdout(),
+            crossterm::terminal::Clear(crossterm::terminal::ClearType::All)
+        )?;
+        let res = app.run(&mut terminal);
         term::leave_fullscreen()?;
         match res? {
             Exit::Quit => return Ok(0),

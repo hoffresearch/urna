@@ -49,7 +49,6 @@ fn reserved_scalars() -> Vec<u32> {
         SECTION_EMBEDDINGS_FP,
         SECTION_DICTIONARY,
         SECTION_DEDUP_MAP,
-        SECTION_CHUNK_SCALARS,
         SECTION_TOKENIZER_MODEL,
         SECTION_EDIT_JOURNAL,
         SECTION_REPRO_MANIFEST,
@@ -76,6 +75,7 @@ fn all_reserved_bands_are_disjoint() {
     // the blob pair (0x14/0x16) left with the media blob feature; all are
     // still distinct ids that must not collide with any other band.
     all.push(SECTION_GRAPH_ADJACENCY);
+    all.push(SECTION_CHUNK_SCALARS);
     all.push(SECTION_BLOB_REFS);
     all.push(SECTION_BLOB_SPAN_OVERLAY);
     all.push(SECTION_SPACE_TABLE);
@@ -173,4 +173,14 @@ fn blob_sections_resolve_but_excluded_from_content_hash() {
             "blob section {s:#x} must stay excluded from content_hash"
         );
     }
+}
+
+#[test]
+fn chunk_scalars_resolves_but_excluded_from_content_hash() {
+    // chunk_scalars (0x0D) shipped: it resolves via section_name (an active
+    // OPTIONAL_SECTION) but stays out of CANONICAL_SECTIONS, so adding the
+    // per-chunk columns never moves a citation.
+    assert_eq!(section_name(SECTION_CHUNK_SCALARS), Some("chunk_scalars"));
+    let canonical: Vec<u32> = CANONICAL_SECTIONS.iter().map(|(id, _)| *id).collect();
+    assert!(!canonical.contains(&SECTION_CHUNK_SCALARS));
 }

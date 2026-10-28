@@ -1,0 +1,16 @@
+[package]
+name = "urna-images"
+description = "AVIF container parser and still-image decoder of the Urna vector database: ISOBMFF boxes to the AV1 payload, pixels through urna-av1dec"
+version.workspace = true
+edition.workspace = true
+rust-version = "1.88"
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+urna-av1dec = { path = "../av1dec" }
+thiserror = { workspace = true }
+
+[lints]
+workspace = true

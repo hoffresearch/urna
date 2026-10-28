@@ -15,7 +15,7 @@ system_view = [
     "urna-engine opens .urna files through mmap, validates queries, dispatches SIMD, and executes exact, ANN, graph, and hybrid search while reranking candidates with real cosine. That hot path is why embeddings are never zstd-compressed.",
     "The CLI crate (rust/clitui, package urna) is a thin clap surface over the runtime and format crates. It carries the twelve engine subcommands (inspect, validate, stats, media, search, search-text, search-ann, search-graph, search-space, benchmark, cite, doctor: file + vector in; only search-text and doctor spawn Python) and the three agent verbs (ask, retrieve, build: text or spec in, shell out to the offline Python embedder / forge), tagged [engine] / [agent] in --help. ask and retrieve are the agent-native flagship verbs layered over the engine (text query in, cited answer out; both embed the query offline with the default potion static table, validate the embedder's model_hash against the manifest exactly like search-text, and route by what the file carries through MmapUrnaFile::search_routed: hybrid when a BM25 section is present, hnsw when an HNSW section is present, exact otherwise; ask prints one cited answer (--disclose answer) or adds the rerank-source honesty line + route + candidate counts (--disclose explain); retrieve emits the agent-shaped JSON/JSONL answer-pack where each hit's score IS the exact-cosine rerank value). doctor is the post-install health check with typed exit codes (0 ok, 2 Python missing, 3 deps missing, 4 embedder missing, 5 potion table missing, 6 embedder run failed). Behind the default-on `tui` feature the CLI also carries the terminal UI in src/tui: `setup` (the interactive installer, exit codes 10 download, 11 checksum, 12 unpack, 13 Python env, 14 blocked, 15 a model install; --model installs catalog models) and `tui` (the corpus explorer; a bare `urna` on a terminal opens it, in a pipe it prints the help and exits 2). Verb-collapse, the urna dev namespace, and the urna-profile crate are deferred.",
     "The distribution layer (issue #75) turns tags on main into installs: cargo-dist builds the CLI for five targets with SHA256 checksums, Sigstore keyless attestations on the five archives, one CycloneDX SBOM for the CLI package, a Homebrew tap formula (`urna`) and an npm package (`@urna/cli`), and publishes urna-format / urna-engine / urna (the CLI crate, binary `urna`) to crates.io; maturin builds the `urna` abi3 wheel with the potion table bundled (offline embedding after pip install); tool/tasks/installer.sh / installer.ps1 are the one-liner installers (verify-before-write, --version, --uninstall); urna doctor validates the install offline and `urna setup` completes the channels that ship the bare binary (Homebrew, npm, crates.io); .github/workflows/setuptest.yml tests the INSTALLED product per platform after each release, including a job per package channel that waits for the exact version on its registry and ends in `urna setup --yes` + `urna doctor`; .github/workflows/runreport.yml summarizes every completed release run, failed or cancelled included. Three levels of evidence, not interchangeable: tool/tasks/fullcheck.sh is the full local gate (no release build), rehearsal.yml builds the release on pull requests and publishes nothing, and only a tag exercises publishing, setuptest and the report.",
-    "urna-bridge is the PyO3 bridge. rust/bridge/python/urna/__init__.py loads the compiled extension, rust/bridge/python/urna/pipes/buildfile.py orchestrates chunking and caching, and rust/bridge/python/urna/embed/searchtxt.py preserves model parity for search-text. The agent-native flagship is UrnaFile.retrieve(query, k, ...): a pre-embedded query in, cited spans out, whose score IS the exact rerank value, with tier-1 stored canonical text + hashes + citation_id + rerank-source marker.",
+    "urna-bridge is the PyO3 bridge. rust/bridge/python/urna/__init__.py loads the compiled extension, rust/bridge/python/urna/pipes/buildfile.py orchestrates chunking and caching, and rust/bridge/python/urna/embed/searchtxt.py embeds the query for a sentence-transformers model no preset names, with the model_hash the corpus was built with. The agent-native flagship is UrnaFile.retrieve(query, k, ...): a pre-embedded query in, cited spans out, whose score IS the exact rerank value, with tier-1 stored canonical text + hashes + citation_id + rerank-source marker.",
     "tool/tasks/fullcheck.sh is the release gate: rebuilds the extension, runs Rust and Python suites, checks lint and format, measures presets, and compares against the committed baseline.",
     "rust/ingest is the ingestion layer, a SEPARATE cargo workspace under rust/ that the root Cargo.toml excludes, so its (eventually heavy, possibly non-deterministic) deps never enter urna-format or urna-engine. This phase ships FORGE-0a: the frozen .fci canonical-intermediate schema only. It is not built by the sovereign release gate; it has its own cargo workspace.",
     "rust/bridge/python/urna is the forge Python surface. Its build-side default is an offline semantic static embedder (rust/bridge/python/urna/embed/potiontab.py): a vendored model2vec/potion-base-8M table (MIT, dim 256, ~30MB via git-lfs), numpy + tokenizers only, no torch, no network round-trip; it self-fingerprints to a SHA256 model_hash recorded in provenance. The #04 lexical bag-of-words (rust/bridge/python/urna/embed/lexifloor.py) stays as the stdlib-only zero-dependency floor/fallback.",
@@ -253,12 +253,12 @@ name = "cli-search-text"
 entry = "rust/clitui/src/cmd/search_text.rs"
 path = [
     "rust/clitui/src/cmd/embed_gate.rs",
+    "rust/clitui/src/cmd/potion.rs",
     "rust/clitui/src/cmd/embed_failure.rs",
-    "rust/bridge/python/urna/embed/searchtxt.py",
-    "rust/bridge/python/urna/model/modelhash.py",
+    "rust/bridge/python/urna/embed/presetqry.py",
     "rust/engine/src/search.rs",
 ]
-summary = "Embed a query in Python (searchtxt.py resolved from a checkout or the data roots), validate name, dim, and model_hash, then route to exact, hnsw, or hybrid search; a failure names its cause and fix"
+summary = "Embed the query through embed_gate::embed_and_route, the gate ask and retrieve use (a potion corpus in process, any other model through presetqry.py), validate name, dim, and model_hash (--skip-model-hash-check for a legacy placeholder corpus, which names the embedder on stderr), then route to exact, hnsw, or hybrid search; a failure names its cause and fix"
 
 [[flows]]
 name = "cli-ask-retrieve"
@@ -976,7 +976,7 @@ links = ["rust/clitui/src/cmd/embed_gate.rs", "rust/clitui/src/tui/app/ask.rs"]
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/cmd/embed_gate.rs"
 kind = "rust-source"
-purpose = "The ONE copy of the query-embedder spawn protocol and the three-layer model gate (name/dim/model_hash); routes ask/retrieve by manifest model (potion script for potion corpora, presetqry.py for registry models, --mrl-dim for truncated default spaces) and by capability through MmapUrnaFile::search_routed; installed_script_in is the script ladder every Python child shares (repo layout, then each data root); spawn and gate failures are typed cmd/embed_failure.rs values; every embedder script (search-text's searchtxt.py included) resolves through installed_script_in, a path under rust/bridge/python/urna/ in a checkout or under <data root>/urna/"
+purpose = "The ONE copy of the query-embedder spawn protocol and the three-layer model gate (name/dim/model_hash); routes search-text, ask and retrieve by manifest model (a potion corpus in process, its script for --embedder, --model-path or an mrl-truncated corpus; presetqry.py for registry models, --mrl-dim for truncated default spaces) and by capability through MmapUrnaFile::search_routed; installed_script_in is the script ladder every Python child shares (repo layout, then each data root); spawn and gate failures are typed cmd/embed_failure.rs values; every embedder script (searchtxt.py included) resolves through installed_script_in, a path under rust/bridge/python/urna/ in a checkout or under <data root>/urna/"
 links = [
     "rust/clitui/src/cmd/search_text.rs",
     "rust/bridge/python/urna/embed/presetqry.py",
@@ -2589,7 +2589,7 @@ links = [
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/embed/searchtxt.py"
 kind = "python-source"
-purpose = "sentence-transformers query embedder: the default of CLI search-text, the path of st_text presets and of any ST model no preset names (through presetqry.py), and the load/encode/fingerprint functions the st_text adapter reuses; prints urna-needs (exit 4) and urna-fetch (exit 3) lines; ships in the payload at urna/searchtxt.py"
+purpose = "sentence-transformers query embedder: the path of st_text presets and of any ST model no preset names (through presetqry.py), and the load/encode/fingerprint functions the st_text adapter reuses; prints urna-needs (exit 4) and urna-fetch (exit 3) lines; ships in the payload at urna/searchtxt.py"
 links = [
     "rust/bridge/python/urna/model/modelhash.py",
     "rust/clitui/src/cmd/search_text.rs",
@@ -3400,7 +3400,6 @@ sequenceDiagram
     participant F as urna-format
     participant N as .urna file
     participant R as urna-engine
-    participant E as searchtxt.py
     participant Q as urna cli / api
     participant P as potionqry.py
     participant A as ask / retrieve
@@ -3436,8 +3435,8 @@ sequenceDiagram
     F->>N: deterministic emit + manifest v1 + build.lock.json
 
     note over R,Q: query · offline · mmap
-    Q->>E: search-text spawns embedder
-    E-->>Q: query vector + model_hash
+    Q->>P: search-text embeds through the ask/retrieve gate (potion in process, presetqry.py otherwise)
+    P-->>Q: query vector + model_hash
     Q->>R: search(vector) / search_space(vector, space)
     R->>N: mmap open + validate hashes
     R->>R: model_hash vs manifest (per space, in isolation)

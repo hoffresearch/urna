@@ -4,11 +4,10 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
-use ratatui::widgets::Widget;
-use tui_scrollbar::{ScrollBar, ScrollLengths};
 
 use crate::tui::hud::{self, Badge};
 use crate::tui::setup::ui::Ui;
+use crate::tui::widgets::ScrollBar;
 use crate::tui::{fx, pal};
 
 fn row_rect(inner: Rect, i: usize) -> Rect {
@@ -172,13 +171,10 @@ fn log_panel(buf: &mut Buffer, area: Rect, ui: &Ui) {
         );
     }
     if len > vh {
-        let bar = ScrollBar::vertical(ScrollLengths {
-            content_len: len,
-            viewport_len: vh,
-        })
-        .offset(start)
-        .track_style(Style::new().fg(pal::SURFACE))
-        .thumb_style(Style::new().fg(pal::GLOW));
+        let bar = ScrollBar::vertical(len, vh)
+            .offset(start)
+            .track_style(Style::new().fg(pal::SURFACE))
+            .thumb_style(Style::new().fg(pal::GLOW));
         bar.render(Rect::new(inner.right(), inner.y, 1, inner.height), buf);
     }
 }

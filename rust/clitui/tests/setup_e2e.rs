@@ -445,9 +445,20 @@ fn doctor_through_a_pipe_has_no_escapes_and_names_setup() {
         .output()
         .unwrap();
     let s = text(&out);
-    assert_eq!(out.status.code(), Some(2), "{s}");
+    // python is the build toolchain, not the query's: a warning by default.
+    assert_eq!(out.status.code(), Some(0), "{s}");
     assert!(!s.contains('\x1b'));
     assert!(s.contains("urna setup"), "{s}");
+    let out = Command::new(env!("CARGO_BIN_EXE_urna"))
+        .args(["doctor", "--build"])
+        .current_dir(&d)
+        .env("URNA_DATA_DIR", d.join("data"))
+        .env("URNA_PYTHON", "/urna/no/such/python")
+        .output()
+        .unwrap();
+    let s = text(&out);
+    assert_eq!(out.status.code(), Some(2), "{s}");
+    assert!(!s.contains('\x1b'));
 }
 
 /// `--model` names catalog models; setup refuses, with the reason and before
@@ -650,7 +661,7 @@ fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
     let out = output(&mut bare_machine(
         &d,
         &rel,
-        &["setup", "--yes", "--no-payload"],
+        &["setup", "--yes", "--no-payload", "--python"],
     ));
     let s = text(&out);
     assert!(
@@ -678,7 +689,7 @@ fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
     let out = output(&mut bare_machine(
         &d,
         &rel,
-        &["setup", "--yes", "--no-payload"],
+        &["setup", "--yes", "--no-payload", "--python"],
     ));
     let s = text(&out);
     assert_eq!(out.status.code(), Some(14), "{s}");

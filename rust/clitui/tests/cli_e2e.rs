@@ -415,3 +415,84 @@ fn cli_inspect_shows_section_names() {
 
     let _ = std::fs::remove_file(&path);
 }
+
+// ---------------------------------------------------------------------------
+// the query path needs no python (#205): the corpus is built with the
+// toolchain (skipped without it, like the tests above), then `ask` and
+// `retrieve` run with every python off PATH, URNA_PYTHON unset and the
+// working directory away from any `.venv`.
+// ---------------------------------------------------------------------------
+
+#[test]
+fn cli_ask_and_retrieve_answer_with_no_python_on_path() {
+    let Some((py, root)) = embed_python() else {
+        eprintln!("skip cli_no_python: no toolchain to build the demo corpus");
+        return;
+    };
+    let path = tmp_path("cli_no_python_demo.urna");
+    let _ = std::fs::remove_file(&path);
+    build_intro_corpus(&py, &root, &path);
+
+    let bin = env!("CARGO_BIN_EXE_urna");
+    let away = std::env::temp_dir();
+    let no_python = std::env::temp_dir().join(format!("urna_no_python_{}", std::process::id()));
+    std::fs::create_dir_all(&no_python).unwrap();
+    let out = Command::new(bin)
+        .env("PATH", &no_python)
+        .env_remove("URNA_PYTHON")
+        .current_dir(&away)
+        .args([
+            "ask",
+            path.to_str().unwrap(),
+            "can I use this offline with no network",
+            "-k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "ask without python failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let answer = String::from_utf8_lossy(&out.stdout);
+    assert!(answer.contains("urna://sha256:"), "{answer}");
+    assert!(
+        !String::from_utf8_lossy(&out.stderr).contains("embedder interpreter"),
+        "no interpreter note on the in-process path"
+    );
+
+    let out = Command::new(bin)
+        .env("PATH", &no_python)
+        .env_remove("URNA_PYTHON")
+        .current_dir(&away)
+        .args([
+            "retrieve",
+            path.to_str().unwrap(),
+            "how do citations prove a source",
+            "-k",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "retrieve without python failed: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let first = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .next()
+        .map(str::to_string)
+        .unwrap_or_default();
+    let v: serde_json::Value = serde_json::from_str(&first).expect("jsonl line");
+    assert!(
+        v["citation_id"]
+            .as_str()
+            .unwrap_or("")
+            .starts_with("urna://sha256:")
+    );
+
+    let _ = std::fs::remove_dir_all(&no_python);
+    let _ = std::fs::remove_file(&path);
+}

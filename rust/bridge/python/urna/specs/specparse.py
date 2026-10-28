@@ -179,6 +179,31 @@ class OutputSpec:
 
 
 @dataclass
+class ScalarsSpec:
+    """Per-chunk columns written into the file (chunk_scalars, 0x0D): one
+    dict per field with `name`, `kind` (int, real, bool, text, uuid, enum,
+    enum_list, enum_map, chunk), `source` (the row column, `name` by
+    default), `numeric`, and the schema's `label`, `unit`, `roles`,
+    `prefix` and `display`."""
+
+    fields: list[dict] = field(default_factory=list)
+
+
+@dataclass
+class DatasetSpec:
+    """Where the rows came from, declared in the manifest: name, version,
+    url, fetched (ISO date), license, and sha256 of the bulk ("auto"
+    hashes `source.path` or `source.db` at build time)."""
+
+    name: str = ""
+    version: str = ""
+    url: str = ""
+    fetched: str = ""
+    license: str = ""
+    sha256: str = ""
+
+
+@dataclass
 class CorpusSpec:
     name: str = ""
     title: str = ""
@@ -191,6 +216,8 @@ class CorpusSpec:
     models: list[ModelSpec] = field(default_factory=list)
     build: EngineBuildSpec = field(default_factory=EngineBuildSpec)
     output: OutputSpec = field(default_factory=OutputSpec)
+    scalars: ScalarsSpec = field(default_factory=ScalarsSpec)
+    dataset: DatasetSpec | None = None
     spec_path: str = ""
 
     def image_input_mode(self) -> str:
@@ -223,7 +250,9 @@ def load_spec(path: str | Path) -> CorpusSpec:
     return _parse(expand_paths(data), str(path))
 
 
-_KNOWN_TABLES = frozenset({"corpus", "source", "media", "models", "embedding", "build", "output"})
+_KNOWN_TABLES = frozenset(
+    {"corpus", "source", "media", "models", "embedding", "build", "output", "scalars", "dataset"}
+)
 
 
 def _parse(data: dict, spec_path: str) -> CorpusSpec:
@@ -270,7 +299,13 @@ def _parse(data: dict, spec_path: str) -> CorpusSpec:
     )
     build = _section(EngineBuildSpec, dict(data.get("build", {})), "build")
     output = _section(OutputSpec, dict(data.get("output", {})), "output")
+    scalars = _section(ScalarsSpec, dict(data.get("scalars", {})), "scalars")
+    for i, f in enumerate(scalars.fields):
+        if not isinstance(f, dict) or not f.get("name") or not f.get("kind"):
+            raise SpecError(f"scalars.fields[{i}]: each field needs a name and a kind")
+    dataset = _section(DatasetSpec, dict(data["dataset"]), "dataset") if "dataset" in data else None
     spec = _section(CorpusSpec, corpus, "corpus")
+    spec.scalars, spec.dataset = scalars, dataset
     spec.source, spec.image_input, spec.media = source, image_input, media
     spec.models, spec.build, spec.output, spec.spec_path = models, build, output, spec_path
     return spec

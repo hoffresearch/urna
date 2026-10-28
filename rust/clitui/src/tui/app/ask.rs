@@ -1,24 +1,43 @@
 //! The ask tab: `urna ask` with a screen. The query embeds offline through
 //! the same routed embedder and model gate (`embed_gate::embed_and_search`)
-//! on a worker thread; hits come back with their stored canonical text
-//! (tier-1, the bytes `cite` returns). left: hits with the exact-rerank
-//! score as a bar; right: the selected hit's text, scrollable.
+//! on a worker thread, against the corpus the loader opened once; hits come
+//! back with their stored canonical text (tier-1, the bytes `cite` returns)
+//! and, when their source is an image blob, the image. Typing offers the
+//! corpus's labels; tab takes one and asks for it, that label first. A
+//! corpus with chunk_scalars takes the search syntax its schema declares
+//! (`t:creature c:r pow>=3 f:pauper`): the predicates narrow the
+//! suggestions and the hits before anything is scored, and a line of
+//! predicates alone browses the kept chunks by rank.
 
-use std::path::PathBuf;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Instant;
 
-use ratatui_cheese::input::InputState;
+use crate::tui::widgets::InputState;
+use urna_engine::scalars::{Bitset, parse};
 
+use super::labels;
+use super::media::Media;
 use super::offer::{Need, Offer};
+use super::session::Session;
 use crate::cmd::embed_failure::EmbedFailure;
-use crate::cmd::{agent, embed_gate};
+use crate::cmd::embed_gate;
 
+#[derive(Clone, Debug)]
 pub struct Answer {
     pub citation: String,
     pub source: String,
     pub score: f32,
     pub text: String,
+    /// the image blob the source points at, when it is one.
+    pub image: Option<usize>,
+    /// found by its label, not by the search: `score` is not a cosine.
+    pub by_name: bool,
+    /// the chunk's index in the file.
+    pub chunk: usize,
+    /// `hybrid` from the search, `name` from the label, `browse` from the
+    /// kept chunks by rank.
+    pub via: &'static str,
 }
 
 /// A failed query: the words for the toast, and the model to install when
@@ -31,6 +50,11 @@ pub struct Failure {
 
 type Reply = Result<(Vec<Answer>, f64), Failure>;
 
+/// How many hits to show.
+const K: usize = 20;
+/// How many kept chunks to browse with no text.
+const BROWSE: usize = 60;
+
 pub struct Ask {
     pub input: InputState,
     pub answers: Vec<Answer>,
@@ -38,11 +62,25 @@ pub struct Ask {
     pub scroll: u16,
     pub asked: Option<String>,
     pub took_ms: f64,
+    /// the last type-ahead's time.
+    pub typed_ms: f64,
     /// the last query's error, in words a person can act on.
     pub failed: Option<String>,
     pub(super) pending: Option<(Receiver<Reply>, Instant)>,
     /// the install panel, open over the tab.
     pub offer: Option<Offer>,
+    pub media: Media,
+    /// the corpus the last query ran on, for the image pane.
+    pub session: Option<Arc<Session>>,
+    /// labels offered for what is typed, and the one ↑↓ points at.
+    pub suggestions: Vec<String>,
+    pub sug_sel: usize,
+    /// the input changed since the last ask: the list shows suggestions.
+    pub typing: bool,
+    /// a label taken with tab: hits whose first line is it go first.
+    pinned: Option<String>,
+    /// the facet counts over the chunks the typed predicates keep.
+    pub facets: Vec<super::session::Facet>,
 }
 
 impl Default for Ask {
@@ -56,11 +94,44 @@ impl Default for Ask {
             scroll: 0,
             asked: None,
             took_ms: 0.0,
+            typed_ms: 0.0,
             failed: None,
             pending: None,
             offer: None,
+            media: Media::default(),
+            session: None,
+            suggestions: Vec::new(),
+            sug_sel: 0,
+            typing: false,
+            pinned: None,
+            facets: Vec::new(),
         }
     }
+}
+
+/// What a line said: the free text and the chunks the predicates keep
+/// (`None` when there were no predicates).
+#[derive(Debug)]
+pub struct Line {
+    pub text: String,
+    pub keep: Option<Bitset>,
+    /// the predicate terms, for the status line.
+    pub terms: Vec<String>,
+}
+
+/// Parse `input` with the corpus's schema and resolve its predicates.
+pub fn line(session: &Session, input: &str) -> Result<Line, String> {
+    let parsed = parse(input, session.schema()).map_err(|e| e.to_string())?;
+    let keep = if parsed.filter.is_empty() {
+        None
+    } else {
+        Some(session.rt.keep(&parsed.filter).map_err(|e| e.to_string())?)
+    };
+    Ok(Line {
+        text: parsed.text,
+        keep,
+        terms: parsed.terms,
+    })
 }
 
 impl Ask {
@@ -68,29 +139,83 @@ impl Ask {
         self.pending.is_some()
     }
 
-    /// Starts a query against `file` on a worker thread.
-    pub fn submit(&mut self, file: PathBuf) {
-        let q = self.input.value().trim().to_string();
-        if q.is_empty() || self.busy() {
+    /// Starts a query against the opened corpus on a worker thread. With
+    /// chunk_scalars, predicates alone browse the kept chunks by rank.
+    pub fn submit(&mut self, session: Arc<Session>) {
+        let input = self.input.value().trim().to_string();
+        if input.is_empty() || self.busy() {
             return;
         }
+        self.facets = line(&session, &input)
+            .map(|l| session.facets(l.keep.as_ref(), 5))
+            .unwrap_or_default();
         let (tx, rx) = channel();
-        let query = q.clone();
+        let s = Arc::clone(&session);
+        let query = input.clone();
         std::thread::spawn(move || {
             let t0 = Instant::now();
-            let _ =
-                tx.send(run_query(&file, &query).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)));
+            let _ = tx.send(run_line(&s, &query).map(|a| (a, t0.elapsed().as_secs_f64() * 1e3)));
         });
-        self.asked = Some(q);
+        self.session = Some(session);
+        self.asked = Some(input);
+        self.typing = false;
         self.pending = Some((rx, Instant::now()));
     }
 
     /// Runs the last query again (after an install fixed what it lacked).
-    pub fn retry(&mut self, file: PathBuf) {
+    pub fn retry(&mut self, session: Arc<Session>) {
         if let Some(q) = self.asked.clone() {
             self.input.set_value(q);
         }
-        self.submit(file);
+        self.submit(session);
+    }
+
+    /// The input changed: offer the labels that match its text, under its
+    /// predicates.
+    pub fn retype(&mut self, session: Option<&Session>) {
+        self.typing = true;
+        self.pinned = None;
+        self.sug_sel = 0;
+        let t0 = Instant::now();
+        self.suggestions = Vec::new();
+        if let Some(s) = session {
+            match line(s, self.input.value()) {
+                Ok(l) => {
+                    self.suggestions = match &l.keep {
+                        Some(keep) => s.labels.suggest_where(&l.text, 30, &|i| keep.get(i)),
+                        None => s.labels.suggest_where(&l.text, 30, &|_| true),
+                    };
+                    self.facets = s.facets(l.keep.as_ref(), 5);
+                }
+                Err(_) => self.facets.clear(),
+            }
+        }
+        self.typed_ms = t0.elapsed().as_secs_f64() * 1e3;
+    }
+
+    /// Tab: the pointed label becomes the text, asked with it first; the
+    /// predicates typed stay.
+    pub fn take_suggestion(&mut self, session: Arc<Session>) {
+        let Some(label) = self.suggestions.get(self.sug_sel).cloned() else {
+            return;
+        };
+        let terms: Vec<String> = line(&session, self.input.value())
+            .map(|l| l.terms)
+            .unwrap_or_default();
+        let value = if terms.is_empty() {
+            label.clone()
+        } else {
+            format!("{label} {}", terms.join(" "))
+        };
+        self.input.set_value(value);
+        self.input.end();
+        self.pinned = Some(label);
+        self.submit(session);
+    }
+
+    /// The suggestions are what the list shows.
+    pub fn suggesting(&self) -> bool {
+        self.typing && !self.suggestions.is_empty()
     }
 
     /// Folds a finished query in; returns the failure when it failed.
@@ -102,8 +227,29 @@ impl Ask {
             self.failed = Some(e.text.clone());
             self.answers.clear();
         }
-        Some(reply.map(|(answers, ms)| {
+        Some(reply.map(|(mut answers, ms)| {
             self.failed = None;
+            // a hit whose label answers the query by name goes before one
+            // that only scores close: the label taken with tab first, then a
+            // label the text spells out, then the rest; stable, so rank order
+            // holds inside each. among equals a ranked chunk leads an
+            // unranked one (a card leads its art-series twin).
+            let pinned = self.pinned.take();
+            let session = self.session.clone();
+            let asked = self.asked.clone().unwrap_or_default();
+            let text = session
+                .as_deref()
+                .and_then(|s| line(s, &asked).ok())
+                .map(|l| l.text)
+                .unwrap_or(asked);
+            let q = labels::fold(&text);
+            answers.sort_by_key(|a| {
+                let first = a.text.lines().next().map(str::trim).unwrap_or("");
+                let by_tab = pinned.as_deref() == Some(first);
+                let t = labels::tier(&labels::fold(first), &q);
+                let ranked = session.as_deref().and_then(|s| s.rank(a.chunk)).is_some();
+                std::cmp::Reverse((by_tab, if t >= 2 { t } else { 0 }, ranked))
+            });
             self.answers = answers;
             self.took_ms = ms;
             self.sel = 0;
@@ -113,37 +259,119 @@ impl Ask {
     }
 }
 
-fn run_query(file: &PathBuf, query: &str) -> Result<Vec<Answer>, Failure> {
-    let mut manifest = None;
-    (|| -> anyhow::Result<Vec<Answer>> {
-        let rt = urna_engine::MmapUrnaFile::open(file)?;
-        let info: serde_json::Value = serde_json::from_str(&rt.inspect_json()?)?;
-        manifest = Some(info["manifest"].clone());
-        let result = embed_gate::embed_and_search(&rt, query, 10, None, None, None)?;
-        let texts = agent::retrieve::canonical_texts(file)?;
-        let by_id: std::collections::HashMap<&str, &str> = texts
-            .iter()
-            .map(|(i, t)| (i.as_str(), t.as_str()))
-            .collect();
-        Ok(result
-            .hits
-            .iter()
-            .map(|h| Answer {
-                citation: h.citation_id.clone(),
-                source: h.source_uri.clone(),
-                score: h.score,
-                text: by_id
-                    .get(h.chunk_id.as_str())
-                    .copied()
-                    .unwrap_or("")
-                    .to_string(),
-            })
-            .collect())
-    })()
-    .map_err(|e| Failure {
-        text: explain(&e),
-        need: need(&e, manifest.as_ref()),
+/// Parse and run one line: free text searches under the predicates,
+/// predicates alone browse.
+fn run_line(session: &Session, input: &str) -> Result<Vec<Answer>, Failure> {
+    let l = line(session, input).map_err(|text| Failure { text, need: None })?;
+    if l.text.trim().is_empty() {
+        return Ok(browse(session, l.keep.as_ref()));
+    }
+    run_query(session, &l.text, l.keep.as_ref())
+}
+
+/// Search `query` over the chunks `keep` accepts (all when `None`).
+pub(super) fn run_query(
+    session: &Session,
+    query: &str,
+    keep: Option<&Bitset>,
+) -> Result<Vec<Answer>, Failure> {
+    embed_gate::embed_and_search_where(&session.rt, query, K as i32, None, None, None, keep)
+        .map(|result| {
+            let index = index_of(session);
+            let mut answers: Vec<Answer> = result
+                .hits
+                .iter()
+                .filter_map(|h| {
+                    let chunk = index(&h.chunk_id)?;
+                    Some(Answer {
+                        citation: h.citation_id.clone(),
+                        source: h.source_uri.clone(),
+                        score: h.score,
+                        text: session.texts.get(&h.chunk_id).cloned().unwrap_or_default(),
+                        image: session.image_of(&h.source_uri),
+                        by_name: false,
+                        chunk,
+                        via: "hybrid",
+                    })
+                })
+                .collect();
+            // a chunk whose label is the query goes first, found by the
+            // search or not, when the predicates keep it.
+            let named: Vec<usize> = session
+                .named(query)
+                .iter()
+                .copied()
+                .filter(|&i| keep.is_none_or(|k| k.get(i)))
+                .collect();
+            answers.retain(|a| !named.contains(&a.chunk));
+            let extra: Vec<Answer> = named
+                .iter()
+                .filter_map(|&i| answer_at(session, i, 1.0, true, "name"))
+                .collect();
+            answers.splice(0..0, extra);
+            answers
+        })
+        .map_err(|e| {
+            let manifest = session
+                .rt
+                .inspect_json()
+                .ok()
+                .and_then(|j| serde_json::from_str::<serde_json::Value>(&j).ok())
+                .map(|info| info["manifest"].clone());
+            Failure {
+                text: explain(&e),
+                need: need(&e, manifest.as_ref()),
+            }
+        })
+}
+
+/// chunk_id -> chunk index: a map when the corpus is large enough to pay
+/// for it, a scan of the ids otherwise.
+fn index_of(session: &Session) -> impl Fn(&str) -> Option<usize> + '_ {
+    let ids = session.rt.chunk_ids();
+    let map: Option<std::collections::HashMap<&str, usize>> = (ids.len() > 256).then(|| {
+        ids.iter()
+            .enumerate()
+            .map(|(i, id)| (id.as_str(), i))
+            .collect()
+    });
+    move |id: &str| match &map {
+        Some(m) => m.get(id).copied(),
+        None => ids.iter().position(|x| x == id),
+    }
+}
+
+/// The hit for chunk `i` as the file stores it.
+fn answer_at(
+    session: &Session,
+    i: usize,
+    score: f32,
+    by_name: bool,
+    via: &'static str,
+) -> Option<Answer> {
+    let id = session.rt.chunk_ids().get(i)?;
+    let span = session.rt.span(i)?;
+    Some(Answer {
+        citation: format!("urna://{}/{id}", session.rt.content_hash()),
+        image: session.image_of(&span.source_uri),
+        source: span.source_uri.clone(),
+        score,
+        text: session.texts.get(id).cloned().unwrap_or_default(),
+        by_name,
+        chunk: i,
+        via,
     })
+}
+
+/// No text: the kept chunks by rank (the rank-role column, unranked last).
+fn browse(session: &Session, keep: Option<&Bitset>) -> Vec<Answer> {
+    let n = session.rt.chunk_ids().len();
+    let mut kept: Vec<usize> = (0..n).filter(|&i| keep.is_none_or(|k| k.get(i))).collect();
+    kept.sort_by_key(|&i| (session.rank(i).unwrap_or(i64::MAX), i));
+    kept.into_iter()
+        .take(BROWSE)
+        .filter_map(|i| answer_at(session, i, 0.0, false, "browse"))
+        .collect()
 }
 
 /// The corpus model to offer for install: only for the two failures an
@@ -179,6 +407,7 @@ mod tests {
     use super::*;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
+    use std::path::PathBuf;
 
     #[test]
     fn the_hit_list_scrolls_to_keep_the_selection_visible() {
@@ -188,6 +417,10 @@ mod tests {
                 source: "s".into(),
                 score: 1.0 - i as f32 / 10.0,
                 text: format!("hit number {i}"),
+                image: None,
+                by_name: false,
+                chunk: i,
+                via: "hybrid",
             })
             .collect();
         let mut ask = Ask {
@@ -279,7 +512,8 @@ mod tests {
             .join("../format/tests/fixtures/golden_v1_minimal.urna");
         let mut ask = Ask::default();
         ask.input.set_value("anything".into());
-        ask.submit(golden);
+        let session = Arc::new(Session::open(&golden).expect("golden opens"));
+        ask.submit(session);
         let mut got = None;
         for _ in 0..500 {
             if let Some(r) = ask.poll() {
@@ -294,5 +528,19 @@ mod tests {
         let area = Rect::new(0, 0, 100, 30);
         let mut buf = Buffer::empty(area);
         super::super::hits::render(&mut buf, area, &mut ask, "·");
+    }
+
+    #[test]
+    fn a_prefix_the_schema_lacks_is_a_message_not_a_panic() {
+        let golden = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../format/tests/fixtures/golden_v1_minimal.urna");
+        let session = Session::open(&golden).expect("golden opens");
+        let err = line(&session, "t:creature bolt").expect_err("no schema");
+        assert!(err.contains("prefix"), "{err}");
+        let ok = line(&session, "lightning bolt").expect("free text");
+        assert_eq!(
+            (ok.text.as_str(), ok.keep.is_none()),
+            ("lightning bolt", true)
+        );
     }
 }

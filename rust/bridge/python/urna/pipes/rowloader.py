@@ -38,6 +38,8 @@ class Row:
     image_sha256: str | None  # sha256 of source image bytes; reused by dedup
     label: str | None
     item_input_hash: str
+    # the source row's columns, kept when the spec writes [scalars]
+    fields: dict | None = None
 
 
 _DERIVE_RE = re.compile(r"^(\w+)\((\w+)\)$")
@@ -151,6 +153,7 @@ def _rows_from_dicts(spec: CorpusSpec, raw: list[dict]) -> list[Row]:
                 image_hash,
                 label,
                 _item_input_hash(text, image_hash, label, spec.chunker_version),
+                dict(r) if spec.scalars.fields else None,
             )
         )
     return rows

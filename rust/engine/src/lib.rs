@@ -39,12 +39,15 @@ mod dtype;
 pub mod error;
 pub mod graph;
 mod inspect;
+pub mod labels;
 mod materialize;
 mod mmap_cold;
 mod mmap_file;
 mod order;
 mod rerank;
+pub mod scalars;
 mod search;
+mod search_filtered;
 pub mod simd;
 mod space_search;
 mod spaces;
@@ -53,6 +56,7 @@ pub use blobs::apply_blob_span_overlay;
 pub use dtype::DType;
 pub use error::RuntimeError;
 pub use mmap_file::MmapUrnaFile;
+pub use scalars::{Bitset, Filter, ParsedQuery, Predicate, Scalars};
 pub use simd::SimdBackend;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -157,6 +161,9 @@ pub struct SearchExplain {
     /// `1.0` on the exact path, `NaN` on every candidate-generating path
     /// (we never claim a recall we did not measure).
     pub recall_estimate: f32,
+    /// how many chunks the filter kept before scoring; `None` when the
+    /// search ran unfiltered.
+    pub filter_kept: Option<usize>,
 }
 
 impl SearchExplain {
@@ -172,6 +179,7 @@ impl SearchExplain {
             fusion_mode: "none",
             rerank_source: src,
             recall_estimate: 1.0,
+            filter_kept: None,
         }
     }
 
@@ -186,6 +194,7 @@ impl SearchExplain {
             fusion_mode: "none",
             rerank_source: src,
             recall_estimate: f32::NAN,
+            filter_kept: None,
         }
     }
 
@@ -201,6 +210,7 @@ impl SearchExplain {
             fusion_mode: "none",
             rerank_source: src,
             recall_estimate: f32::NAN,
+            filter_kept: None,
         }
     }
 
@@ -216,6 +226,7 @@ impl SearchExplain {
             fusion_mode: "rrf",
             rerank_source: src,
             recall_estimate: f32::NAN,
+            filter_kept: None,
         }
     }
 }

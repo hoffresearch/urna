@@ -138,34 +138,9 @@ pub fn leader(buf: &mut Buffer, x: u16, y: u16, w: u16, label: &str, value: &str
     put(buf, vx, y, &shown, vstyle, vw);
 }
 
-/// A clickable link (OSC 8, via hyperrat) that keeps the row aligned.
-/// hyperrat puts the whole escape sequence in the first cell and leaves its
-/// diff width to ratatui, which measures the escape bytes and then skips
-/// that many cells; forcing the width to the label's fixes the row. old
-/// windows consoles print OSC 8 raw, so there it degrades to plain text.
+/// A clickable link (OSC 8) that keeps the row aligned; see `widgets::link`.
 pub fn link(buf: &mut Buffer, x: u16, y: u16, label: &str, url: &str, max: u16) -> u16 {
-    use ratatui::buffer::CellDiffOption;
-    use ratatui::widgets::Widget;
-    let w = (label.chars().count() as u16).min(max);
-    if w == 0 {
-        return x;
-    }
-    let supported = !cfg!(windows) || std::env::var_os("WT_SESSION").is_some();
-    hyperrat::Link::new(label, url)
-        .style(
-            Style::new()
-                .fg(pal::GLOW)
-                .add_modifier(Modifier::UNDERLINED),
-        )
-        .enabled(supported)
-        .render(Rect::new(x, y, w, 1).intersection(buf.area), buf);
-    if supported
-        && let Some(width) = std::num::NonZeroU16::new(w)
-        && let Some(cell) = buf.cell_mut((x, y))
-    {
-        cell.set_diff_option(CellDiffOption::ForcedWidth(width));
-    }
-    x + w
+    crate::tui::widgets::link(buf, x, y, label, url, max)
 }
 
 #[cfg(test)]

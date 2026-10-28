@@ -4,17 +4,18 @@
 //! the section table with a size bar per section and a scrollbar.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use anyhow::Result;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::Widget;
-use tui_scrollbar::{ScrollBar, ScrollLengths};
 
+use super::session::Session;
 use crate::cmd::util::encoding_name;
 use crate::tui::hud::{self, Badge};
 use crate::tui::pal;
+use crate::tui::widgets::ScrollBar;
 
 pub struct Section {
     pub id: u64,
@@ -32,6 +33,8 @@ pub struct Corpus {
     pub content_hash: String,
     /// `Ok` when every checksum, hash and the contract hold.
     pub valid: Result<(), String>,
+    /// the file opened for queries, its texts, images and labels.
+    pub session: Arc<Session>,
 }
 
 fn short(h: &str) -> String {
@@ -90,14 +93,7 @@ pub fn load(path: &Path) -> Result<Corpus> {
                 .collect()
         })
         .unwrap_or_default();
-    let valid = (|| -> Result<()> {
-        let data = std::fs::read(path)?;
-        let view = urna_format::UrnaView::from_bytes(&data)?;
-        view.validate_embeddings_values()?;
-        view.search_contract()?;
-        Ok(())
-    })()
-    .map_err(|e| format!("{e:#}"));
+    let valid = rt.revalidate().map_err(|e| format!("{e:#}"));
     Ok(Corpus {
         path: path.to_path_buf(),
         size,
@@ -105,6 +101,7 @@ pub fn load(path: &Path) -> Result<Corpus> {
         sections,
         content_hash: s(&info["content_hash"]),
         valid,
+        session: Arc::new(Session::from_runtime(rt)?),
     })
 }
 
@@ -239,17 +236,14 @@ fn sections(buf: &mut Buffer, area: Rect, corpus: &Corpus, scroll: usize) {
         }
     }
     if corpus.sections.len() > rows {
-        ScrollBar::vertical(ScrollLengths {
-            content_len: corpus.sections.len(),
-            viewport_len: rows,
-        })
-        .offset(start)
-        .track_style(Style::new().fg(pal::SURFACE))
-        .thumb_style(Style::new().fg(pal::GLOW))
-        .render(
-            Rect::new(inner.right(), inner.y + 1, 1, inner.height - 1),
-            buf,
-        );
+        ScrollBar::vertical(corpus.sections.len(), rows)
+            .offset(start)
+            .track_style(Style::new().fg(pal::SURFACE))
+            .thumb_style(Style::new().fg(pal::GLOW))
+            .render(
+                Rect::new(inner.right(), inner.y + 1, 1, inner.height - 1),
+                buf,
+            );
     }
 }
 

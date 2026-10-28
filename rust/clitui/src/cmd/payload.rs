@@ -23,8 +23,9 @@ pub fn package_in(root: &Path) -> PathBuf {
 /// `embedpack.py` ships, since each query path imports or reads
 /// one of them (the potion route reads the table's config, tokenizer and
 /// weights; the registry route imports the adapters, the st and image
-/// backends and modelhash; search-text runs searchtxt.py). the modules
-/// keep the package layout of `rust/bridge/python/urna/` under `python/`.
+/// backends and modelhash, and hands a model no preset names to
+/// searchtxt.py). the modules keep the package layout of
+/// `rust/bridge/python/urna/` under `python/`.
 /// setup refuses a payload missing one, and the scan reports an installed
 /// payload missing one so setup repairs it. `tool/tests/test_embedpack.py`
 /// checks that this list and the staged payload are the same set of files.

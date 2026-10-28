@@ -51,6 +51,15 @@ wildcards = "allow"
 skip = [
     { crate = "syn@2", reason = "pyo3-macros 0.29 and zerocopy-derive 0.8 have not moved to syn 3 yet" },
 ]
+# the offline promise, enforced: a query never opens a socket, and no crate
+# may bring an http client into the build. the model payload and the sample
+# corpus are fetched by `urna setup` through curl, outside the binary.
+deny = [
+    { crate = "reqwest", reason = "no http client in the build: urna queries offline by construction" },
+    { crate = "hyper", reason = "no http client in the build: urna queries offline by construction" },
+    { crate = "ureq", reason = "no http client in the build: urna queries offline by construction" },
+    { crate = "hf-hub", reason = "no hub client in the build: models arrive through `urna setup`, pinned and hashed" },
+]
 
 [sources]
 unknown-registry = "deny"

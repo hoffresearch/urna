@@ -1,0 +1,8 @@
+name = "rav1d"
+version = "1.1.0"
+repository = "https://github.com/memorysafety/rav1d"
+crate = "https://static.crates.io/crates/rav1d/rav1d-1.1.0.crate"
+crate_sha256 = "1932f060d5e7bd49dc9f8b272c1dc5e9ce0ffe141c28be900265d3989b36c9ed"
+license = "BSD-2-Clause"
+copied = ["lib.rs", "include/", "src/*.rs", "COPYING as LICENSE"]
+dropped = ["src/**/*.S", "src/ext/x86/*.asm", "build.rs", "the asm features", "paste", "to_method"]
