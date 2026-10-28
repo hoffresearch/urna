@@ -326,7 +326,7 @@ jobs:
           python -m pip install ruff
           URNA_PYTHON=python sh tool/tasks/ruffcheck.sh
       - name: names follow the length table and the lexicon
-        # docs/adr/structure/0003: siblings of the same kind have the same
+        # the naming rule of docs/CONTRIBUTING.md: siblings of the same kind have the same
         # length, the exceptions are listed, docs/TERMS.md holds every
         # abbreviation once; reads the tracked files only.
         run: |

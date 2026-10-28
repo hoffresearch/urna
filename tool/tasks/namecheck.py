@@ -1,4 +1,4 @@
-"""check the naming convention of docs/adr/structure/0003 against the tree.
+"""check the naming convention of docs/CONTRIBUTING.md (Naming) against the tree.
 
 one rule: siblings of the same kind have the same length. LEVELS below says,
 for each folder, which children are checked and how long they must be, so
