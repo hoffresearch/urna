@@ -81,7 +81,7 @@ memmap2 = "0.9"
 rayon = "1"
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
-zstd = { version = "0.13", default-features = false, features = ["experimental", "zdict_builder"] }
+zstd = { version = "0.14", default-features = false, features = ["experimental", "zdict_builder"] }
 half = { version = "2", features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
 # path for the workspace, version for crates.io: `cargo publish` strips the
