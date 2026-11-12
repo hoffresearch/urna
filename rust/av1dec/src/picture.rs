@@ -29,7 +29,7 @@ use crate::src::send_sync_non_null::SendSyncNonNull;
 use crate::src::to::To as _;
 use bitflags::bitflags;
 use libc::ptrdiff_t;
-use parking_lot::Mutex;
+use crate::src::locks::Mutex;
 use std::ffi::c_int;
 use std::ffi::c_void;
 use std::mem;

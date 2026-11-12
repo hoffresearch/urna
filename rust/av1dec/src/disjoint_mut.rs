@@ -775,7 +775,7 @@ mod release {
 #[cfg(debug_assertions)]
 mod debug {
     use super::*;
-    use parking_lot::Mutex;
+    use crate::src::locks::Mutex;
     use std::backtrace::Backtrace;
     use std::backtrace::BacktraceStatus;
     use std::fmt::Debug;

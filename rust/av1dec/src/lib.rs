@@ -53,7 +53,7 @@ use crate::src::thread_task::rav1d_task_delayed_fg;
 use crate::src::thread_task::rav1d_worker_task;
 use crate::src::thread_task::FRAME_ERROR;
 use crate::src::to::To as _;
-use parking_lot::Mutex;
+use crate::src::locks::Mutex;
 use std::cmp;
 use std::ffi::c_char;
 use std::ffi::c_uint;

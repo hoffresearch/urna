@@ -31,10 +31,10 @@ use crate::src::iter::wrapping_iter;
 use crate::src::relaxed_atomic::RelaxedAtomic;
 use atomig::Atom;
 use atomig::Atomic;
-use parking_lot::Mutex;
-use parking_lot::MutexGuard;
-use parking_lot::RwLock;
-use parking_lot::RwLockReadGuard;
+use crate::src::locks::Mutex;
+use crate::src::locks::MutexGuard;
+use crate::src::locks::RwLock;
+use crate::src::locks::ReadElement;
 use std::cmp;
 use std::ffi::c_int;
 use std::ffi::c_uint;
@@ -301,9 +301,7 @@ impl Rav1dTasks {
     #[inline]
     fn index<'a>(&'a self, index: Rav1dTaskIndex) -> impl Deref<Target = Rav1dTask> + 'a {
         if let Some(index) = index.raw_index() {
-            RwLockReadGuard::map(self.tasks.try_read().unwrap(), |tasks| {
-                &tasks[index as usize]
-            })
+            ReadElement::new(self.tasks.try_read().unwrap(), index as usize)
         } else {
             panic!("Cannot index with None");
         }
