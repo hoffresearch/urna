@@ -393,8 +393,9 @@ path = [
     "rust/engine/tests/mutation_fuzz.rs",
     "rust/engine/src/mmap_file.rs",
     "fuzz/fuzz_targets/urna_view.rs",
+    "fuzz/fuzz_targets/zstd_decoder.rs",
 ]
-summary = "Build real files in every dtype / text-encoding combination with every optional section present, mutate them (bit flips, byte sets, zero runs, integer specials, truncation, splices; half with checksums resealed so the corruption reaches the decoders), and drive the reader, every section decoder, the mmap open path and every search verb: a typed error is fine, a panic is a finding that becomes a tests/negative_*.rs"
+summary = "Build real files in every dtype / text-encoding combination with every optional section present, mutate them (bit flips, byte sets, zero runs, integer specials, truncation, splices; half with checksums resealed so the corruption reaches the decoders), and drive the reader, every section decoder, the mmap open path and every search verb: a typed error is fine, a panic is a finding that becomes a tests/negative_*.rs. The zstd-decoder target holds urna-format's zstd decoder to libzstd on arbitrary bytes, with a dictionary and on libzstd round trips"
 
 [[flows]]
 name = "competitor-bench"
@@ -947,6 +948,12 @@ purpose = "A workspace of its own: the AV1 planes and RGBA parity against the cr
 links = ["rust/images/src/lib.rs", "tool/tasks/fullcheck.sh"]
 
 [[inventory.workspace]]
+path = "rust/format/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: urna-format's zstd decoder against libzstd, byte for byte (levels -5 to 19, checksums, long and 1 KiB windows, trained and raw-content dictionaries, frames back to back, every zstd section of the tracked fixtures and of corpora built here), and a dictionary-framed corpus that the engine opens and answers from; run by gatecheck's zstd-parity job and fullcheck"
+links = ["rust/format/src/encoding/zstd_decoder/mod.rs", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
 path = "rust/av1dec"
 kind = "crate-dir"
 purpose = "rav1d 1.1.0 vendored whole as urna-av1dec, pure Rust; outside the 639-line guard, its files keep upstream's shape"
@@ -1335,7 +1342,7 @@ links = [
 [[inventory.urna_format]]
 path = "rust/format/src/encoding/zstd_dict.rs"
 kind = "rust-source"
-purpose = "Trained-dictionary zstd over per-chunk canonical streams (encoding id 5, TXT_STREAMS_V2): train_dict trains ONE deterministic shared dict (zstd from_continuous over SORTED unique texts, pinned zstd, cap proportionate to corpus up to ~112 KiB); encode/decode re-frame each per-chunk stream against it via EncoderDictionary/DecoderDictionary, reusing the txt_streams offset table. Dict blob lives in SECTION_DICTIONARY (0x0A, content_hash-excluded); decodes BYTE-IDENTICALLY to raw, typed errors (never panics)"
+purpose = "Trained-dictionary zstd over per-chunk canonical streams (encoding id 5, TXT_STREAMS_V2): train_dict trains ONE deterministic shared dict (zstd from_continuous over SORTED unique texts, pinned zstd, cap proportionate to corpus up to ~112 KiB); encode re-frames each per-chunk stream against it via EncoderDictionary (write feature) and decode reads them with our zstd decoder (no libzstd), reusing the txt_streams offset table. Dict blob lives in SECTION_DICTIONARY (0x0A, content_hash-excluded); decodes BYTE-IDENTICALLY to raw, typed errors (never panics)"
 links = [
     "rust/format/src/encoding/txt_streams.rs",
     "rust/format/src/writer/text_codec.rs",
@@ -1380,8 +1387,74 @@ links = [
 [[inventory.urna_format]]
 path = "rust/format/src/encoding/zstd_codec.rs"
 kind = "rust-source"
-purpose = "zstd compression helpers for non-embedding text sections"
-links = ["rust/format/src/reader/decode.rs"]
+purpose = "zstd for non-embedding text sections: decoding through our own decoder under the decompression-bomb cap (and the public zstd_decompress / zstd_decompress_with_dict), encoding (zstd_encode, the reusable ZstdFramer) on the zstd crate behind the write feature"
+links = ["rust/format/src/reader/decode.rs", "rust/format/src/encoding/zstd_decoder/mod.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/mod.rs"
+kind = "rust-source"
+purpose = "Our zstd decoder (RFC 8878) in safe Rust, so the read path links no C: ZstdDecoder (optionally bound to a dictionary, scratch reused across frames), the ZstdError reasons, and make_room, the hard output limit every decode runs under (a declared size above it is refused before allocating)"
+links = ["rust/format/src/encoding/zstd_decoder/frame.rs", "rust/format/src/encoding/zstd_codec.rs", "rust/format/src/encoding/zstd_dict.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/frame.rs"
+kind = "rust-source"
+purpose = "zstd frames and blocks: frame header (window, dictionary ID, content size), skippable frames, raw/RLE/compressed blocks, the content checksum, frames back to back"
+links = ["rust/format/src/encoding/zstd_decoder/literals.rs", "rust/format/src/encoding/zstd_decoder/sequences.rs", "rust/format/src/encoding/zstd_decoder/xxhash.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/literals.rs"
+kind = "rust-source"
+purpose = "The literals section of a compressed zstd block: raw, RLE, Huffman with a new tree or treeless (the frame's or the dictionary's tree)"
+links = ["rust/format/src/encoding/zstd_decoder/huffman.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/huffman.rs"
+kind = "rust-source"
+purpose = "zstd Huffman: tree description (FSE-compressed or direct weights), canonical decoding table, one or four backward streams consumed exactly"
+links = ["rust/format/src/encoding/zstd_decoder/fse.rs", "rust/format/src/encoding/zstd_decoder/bits.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/fse.rs"
+kind = "rust-source"
+purpose = "FSE: normalized-count table descriptions, decoding-table spread, and the two-state decoder of the Huffman weights"
+links = ["rust/format/src/encoding/zstd_decoder/bits.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/sequences.rs"
+kind = "rust-source"
+purpose = "The sequences section: table modes (predefined, RLE, FSE, repeat), the interleaved backward stream, repeat offsets, and execution with the dictionary as history"
+links = ["rust/format/src/encoding/zstd_decoder/codes.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/codes.rs"
+kind = "rust-source"
+purpose = "Literals length, match length and offset codes (baselines, extra bits), the predefined distributions and the sequence decoding tables"
+links = ["rust/format/src/encoding/zstd_decoder/fse.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/dictionary.rs"
+kind = "rust-source"
+purpose = "zstd dictionaries as the trainer writes them (magic, ID, Huffman and three FSE tables, repeat offsets, content) or raw content; the whole buffer is the history, as libzstd's DDict exposes it"
+links = ["rust/format/src/encoding/zstd_dict.rs"]
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/bits.rs"
+kind = "rust-source"
+purpose = "The backward (FSE/Huffman payloads) and forward (table descriptions) bit readers, zero-filled past the end"
+links = []
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/xxhash.rs"
+kind = "rust-source"
+purpose = "XXH64 for the zstd frame content checksum"
+links = []
+
+[[inventory.urna_format]]
+path = "rust/format/src/encoding/zstd_decoder/tests.rs"
+kind = "rust-test"
+purpose = "Hand-made zstd frames (raw, RLE, one compressed sequence, checksum, raw-content dictionary, skippable and back-to-back frames) and a regression corpus of malformed frames that must each be an error; the output limit is a hard bound"
+links = ["rust/format/src/encoding/zstd_decoder/frame.rs"]
 
 [[inventory.urna_format]]
 path = "rust/format/src/error.rs"

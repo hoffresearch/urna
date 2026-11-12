@@ -56,13 +56,12 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-urna-format = { workspace = true }
+urna-format = { workspace = true, features = ["write"] }
 urna-engine = { workspace = true }
 clap = { workspace = true }
 anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-zstd = { workspace = true }
 memmap2 = { workspace = true }
 rand = "0.10"
 hex = "0.4"

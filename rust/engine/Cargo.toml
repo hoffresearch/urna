@@ -36,6 +36,9 @@ path = "src/lib.rs"
 # default features off: no rayon, no plotters html report, just the
 # statistics and the cli.
 [dev-dependencies]
+# the tests and benches build their corpora, so they write: the zstd encoder
+# comes in here only, the engine itself reads without linking C.
+urna-format = { workspace = true, features = ["write"] }
 criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
 
 [[bench]]

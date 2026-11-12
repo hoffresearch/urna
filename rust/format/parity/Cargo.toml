@@ -1,0 +1,27 @@
+[package]
+name = "urna-format-parity"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+description = "parity of urna-format's own zstd decoder against libzstd; a workspace of its own so the reference never enters the readers' build"
+
+# its own workspace, like rust/neural/parity and rust/images/parity: the
+# reference decoder (the zstd crate, libzstd) stays out of the readers'
+# build and the urna lock. run: `cargo test --release` here (CI does, in
+# gatecheck's zstd parity job).
+[workspace]
+
+[dependencies]
+# default features: `write`, the corpora are built here with the encoder.
+urna-format = { path = ".." }
+# the reference: compresses every input and decodes it beside ours.
+zstd = { version = "0.14", default-features = false, features = ["zdict_builder"] }
+
+[dev-dependencies]
+# the dictionary corpus is opened and searched the way a reader does.
+urna-engine = { path = "../../engine" }
+
+[lib]
+path = "lib.rs"

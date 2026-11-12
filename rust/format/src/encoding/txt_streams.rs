@@ -31,12 +31,15 @@
 //! ```
 
 use super::intpack::{IntpackReader, pack_u64s};
-use super::zstd_codec::{ZstdFramer, zstd_decode};
+#[cfg(feature = "write")]
+use super::zstd_codec::ZstdFramer;
+use super::zstd_codec::zstd_decode;
 use crate::bytes::le_u64;
 use crate::error::UrnaError;
 use crate::layout::{
     SECTION_CHUNKS_CANONICAL, SECTION_PAYLOAD_PREFIX_SIZE, SECTION_PAYLOAD_VERSION,
 };
+#[cfg(feature = "write")]
 use rayon::prelude::*;
 
 /// leading kind/version byte. v1 = plain per-stream zstd. the dict (V2) and
@@ -92,6 +95,7 @@ pub(super) fn build_canonical(count: usize, bodies: &[Vec<u8>]) -> crate::Result
 /// the frames are independent, so they are compressed in parallel, one
 /// reused zstd context per rayon split, and laid out in chunk order: the
 /// bytes do not depend on the thread count.
+#[cfg(feature = "write")]
 pub fn encode_txt_streams(texts: &[String]) -> crate::Result<Vec<u8>> {
     let frames = texts
         .par_iter()
@@ -251,7 +255,9 @@ pub fn decode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
     build_canonical(parsed.count, &bodies)
 }
 
+// the tests encode, which needs libzstd (the `write` feature).
 #[cfg(test)]
+#[cfg(feature = "write")]
 mod tests {
     use super::*;
     use crate::sections::encode_chunks_canonical;
