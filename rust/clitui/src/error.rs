@@ -166,6 +166,10 @@ impl fmt::Write for Indented<'_, '_> {
 /// `context` and `with_context` on a `Result` (of any error) or an
 /// `Option` (a `None` becomes the context alone).
 pub trait Context<T> {
+    #[cfg_attr(
+        not(feature = "tui"),
+        allow(dead_code, reason = "the engine-only cli uses with_context alone")
+    )]
     fn context<C: fmt::Display>(self, context: C) -> Result<T>;
     fn with_context<C: fmt::Display, F: FnOnce() -> C>(self, f: F) -> Result<T>;
 }
