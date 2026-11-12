@@ -616,15 +616,21 @@ links = [
 ]
 
 [[inventory.root]]
+path = "rust/engine/benches/harness/mod.rs"
+kind = "rust-source"
+purpose = "The benches' harness: warm-up, samples sized from it, Instant timings, p50 and p95 per iteration and elements/s, a name filter from the command line"
+links = ["rust/engine/benches/simd.rs", "rust/engine/benches/rerank.rs", "rust/engine/benches/hnsw_build.rs"]
+
+[[inventory.root]]
 path = "rust/engine/benches/simd.rs"
 kind = "rust-bench"
-purpose = "criterion: f32/f16/i8/i4 dot per dim on the detected SIMD backend + the int8 section scan over 50k rows"
+purpose = "our harness (p50/p95): f32/f16/i8/i4 dot per dim on the detected SIMD backend + the int8 section scan over 50k rows"
 links = ["rust/engine/src/simd/mod.rs"]
 
 [[inventory.root]]
 path = "rust/engine/benches/rerank.rs"
 kind = "rust-bench"
-purpose = "criterion: search (exact scan) and search_ann (HNSW + exact rerank at ef=100) through the public API, one 20k-row .urna per stored dtype"
+purpose = "our harness (p50/p95): search (exact scan) and search_ann (HNSW + exact rerank at ef=100) through the public API, one 20k-row .urna per stored dtype"
 links = [
     "rust/engine/src/search.rs",
     "rust/engine/src/rerank.rs",
@@ -633,7 +639,7 @@ links = [
 [[inventory.root]]
 path = "rust/engine/benches/hnsw_build.rs"
 kind = "rust-bench"
-purpose = "criterion: HnswIndex::build over 20k x 384 at m=16 / ef_construction=200, the guard for the build-throughput work"
+purpose = "our harness (p50/p95): HnswIndex::build over 20k x 384 at m=16 / ef_construction=200, the guard for the build-throughput work"
 links = ["rust/engine/src/ann/build.rs"]
 
 [[inventory.root]]

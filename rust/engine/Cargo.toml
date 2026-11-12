@@ -31,11 +31,8 @@ workspace = true
 name = "urna_engine"
 path = "src/lib.rs"
 
-# criterion benches: `cargo bench -p urna-engine`.
-# default features off: no rayon, no plotters html report, just the
-# statistics and the cli.
-[dev-dependencies]
-criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+# benches on our own harness (benches/harness: warm-up, p50 and p95):
+# `cargo bench -p urna-engine`.
 
 [[bench]]
 name = "simd"
