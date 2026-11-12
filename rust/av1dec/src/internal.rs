@@ -46,6 +46,10 @@ use crate::src::lf_mask::Av1Filter;
 use crate::src::lf_mask::Av1FilterLUT;
 use crate::src::lf_mask::Av1Restoration;
 use crate::src::lf_mask::Av1RestorationUnit;
+use crate::src::locks::Condvar;
+use crate::src::locks::Mutex;
+use crate::src::locks::RwLock;
+use crate::src::locks::RwLockReadGuard;
 use crate::src::log::Rav1dLogger;
 use crate::src::loopfilter::Rav1dLoopFilterDSPContext;
 use crate::src::looprestoration::Rav1dLoopRestorationDSPContext;
@@ -83,16 +87,12 @@ use crate::src::refmvs::Rav1dRefmvsDSPContext;
 use crate::src::refmvs::RefMvsFrame;
 use crate::src::refmvs::RefMvsTemporalBlock;
 use crate::src::refmvs::RefmvsTile;
+use crate::src::relaxed_atomic::Atom;
+use crate::src::relaxed_atomic::Atomic;
 use crate::src::relaxed_atomic::RelaxedAtomic;
 use crate::src::thread_task::Rav1dTaskIndex;
 use crate::src::thread_task::Rav1dTasks;
-use atomig::Atom;
-use atomig::Atomic;
 use libc::ptrdiff_t;
-use crate::src::locks::Condvar;
-use crate::src::locks::Mutex;
-use crate::src::locks::RwLock;
-use crate::src::locks::RwLockReadGuard;
 use std::ffi::c_int;
 use std::ffi::c_uint;
 use std::mem;
@@ -558,8 +558,20 @@ impl Rav1dFrameContextBdFn {
     }
 }
 
-#[derive(Clone, Copy, Default, Atom)]
+#[derive(Clone, Copy, Default)]
 pub struct CodedBlockInfo(i16);
+
+impl Atom for CodedBlockInfo {
+    type Repr = u16;
+
+    fn pack(self) -> u16 {
+        self.0.pack()
+    }
+
+    fn unpack(src: u16) -> Self {
+        Self(Atom::unpack(src))
+    }
+}
 
 impl CodedBlockInfo {
     const TXTP_BITS: u8 = (TxfmType::BITS - WHT_WHT.leading_zeros()) as u8;

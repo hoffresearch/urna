@@ -28,13 +28,13 @@ use crate::src::internal::Rav1dTaskContextTaskThread;
 use crate::src::internal::TaskThreadData;
 use crate::src::internal::TaskType;
 use crate::src::iter::wrapping_iter;
-use crate::src::relaxed_atomic::RelaxedAtomic;
-use atomig::Atom;
-use atomig::Atomic;
 use crate::src::locks::Mutex;
 use crate::src::locks::MutexGuard;
-use crate::src::locks::RwLock;
 use crate::src::locks::ReadElement;
+use crate::src::locks::RwLock;
+use crate::src::relaxed_atomic::Atom;
+use crate::src::relaxed_atomic::Atomic;
+use crate::src::relaxed_atomic::RelaxedAtomic;
 use std::cmp;
 use std::ffi::c_int;
 use std::ffi::c_uint;
@@ -347,9 +347,21 @@ impl Rav1dFrameContextTaskThread {
 }
 
 /// 1-based index into the task queue vector. 0 is reserved for None.
-#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug, Atom)]
+#[derive(Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord, Debug)]
 #[repr(transparent)]
 pub struct Rav1dTaskIndex(Option<NonZeroU32>);
+
+impl Atom for Rav1dTaskIndex {
+    type Repr = u32;
+
+    fn pack(self) -> u32 {
+        self.0.pack()
+    }
+
+    fn unpack(src: u32) -> Self {
+        Self(Atom::unpack(src))
+    }
+}
 
 impl Rav1dTaskIndex {
     pub const None: Self = Self(None);

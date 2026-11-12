@@ -51,9 +51,9 @@ pub mod src {
     mod fg_apply;
     mod filmgrain;
     mod getbits;
+    pub(crate) mod locks;
     pub(crate) mod pic_or_buf;
     pub(crate) mod pixels;
-    pub(crate) mod locks;
     pub(crate) mod relaxed_atomic;
     pub mod send_sync_non_null;
     pub(crate) mod strided;
