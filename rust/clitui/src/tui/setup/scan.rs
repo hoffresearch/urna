@@ -230,15 +230,6 @@ pub fn has_torch(venv: &Path) -> bool {
         .unwrap_or(false)
 }
 
-/// The machine's total ram (sysinfo's memory probe alone).
-fn total_ram() -> Option<u64> {
-    use sysinfo::{MemoryRefreshKind, RefreshKind, System};
-    let sys = System::new_with_specifics(
-        RefreshKind::nothing().with_memory(MemoryRefreshKind::nothing().with_ram()),
-    );
-    Some(sys.total_memory()).filter(|n| *n > 0)
-}
-
 pub use crate::cmd::paths::which;
 
 fn output(cmd: &mut Command) -> Option<String> {
@@ -301,7 +292,7 @@ impl Scan {
             kit,
             sample,
             torch: paths::urna_home().is_some_and(|h| has_torch(&h.join("venv"))),
-            ram: total_ram(),
+            ram: super::ram::total(),
         }
     }
 

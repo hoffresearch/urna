@@ -252,6 +252,7 @@ name = "cli-setup"
 entry = "rust/clitui/src/tui/setup/mod.rs"
 path = [
     "rust/clitui/src/tui/setup/scan.rs",
+    "rust/clitui/src/tui/setup/ram.rs",
     "rust/clitui/src/tui/setup/plan.rs",
     "rust/clitui/src/tui/setup/job.rs",
     "rust/clitui/src/tui/setup/net.rs",

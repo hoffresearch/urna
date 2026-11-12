@@ -83,9 +83,6 @@ crossterm = { version = "0.29", optional = true }
 urna-images = { path = "../images", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
-# the machine's total ram, for the model screen's fit mark; only its memory
-# probe (`system`), none of the process, disk or network ones.
-sysinfo = { version = "0.38", default-features = false, features = ["system"], optional = true }
 
 # the uv archive setup downloads on windows is a .zip (a .tar.gz elsewhere,
 # read with flate2 + tar); reading deflate is all it needs. `deflate-flate2`
@@ -107,7 +104,6 @@ tui = [
     "dep:flate2",
     "dep:tar",
     "dep:zip",
-    "dep:sysinfo",
     "dep:urna-images",
     "dep:libc",
 ]
