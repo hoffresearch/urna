@@ -64,7 +64,6 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 zstd = { workspace = true }
 memmap2 = { workspace = true }
-rand = "0.10"
 hex = "0.4"
 sha2 = { workspace = true }
 # rgb -> xterm-256 for terminals without truecolor (Terminal.app); no deps.
