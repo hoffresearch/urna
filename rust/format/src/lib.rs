@@ -42,7 +42,7 @@ pub use encoding::{
     TXT_STREAMS_V2, TXT_STREAMS_V3, TxtStreams, decode_payload, decode_payload_with_dict,
     encode_int4_embeddings, encode_int8_embeddings, encode_txt_streams, expected_embeddings_size,
     f16_bytes_to_f32, f32_to_f16_bytes, int4_blocks_per_row, nibble_to_i4, pack_nibbles,
-    quantize_f32_to_i4, quantize_f32_to_i8, zstd_encode,
+    quantize_f32_to_i4, quantize_f32_to_i8, zstd_decode, zstd_encode,
 };
 pub use error::{Result, UrnaError};
 pub use hex::{from_hex, to_hex};

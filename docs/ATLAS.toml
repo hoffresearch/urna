@@ -1887,6 +1887,12 @@ purpose = "Python chunk_id helper"
 links = ["rust/format/src/chunk.rs"]
 
 [[inventory.urna_bridge]]
+path = "rust/bridge/src/zstd_decode_fn.rs"
+kind = "rust-source"
+purpose = "Python zstd_decode helper: urna-format's bounded zstd decoder, so the Python tools read zstd frames without the zstandard package"
+links = ["rust/format/src/encoding/zstd_codec.rs", "rust/bridge/python/urna/entry/oldformat.py"]
+
+[[inventory.urna_bridge]]
 path = "rust/bridge/src/lib.rs"
 kind = "rust-source"
 purpose = "_urna module registration (UrnaFile, SearchHitPy, RetrieveHitPy, build, chunk_id)"
@@ -2694,7 +2700,7 @@ links = ["rust/bridge/python/urna/pipes/buildfile.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/entry/oldformat.py"
 kind = "python-source"
-purpose = "Legacy SQLite to v1 binary converter"
+purpose = "Legacy SQLite to v1 binary converter; its zstd blocks decode through _urna.zstd_decode"
 links = [
     "rust/bridge/python/urna/model/modelhash.py",
     "rust/bridge/python/urna/__init__.py",
