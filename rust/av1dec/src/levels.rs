@@ -9,7 +9,6 @@ use crate::src::enums::from_repr;
 use crate::src::enums::EnumCount;
 use crate::src::flags::bitflags;
 use crate::src::in_range::InRange;
-use crate::src::plain::plain;
 use crate::src::plain::AsBytes;
 use crate::src::plain::FromBytes;
 use crate::src::plain::FromZeroes;
@@ -254,10 +253,6 @@ pub enum BlockSize {
     Bs4x4 = 21,
 }
 
-const _: () = assert!(BlockSize::Bs128x128 as u8 == 0);
-// SAFETY: `BlockSize` is `repr(u8)` and `Bs128x128 = 0`, so the zero byte is a variant.
-unsafe impl FromZeroes for BlockSize {}
-
 from_repr!(BlockSize: u8 [Bs128x128, Bs128x64, Bs64x128, Bs64x64, Bs64x32, Bs64x16, Bs32x64, Bs32x32, Bs32x16, Bs32x8, Bs16x64, Bs16x32, Bs16x16, Bs16x8, Bs16x4, Bs8x32, Bs8x16, Bs8x8, Bs8x4, Bs4x16, Bs4x8, Bs4x4]);
 enum_count!(BlockSize [Bs128x128, Bs128x64, Bs64x128, Bs64x64, Bs64x32, Bs64x16, Bs32x64, Bs32x32, Bs32x16, Bs32x8, Bs16x64, Bs16x32, Bs16x16, Bs16x8, Bs16x4, Bs8x32, Bs8x16, Bs8x8, Bs8x4, Bs4x16, Bs4x8, Bs4x4]);
 
@@ -388,9 +383,6 @@ pub struct Mv {
     pub x: i16,
 }
 
-// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
-plain!(Mv: [FromZeroes, FromBytes, AsBytes] = [i16, i16]);
-
 impl Mv {
     pub const ZERO: Self = Self { y: 0, x: 0 };
 
@@ -448,9 +440,6 @@ pub struct Av1BlockIntra {
 #[repr(transparent)]
 pub struct MaskedInterIntraPredMode(u8);
 
-// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
-plain!(MaskedInterIntraPredMode: [FromZeroes, FromBytes, AsBytes] = [u8]);
-
 impl MaskedInterIntraPredMode {
     pub const fn get(self) -> InterIntraPredMode {
         // Should just be an `& 3`.
@@ -498,9 +487,6 @@ pub struct Av1BlockInter1d {
     pub _padding: u8,
 }
 
-// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
-plain!(Av1BlockInter1d: [FromZeroes, FromBytes, AsBytes] = [[Mv; 2], u8, u8, MaskedInterIntraPredMode, u8]);
-
 impl Av1BlockInter1d {
     pub fn mask_sign(&self) -> bool {
         self.mask_sign != 0
@@ -516,9 +502,6 @@ pub struct Av1BlockInter2d {
     /// Not sure how we could stably use that niche, though.
     pub matrix: [i16; 4],
 }
-
-// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
-plain!(Av1BlockInter2d: [FromZeroes, FromBytes, AsBytes] = [Mv, [i16; 4]]);
 
 #[derive(Clone)]
 #[repr(C)]

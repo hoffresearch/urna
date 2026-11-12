@@ -196,3 +196,28 @@ macro_rules! plain {
 }
 
 pub(crate) use plain;
+
+// levels.rs denies `unsafe_code` (upstream's choice), so the impls for its
+// types, which zerocopy's derives wrote there, live here.
+mod levels {
+    use super::FromZeroes;
+    use crate::src::levels::Av1BlockInter1d;
+    use crate::src::levels::Av1BlockInter2d;
+    use crate::src::levels::BlockSize;
+    use crate::src::levels::MaskedInterIntraPredMode;
+    use crate::src::levels::Mv;
+
+    const _: () = assert!(BlockSize::Bs128x128 as u8 == 0);
+    // SAFETY: `BlockSize` is `repr(u8)` and `Bs128x128 = 0`, so the zero
+    // byte is a variant.
+    unsafe impl FromZeroes for BlockSize {}
+
+    // SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)` or `repr(transparent)`.
+    super::plain!(Mv: [FromZeroes, FromBytes, AsBytes] = [i16, i16]);
+    // SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)` or `repr(transparent)`.
+    super::plain!(MaskedInterIntraPredMode: [FromZeroes, FromBytes, AsBytes] = [u8]);
+    // SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)` or `repr(transparent)`.
+    super::plain!(Av1BlockInter1d: [FromZeroes, FromBytes, AsBytes] = [[Mv; 2], u8, u8, MaskedInterIntraPredMode, u8]);
+    // SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)` or `repr(transparent)`.
+    super::plain!(Av1BlockInter2d: [FromZeroes, FromBytes, AsBytes] = [Mv, [i16; 4]]);
+}

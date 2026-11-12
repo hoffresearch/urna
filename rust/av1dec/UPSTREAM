@@ -59,7 +59,7 @@ why = "urna #643: std::arch has cpuid"
 [[deviation]]
 files = ["src/plain.rs", "include/common/bitdepth.rs", "include/dav1d/picture.rs", "src/disjoint_mut.rs", "src/internal.rs", "src/ipred.rs", "src/levels.rs", "src/looprestoration.rs", "src/refmvs.rs"]
 replaces = "zerocopy"
-change = "FromZeroes, FromBytes and AsBytes with zerocopy 0.7's method names; each #[derive] becomes plain!(Type: [traits] = [field types]), which checks at compile time that the fields implement the traits and fill the struct, then writes the unsafe impl; a field added upstream must be added to that list"
+change = "FromZeroes, FromBytes and AsBytes with zerocopy 0.7's method names; each #[derive] becomes plain!(Type: [traits] = [field types]), which checks at compile time that the fields implement the traits and fill the struct, then writes the unsafe impl; a field added upstream must be added to that list; the impls for levels.rs types sit in plain.rs, since levels.rs denies unsafe_code"
 why = "urna #643"
 
 [[deviation]]
