@@ -19,7 +19,6 @@ sha2 = { workspace = true }
 hex = "0.4"
 zstd = { workspace = true }
 rayon = { workspace = true }
-half = { workspace = true }
 bytemuck = { workspace = true }
 
 [dev-dependencies]

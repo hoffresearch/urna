@@ -854,7 +854,6 @@ version = "2.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6ea2d84b969582b4b1864a92dc5d27cd2b77b622a8d79306834f1be5ba20d84b"
 dependencies = [
- "bytemuck",
  "cfg-if",
  "crunchy",
  "zerocopy 0.8.56",
@@ -2424,7 +2423,6 @@ name = "urna-engine"
 version = "0.5.6"
 dependencies = [
  "criterion",
- "half",
  "hex",
  "libc",
  "memmap2",
@@ -2441,7 +2439,6 @@ name = "urna-format"
 version = "0.5.6"
 dependencies = [
  "bytemuck",
- "half",
  "hex",
  "proptest",
  "rayon",
@@ -2465,12 +2462,12 @@ dependencies = [
 name = "urna-neural"
 version = "0.5.6"
 dependencies = [
- "half",
  "hex",
  "serde",
  "serde_json",
  "sha2 0.11.0",
  "thiserror 2.0.20",
+ "urna-format",
 ]
 
 [[package]]

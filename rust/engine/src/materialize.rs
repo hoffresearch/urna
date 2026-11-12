@@ -127,7 +127,7 @@ impl PackedVectors {
                 for (j, slot) in scratch.iter_mut().enumerate().take(dim) {
                     let lo = b[off + j * 2];
                     let hi = b[off + j * 2 + 1];
-                    *slot = half::f16::from_le_bytes([lo, hi]).to_f32();
+                    *slot = urna_format::F16::from_le_bytes([lo, hi]).to_f32();
                 }
                 &scratch[..dim]
             }

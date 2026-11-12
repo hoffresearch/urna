@@ -120,12 +120,11 @@ fn rewrite_section_checksum_and_file_hash(bytes: &mut [u8], section_id: u32) {
 }
 
 fn fp16_le(value: f32) -> [u8; 2] {
-    let h = half::f16::from_f32(value);
+    let h = urna_format::F16::from_f32(value);
     h.to_le_bytes()
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_nan_in_fp16_embedding() {
     let mut bytes = build_fp16(2, 4);
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -151,7 +150,6 @@ fn rejects_nan_in_fp16_embedding() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_inf_in_fp16_embedding() {
     let mut bytes = build_fp16(2, 4);
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -175,7 +173,6 @@ fn rejects_inf_in_fp16_embedding() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_negative_inf_in_fp16_embedding() {
     let mut bytes = build_fp16(2, 4);
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -199,7 +196,6 @@ fn rejects_negative_inf_in_fp16_embedding() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn fp16_section_size_matches_n_dim_2() {
     // float16 = 2 bytes/value. Section size should be exactly n*dim*2.
     for &(n, dim) in &[(3usize, 4usize), (5, 8), (10, 16)] {
@@ -221,7 +217,6 @@ fn fp16_section_size_matches_n_dim_2() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn fp16_odd_dims_validate_cleanly() {
     // Dims that don't align to 4/8/16 lane SIMD widths must still pass
     // validation. The runtime's SIMD dot product has a tail loop for
@@ -236,7 +231,6 @@ fn fp16_odd_dims_validate_cleanly() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn fp16_baseline_decodes_with_no_error() {
     let bytes = build_fp16(4, 8);
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -245,7 +239,6 @@ fn fp16_baseline_decodes_with_no_error() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn f16_codec_roundtrip_within_tolerance() {
     // the f32<->f16 byte codec round-trips within f16 precision (relocated
     // out of encoding/mod.rs, which keeps the wire-codec registry).

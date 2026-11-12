@@ -37,7 +37,7 @@ pub mod writer;
 
 pub use chunk::{ChunkInput, chunk_id};
 pub use encoding::{
-    DEFAULT_ZSTD_LEVEL, INT4_BLOCK, Int4EmbeddingsView, Int8EmbeddingsView, TXT_STREAMS_V1,
+    DEFAULT_ZSTD_LEVEL, F16, INT4_BLOCK, Int4EmbeddingsView, Int8EmbeddingsView, TXT_STREAMS_V1,
     TXT_STREAMS_V2, TXT_STREAMS_V3, TxtStreams, decode_payload, decode_payload_with_dict,
     encode_int4_embeddings, encode_int8_embeddings, encode_txt_streams, expected_embeddings_size,
     f16_bytes_to_f32, f32_to_f16_bytes, int4_blocks_per_row, nibble_to_i4, pack_nibbles,

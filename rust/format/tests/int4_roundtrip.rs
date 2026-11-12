@@ -20,7 +20,6 @@ const INT4_PAYLOAD_VERSION: u32 = 1;
 const INT4_SCALE_KIND_PER_GROUP: u32 = 1;
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn nibble_pack_unpack_exact_and_quantize_clamps_symmetric() {
     // pack/unpack is exact across the full 4-bit signed range.
     let all: Vec<i8> = (-8..=7).collect(); // 16 codes -> 8 bytes, even.
@@ -43,7 +42,6 @@ fn nibble_pack_unpack_exact_and_quantize_clamps_symmetric() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn quantize_round_trips_within_group_scale_tolerance() {
     // dim = 128 -> 2 blocks. Each component reconstructs within one
     // half-step of its own block's f16 scale.
@@ -62,7 +60,6 @@ fn quantize_round_trips_within_group_scale_tolerance() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn section_roundtrip_view_matches_quantization() {
     let (n, dim) = (3usize, 128usize); // 2 blocks per row.
     let mut emb: Vec<f32> = Vec::with_capacity(n * dim);
@@ -97,7 +94,6 @@ fn section_roundtrip_view_matches_quantization() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn parse_rejects_malformed_payloads_with_typed_errors() {
     let n = 2;
     let dim = 64;
@@ -142,7 +138,6 @@ fn parse_rejects_malformed_payloads_with_typed_errors() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn int4_decode_payload_borrows_bytes() {
     // int4 (id 7) IS its own canonical bytes (like int8); decode_payload
     // must borrow, not copy, so the runtime scores it straight off mmap.

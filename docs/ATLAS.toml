@@ -766,6 +766,12 @@ purpose = "Format crate"
 links = ["rust/format/src/lib.rs"]
 
 [[inventory.workspace]]
+path = "rust/format/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: urna-format's f16 conversion and SHA-256 against the half and sha2 crates they replaced, kept out of the urna lock and cargo-deny"
+links = ["rust/format/src/encoding/float16.rs", "tool/tasks/fullcheck.sh", ".github/workflows/gatecheck.yml"]
+
+[[inventory.workspace]]
 path = "rust/format/examples"
 kind = "directory"
 purpose = "Format maintenance examples"
@@ -1293,7 +1299,7 @@ links = ["rust/format/src/error.rs"]
 [[inventory.urna_format]]
 path = "rust/format/src/encoding/float16.rs"
 kind = "rust-source"
-purpose = "float16 encode and decode helpers"
+purpose = "F16, the IEEE binary16 conversion on the bits (round to nearest even, exact widening), and the float16 encode and decode helpers"
 links = ["rust/format/src/encoding/mod.rs"]
 
 [[inventory.urna_format]]

@@ -1,0 +1,20 @@
+[package]
+name = "urna-format-parity"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+license = "MIT"
+publish = false
+description = "parity of urna-format's f16 conversion and SHA-256 against the crates they replaced; a workspace of its own so the references never enter urna's build or its gates"
+
+# its own workspace, like rust/neural/parity and rust/images/parity: `half`
+# and `sha2` live only here, out of the urna workspace build, the lock and
+# the cargo-deny gates. run: `cargo test --release` here; no corpus needed.
+[workspace]
+
+[dependencies]
+urna-format = { path = ".." }
+half = "2"
+
+[lib]
+path = "lib.rs"

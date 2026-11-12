@@ -11,10 +11,11 @@ description = "urna's inference runtime: the models we ship, built on a backend 
 workspace = true
 
 [dependencies]
-half = { workspace = true }
 hex = "0.4"
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
+# the f16 conversion of the safetensors loader.
+urna-format = { workspace = true }
 
