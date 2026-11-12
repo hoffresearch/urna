@@ -14,6 +14,9 @@ use crate::src::cursor::CursorMut;
 use crate::src::disjoint_mut::DisjointMut;
 use crate::src::ffi_safe::FFISafe;
 use crate::src::flags::bitflags;
+use crate::src::plain::plain;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
 use crate::src::strided::Strided as _;
 use crate::src::tables::dav1d_sgr_x_by_x;
 use crate::src::to::To;
@@ -26,9 +29,6 @@ use std::iter;
 use std::mem;
 use std::ops::Add;
 use std::slice;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
-use zerocopy::FromZeroes;
 
 #[cfg(all(
     feature = "asm",
@@ -60,7 +60,6 @@ impl LrEdgeFlags {
     }
 }
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct LooprestorationParamsSgr {
     pub s0: u32,
@@ -69,11 +68,14 @@ pub struct LooprestorationParamsSgr {
     pub w1: i16,
 }
 
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(LooprestorationParamsSgr: [FromZeroes, FromBytes, AsBytes] = [u32, u32, i16, i16]);
+
 /// This [`zerocopy`]-based "`union`" has the same layout
 /// as an actual `union` would, so it's safe to continue passing to asm,
 /// but it's otherwise safe to use from Rust.
 ///
-/// [`zerocopy`]: ::zerocopy
+/// [`zerocopy`]: crate::src::plain
 #[derive(Default)]
 #[repr(C)]
 #[repr(align(16))]

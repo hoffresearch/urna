@@ -21,6 +21,8 @@ use crate::src::internal::Bxy;
 use crate::src::intra_edge::EdgeFlags;
 use crate::src::levels::BlockSize;
 use crate::src::levels::Mv;
+use crate::src::plain::plain;
+use crate::src::plain::FromZeroes;
 use crate::src::wrap_fn_ptr::wrap_fn_ptr;
 use std::cmp;
 use std::marker::PhantomData;
@@ -28,7 +30,6 @@ use std::mem;
 use std::mem::MaybeUninit;
 use std::ptr;
 use std::slice;
-use zerocopy::FromZeroes;
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 #[repr(C, packed)]
@@ -38,13 +39,16 @@ pub struct RefMvsTemporalBlock {
 }
 const _: () = assert!(mem::size_of::<RefMvsTemporalBlock>() == 5);
 
-#[derive(Clone, Copy, PartialEq, Eq, FromZeroes)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 // In C, this is packed and is 2 bytes.
 // In Rust, being packed and aligned is tricky
 #[repr(C, align(2))]
 pub struct RefMvsRefPair {
     pub r#ref: [i8; 2],
 }
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(RefMvsRefPair: [FromZeroes] = [[i8; 2]]);
 const _: () = assert!(mem::size_of::<RefMvsRefPair>() == 2);
 
 impl From<[i8; 2]> for RefMvsRefPair {
@@ -53,14 +57,17 @@ impl From<[i8; 2]> for RefMvsRefPair {
     }
 }
 
-#[derive(Clone, Copy, Default, PartialEq, Eq, FromZeroes)]
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct RefMvsMvPair {
     pub mv: [Mv; 2],
 }
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(RefMvsMvPair: [FromZeroes] = [[Mv; 2]]);
 const _: () = assert!(mem::size_of::<RefMvsMvPair>() == 8);
 
-#[derive(Clone, Copy, FromZeroes)]
+#[derive(Clone, Copy)]
 // In C, this is packed and is 12 bytes.
 // In Rust, being packed and aligned is tricky
 #[repr(C, align(4))]
@@ -70,6 +77,9 @@ pub struct RefMvsBlock {
     pub bs: BlockSize,
     pub mf: u8,
 }
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(RefMvsBlock: [FromZeroes] = [RefMvsMvPair, RefMvsRefPair, BlockSize, u8]);
 const _: () = assert!(mem::size_of::<RefMvsBlock>() == 12);
 
 #[repr(C)]

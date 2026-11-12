@@ -27,6 +27,8 @@ use crate::src::error::Rav1dError;
 use crate::src::error::Rav1dError::EINVAL;
 use crate::src::error::Rav1dResult;
 use crate::src::pixels::Pixels;
+use crate::src::plain::plain;
+use crate::src::plain::AsBytes;
 use crate::src::send_sync_non_null::SendSyncNonNull;
 use crate::src::strided::Strided;
 use crate::src::to::To as _;
@@ -39,9 +41,6 @@ use std::ffi::c_void;
 use std::mem;
 use std::ptr::NonNull;
 use std::sync::Arc;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
-use zerocopy::FromZeroes;
 
 pub(crate) const RAV1D_PICTURE_ALIGNMENT: usize = 64;
 pub const DAV1D_PICTURE_ALIGNMENT: usize = RAV1D_PICTURE_ALIGNMENT;
@@ -113,9 +112,12 @@ pub struct Dav1dPicture {
     pub allocator_data: Option<SendSyncNonNull<c_void>>,
 }
 
-#[derive(Clone, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone)]
 #[repr(C, align(64))]
 pub struct AlignedPixelChunk([u8; RAV1D_PICTURE_ALIGNMENT]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(AlignedPixelChunk: [FromZeroes, FromBytes, AsBytes] = [[u8; RAV1D_PICTURE_ALIGNMENT]]);
 
 const _: () = assert!(mem::align_of::<AlignedPixelChunk>() == RAV1D_PICTURE_ALIGNMENT);
 const _: () = assert!(mem::size_of::<AlignedPixelChunk>() == RAV1D_PICTURE_ALIGNMENT);
