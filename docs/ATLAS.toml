@@ -671,7 +671,7 @@ links = ["tool/bench/vectorcmp.py"]
 [[inventory.root]]
 path = "pyproject.toml"
 kind = "python-config"
-purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, import-linter contracts (urna never imports tool/bench), towncrier (docs/news/ into docs/CHANGELOG at release) and the dev dependency groups"
+purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, the import contracts tool/tasks/layerscan.py checks (urna never imports tool/bench), towncrier (docs/news/ into docs/CHANGELOG at release) and the dev dependency groups"
 links = [
     "rust/bridge/python",
     "tool/tests",
@@ -2524,6 +2524,12 @@ purpose = "The release preflight against the checkout and against temp copies wi
 links = ["tool/tasks/preflight.py"]
 
 [[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_layerscan.py"
+kind = "python-test"
+purpose = "layerscan.py on the checkout and on a throwaway package: direct, from-, nested and submodule imports of a forbidden module are named with file and line, an unknown contract type fails, a look-alike name and relative imports pass; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/layerscan.py", "pyproject.toml"]
+
+[[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_namecheck.py"
 kind = "python-test"
 purpose = "namecheck.py against the checkout and against throwaway git repos with one drift per case (a root folder, a module, a test and a workflow of the wrong length, a lowercase project doc, an abbreviation listed twice, a lexicon entry citing a missing name or one without the abbreviation); what a length counts, where an exception holds (a channel's name only inside pkgs/), untracked files out of scope; in fullcheck.sh and gatecheck.yml"
@@ -3351,6 +3357,12 @@ path = "tool/tasks/preflight.py"
 kind = "python-source"
 purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's), the changelog section, and nothing under [Unreleased] with every docs/news/ fragment named <issue>.<type>.md for a towncrier type; the package texts: the crate and wheel descriptions open with the same sentence and the [workspace.metadata.pkgs] summary fits in 80 characters; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
 links = [".github/workflows/tagverify.yml", ".github/workflows/gatecheck.yml", "tool/tests/test_preflight.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "tool/tasks/layerscan.py"
+kind = "python-source"
+purpose = "The import contracts of pyproject.toml's [tool.layerscan] over the ast of every urna module, in place of import-linter: a forbidden contract fails on any import of a forbidden module or its submodules, at any depth, relative imports resolved inside the package; an unknown contract type is an error; in fullcheck.sh and gatecheck.yml"
+links = ["pyproject.toml", "tool/tests/test_layerscan.py", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
 
 [[inventory.distribution]]
 path = "tool/tasks/namecheck.py"

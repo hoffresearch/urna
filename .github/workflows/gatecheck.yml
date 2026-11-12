@@ -398,6 +398,12 @@ jobs:
         run: |
           python tool/tasks/namecheck.py
           python tool/tests/test_namecheck.py
+      - name: urna keeps its import contracts
+        # pyproject.toml's [tool.layerscan], checked over the ast of every
+        # urna module (urna imports no module of tool/bench).
+        run: |
+          python tool/tasks/layerscan.py
+          python tool/tests/test_layerscan.py
       - name: the atlas summary is the current state, not history
         run: python tool/tests/test_atlasdocs.py
       - name: rust/ingest keeps the root's lints and rust-version

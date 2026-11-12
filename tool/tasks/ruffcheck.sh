@@ -73,6 +73,8 @@ tool/tests/test_embedpack.py
 tool/tests/test_benchmark.py
 tool/tests/test_catalogue.py
 tool/tests/test_modelpull.py
+tool/tasks/layerscan.py
+tool/tests/test_layerscan.py
 tool/tasks/embedpack.py
 tool/tasks/preflight.py
 tool/tests/test_preflight.py
