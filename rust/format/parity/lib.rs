@@ -110,7 +110,8 @@ pub fn text(rng: &mut Rng, n: usize) -> Vec<u8> {
 pub fn records(rng: &mut Rng, count: usize) -> Vec<String> {
     (0..count)
         .map(|i| {
-            let body = String::from_utf8_lossy(&text(rng, 20 + rng.below(200))).into_owned();
+            let n = 20 + rng.below(200);
+            let body = String::from_utf8_lossy(&text(rng, n)).into_owned();
             format!(
                 "registro {i} | status: {} | seção {} | autor: equipe urna\n{body}",
                 ["ativo", "arquivado", "rascunho"][rng.below(3)],

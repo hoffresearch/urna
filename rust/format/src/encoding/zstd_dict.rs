@@ -213,7 +213,8 @@ fn stream_slice<'a>(streams: &'a [u8], offsets: &[u64], i: usize) -> crate::Resu
 }
 
 // the tests encode, which needs libzstd (the `write` feature).
-#[cfg(all(test, feature = "write"))]
+#[cfg(test)]
+#[cfg(feature = "write")]
 mod tests {
     use super::*;
 

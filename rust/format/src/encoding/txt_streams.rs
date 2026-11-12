@@ -256,7 +256,8 @@ pub fn decode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
 }
 
 // the tests encode, which needs libzstd (the `write` feature).
-#[cfg(all(test, feature = "write"))]
+#[cfg(test)]
+#[cfg(feature = "write")]
 mod tests {
     use super::*;
     use crate::sections::encode_chunks_canonical;

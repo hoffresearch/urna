@@ -211,5 +211,6 @@ pub fn expected_embeddings_size(dtype: &str, n: usize, dim: usize) -> Option<usi
 }
 
 // the tests encode with libzstd (the `write` feature).
-#[cfg(all(test, feature = "write"))]
+#[cfg(test)]
+#[cfg(feature = "write")]
 mod tests;

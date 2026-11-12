@@ -16,9 +16,12 @@ description = "parity of urna-format's own zstd decoder against libzstd; a works
 [dependencies]
 # default features: `write`, the corpora are built here with the encoder.
 urna-format = { path = ".." }
-urna-engine = { path = "../../engine" }
 # the reference: compresses every input and decodes it beside ours.
 zstd = { version = "0.14", default-features = false, features = ["zdict_builder"] }
+
+[dev-dependencies]
+# the dictionary corpus is opened and searched the way a reader does.
+urna-engine = { path = "../../engine" }
 
 [lib]
 path = "lib.rs"
