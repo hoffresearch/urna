@@ -2242,7 +2242,6 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "tar",
- "tempfile",
  "urna-engine",
  "urna-format",
  "urna-images",
@@ -2311,7 +2310,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.0",
- "tempfile",
  "zstd",
 ]
 

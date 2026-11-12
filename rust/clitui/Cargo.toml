@@ -109,7 +109,6 @@ tui = [
 ]
 
 [dev-dependencies]
-tempfile = "3"
 # tests/setup_e2e.rs packs a real payload tarball for `urna setup` to fetch
 # from a file:// release.
 flate2 = "1.1"
