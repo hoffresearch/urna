@@ -1681,7 +1681,7 @@ links = ["rust/format/src/encoding/int8.rs"]
 [[inventory.urna_format]]
 path = "rust/format/tests/codec_roundtrip_prop.rs"
 kind = "rust-test"
-purpose = "proptest properties for every section codec: decode(encode(x)) is the raw payload byte for byte (intpack, txt_streams, fsst, zstd_dict, dedup), float16/int8/int4 reconstruct within their quantization step and size exactly, every encoder is byte-stable across two calls"
+purpose = "Properties for every section codec over inputs from a seeded splitmix64 (256 cases each, URNA_PROP_CASES and URNA_PROP_SEED): decode(encode(x)) is the raw payload byte for byte (intpack, txt_streams, fsst, zstd_dict, dedup), float16/int8/int4 reconstruct within their quantization step and size exactly, every encoder is byte-stable across two calls"
 links = ["rust/format/src/encoding/mod.rs"]
 
 [[inventory.urna_format]]

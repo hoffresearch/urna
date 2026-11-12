@@ -43,7 +43,7 @@ unused-allowed-license = "allow"
 multiple-versions = "warn"
 wildcards = "allow"
 # syn 2 and syn 3 coexist by upstream choice, not by a stale lock: pyo3-macros
-# 0.29 and zerocopy-derive 0.8 (through criterion's half; workspace only)
+# 0.29 and zerocopy-derive 0.8 (through av1dec's zerocopy; workspace only)
 # are still on syn 2 while serde_derive, clap_derive, bytemuck_derive and
 # thiserror-impl moved to syn 3. build-time proc-macro input only, nothing of
 # it reaches a binary. drop the entry when pyo3 and zerocopy-derive move.
