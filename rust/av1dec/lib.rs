@@ -51,6 +51,7 @@ pub mod src {
     mod ffi_safe;
     mod fg_apply;
     mod filmgrain;
+    pub(crate) mod flags;
     mod getbits;
     pub(crate) mod locks;
     pub(crate) mod pic_or_buf;

@@ -2344,7 +2344,6 @@ name = "urna-av1dec"
 version = "0.5.6"
 dependencies = [
  "assert_matches",
- "bitflags 2.13.1",
  "cfg-if",
  "libc",
  "raw-cpuid",

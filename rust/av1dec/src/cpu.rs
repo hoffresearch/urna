@@ -1,5 +1,5 @@
 use crate::src::const_fn::const_for;
-use bitflags::bitflags;
+use crate::src::flags::bitflags;
 use std::ffi::c_uint;
 use std::num::NonZero;
 use std::sync::atomic::AtomicU32;

@@ -3,10 +3,10 @@ use crate::include::dav1d::picture::Rav1dPicAllocator;
 use crate::src::c_arc::RawArc;
 use crate::src::enums::from_repr;
 use crate::src::error::Rav1dError;
+use crate::src::flags::bitflags;
 use crate::src::internal::Rav1dContext;
 pub use crate::src::log::Dav1dLogger;
 use crate::src::log::Rav1dLogger;
-use bitflags::bitflags;
 use std::ffi::c_int;
 use std::ffi::c_uint;
 
