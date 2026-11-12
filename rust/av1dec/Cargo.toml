@@ -30,7 +30,6 @@ bitflags = "2.4.0"
 cfg-if = "1.0.0"
 libc = "0.2"
 raw-cpuid = "11.0.1"
-strum = { version = "0.26", features = ["derive"] }
 zerocopy = { version = "0.7.32", features = ["derive"] }
 
 # embedded upstream code (see UPSTREAM): the workspace's deny lints that

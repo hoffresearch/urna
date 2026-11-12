@@ -1,5 +1,8 @@
 use crate::src::align::ArrayDefault;
 use crate::src::enum_map::EnumKey;
+use crate::src::enums::enum_count;
+use crate::src::enums::from_repr;
+use crate::src::enums::EnumCount;
 use crate::src::levels::SegmentId;
 use crate::src::locks::Mutex;
 use crate::src::relaxed_atomic::RelaxedAtomic;
@@ -13,8 +16,6 @@ use std::ops::BitAnd;
 use std::ops::Deref;
 use std::ops::Sub;
 use std::sync::Arc;
-use strum::EnumCount;
-use strum::FromRepr;
 
 /// This is so we can store both `*mut D` and `*mut R`
 /// for maintaining `dav1d` ABI compatibility,
@@ -89,7 +90,7 @@ pub const DAV1D_OBU_FRAME_HDR: Dav1dObuType = Rav1dObuType::FrameHdr as Dav1dObu
 pub const DAV1D_OBU_TD: Dav1dObuType = Rav1dObuType::Td as Dav1dObuType;
 pub const DAV1D_OBU_SEQ_HDR: Dav1dObuType = Rav1dObuType::SeqHdr as Dav1dObuType;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Rav1dObuType {
     SeqHdr = 1,
     Td = 2,
@@ -101,19 +102,24 @@ pub enum Rav1dObuType {
     Padding = 15,
 }
 
+from_repr!(Rav1dObuType: usize [SeqHdr, Td, FrameHdr, TileGrp, Metadata, Frame, RedundantFrameHdr, Padding]);
+
 pub type Dav1dTxfmMode = c_uint;
 pub const DAV1D_N_TX_MODES: usize = Rav1dTxfmMode::COUNT;
 pub const DAV1D_TX_4X4_ONLY: Dav1dTxfmMode = Rav1dTxfmMode::Only4x4 as Dav1dTxfmMode;
 pub const DAV1D_TX_LARGEST: Dav1dTxfmMode = Rav1dTxfmMode::Largest as Dav1dTxfmMode;
 pub const DAV1D_TX_SWITCHABLE: Dav1dTxfmMode = Rav1dTxfmMode::Switchable as Dav1dTxfmMode;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum Rav1dTxfmMode {
     #[default] // Not really a real default.
     Only4x4 = 0,
     Largest = 1,
     Switchable = 2,
 }
+
+from_repr!(Rav1dTxfmMode: usize [Only4x4, Largest, Switchable]);
+enum_count!(Rav1dTxfmMode [Only4x4, Largest, Switchable]);
 
 impl From<Rav1dTxfmMode> for Dav1dTxfmMode {
     fn from(value: Rav1dTxfmMode) -> Self {
@@ -140,7 +146,7 @@ pub const DAV1D_FILTER_8TAP_SMOOTH: Dav1dFilterMode =
 pub const DAV1D_FILTER_8TAP_REGULAR: Dav1dFilterMode =
     Rav1dFilterMode::Regular8Tap as Dav1dFilterMode;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr, Default, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Default, Debug)]
 pub enum Rav1dFilterMode {
     #[default] // Not really a real default.
     Regular8Tap = 0,
@@ -149,6 +155,8 @@ pub enum Rav1dFilterMode {
     Bilinear = 3,
     Switchable = 4,
 }
+
+from_repr!(Rav1dFilterMode: usize [Regular8Tap, Smooth8Tap, Sharp8Tap, Bilinear, Switchable]);
 
 impl ArrayDefault for Rav1dFilterMode {
     fn default() -> Self {
@@ -181,12 +189,14 @@ pub const DAV1D_ON: Dav1dAdaptiveBoolean = Rav1dAdaptiveBoolean::On as Dav1dAdap
 pub const DAV1D_ADAPTIVE: Dav1dAdaptiveBoolean =
     Rav1dAdaptiveBoolean::Adaptive as Dav1dAdaptiveBoolean;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Rav1dAdaptiveBoolean {
     Off = 0,
     On = 1,
     Adaptive = 2,
 }
+
+from_repr!(Rav1dAdaptiveBoolean: usize [Off, On, Adaptive]);
 
 impl From<bool> for Rav1dAdaptiveBoolean {
     fn from(value: bool) -> Self {
@@ -219,7 +229,7 @@ pub const DAV1D_RESTORATION_WIENER: Dav1dRestorationType = Rav1dRestorationType:
 pub const DAV1D_RESTORATION_SGRPROJ: Dav1dRestorationType =
     Rav1dRestorationType::SgrProj(SgrIdx::I0).to_repr();
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum SgrIdx {
     I0 = 0,
     I1 = 1,
@@ -238,6 +248,8 @@ pub enum SgrIdx {
     I14 = 14,
     I15 = 15,
 }
+
+from_repr!(SgrIdx: usize [I0, I1, I2, I3, I4, I5, I6, I7, I8, I9, I10, I11, I12, I13, I14, I15]);
 
 impl Display for SgrIdx {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
@@ -291,13 +303,15 @@ pub const DAV1D_WM_TYPE_ROT_ZOOM: Dav1dWarpedMotionType =
 pub const DAV1D_WM_TYPE_AFFINE: Dav1dWarpedMotionType =
     Rav1dWarpedMotionType::Affine as Dav1dWarpedMotionType;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Rav1dWarpedMotionType {
     Identity = 0,
     Translation = 1,
     RotZoom = 2,
     Affine = 3,
 }
+
+from_repr!(Rav1dWarpedMotionType: usize [Identity, Translation, RotZoom, Affine]);
 
 #[derive(Clone)]
 #[repr(C)]
@@ -383,7 +397,7 @@ impl From<Rav1dWarpedMotionParams> for Dav1dWarpedMotionParams {
 }
 
 // TODO(kkysen) Eventually the [`impl Default`] might not be needed.
-#[derive(Clone, Copy, PartialEq, Eq, EnumCount, FromRepr, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum Rav1dPixelLayout {
     #[default]
     I400 = 0,
@@ -391,6 +405,9 @@ pub enum Rav1dPixelLayout {
     I422 = 2,
     I444 = 3,
 }
+
+from_repr!(Rav1dPixelLayout: usize [I400, I420, I422, I444]);
+enum_count!(Rav1dPixelLayout [I400, I420, I422, I444]);
 
 impl Rav1dPixelLayout {
     pub const fn into_rav1d(self) -> Dav1dPixelLayout {
@@ -442,12 +459,14 @@ impl BitAnd for Rav1dPixelLayout {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, EnumCount)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Rav1dPixelLayoutSubSampled {
     I420,
     I422,
     I444,
 }
+
+enum_count!(Rav1dPixelLayoutSubSampled [I420, I422, I444]);
 
 impl EnumKey<{ Self::COUNT }> for Rav1dPixelLayoutSubSampled {
     const VALUES: [Self; Self::COUNT] = [Self::I420, Self::I422, Self::I444];
@@ -482,7 +501,7 @@ impl From<Rav1dPixelLayoutSubSampled> for Rav1dPixelLayout {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum Rav1dFrameType {
     #[default] // Not really a real default.
     Key = 0,
@@ -490,6 +509,8 @@ pub enum Rav1dFrameType {
     Intra = 2,
     Switch = 3,
 }
+
+from_repr!(Rav1dFrameType: usize [Key, Inter, Intra, Switch]);
 
 impl Rav1dFrameType {
     pub const fn into_rav1d(self) -> Dav1dFrameType {
@@ -731,7 +752,7 @@ pub const DAV1D_CHR_VERTICAL: Dav1dChromaSamplePosition =
 pub const DAV1D_CHR_COLOCATED: Dav1dChromaSamplePosition =
     Rav1dChromaSamplePosition::Colocated as Dav1dChromaSamplePosition;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Rav1dChromaSamplePosition {
     Unknown = 0,
     /// Horizontally co-located with (0, 0) luma sample, vertical position
@@ -741,6 +762,8 @@ pub enum Rav1dChromaSamplePosition {
     Colocated = 2,
     _Reserved = 3,
 }
+
+from_repr!(Rav1dChromaSamplePosition: usize [Unknown, Vertical, Colocated, _Reserved]);
 
 impl From<Rav1dChromaSamplePosition> for Dav1dChromaSamplePosition {
     fn from(value: Rav1dChromaSamplePosition) -> Self {
@@ -1009,12 +1032,14 @@ pub struct Dav1dSequenceHeader {
         [Dav1dSequenceHeaderOperatingParameterInfo; DAV1D_MAX_OPERATING_POINTS],
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Rav1dProfile {
     Main = 0,
     High = 1,
     Professional = 2,
 }
+
+from_repr!(Rav1dProfile: usize [Main, High, Professional]);
 
 impl From<Rav1dProfile> for u8 {
     fn from(value: Rav1dProfile) -> Self {

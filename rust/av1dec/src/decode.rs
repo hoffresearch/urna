@@ -33,6 +33,7 @@ use crate::src::disjoint_mut::DisjointMutSlice;
 use crate::src::enum_map::enum_map;
 use crate::src::enum_map::enum_map_ty;
 use crate::src::enum_map::DefaultValue;
+use crate::src::enums::EnumCount;
 use crate::src::env::av1_get_bwd_ref_1_ctx;
 use crate::src::env::av1_get_bwd_ref_ctx;
 use crate::src::env::av1_get_fwd_ref_1_ctx;
@@ -175,7 +176,6 @@ use std::iter;
 use std::mem;
 use std::sync::atomic::AtomicI32;
 use std::sync::atomic::Ordering;
-use strum::EnumCount;
 
 fn init_quant_tables(
     seq_hdr: &Rav1dSequenceHeader,

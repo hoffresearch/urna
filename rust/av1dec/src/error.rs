@@ -1,8 +1,8 @@
+use crate::src::enums::from_repr;
 use std::ffi::c_int;
 use std::ffi::c_uint;
-use strum::FromRepr;
 
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[repr(u8)]
 #[non_exhaustive]
 pub enum Rav1dError {
@@ -25,6 +25,8 @@ pub enum Rav1dError {
     ERANGE = libc::ERANGE as u8,
     ENOPROTOOPT = libc::ENOPROTOOPT as u8,
 }
+
+from_repr!(Rav1dError: u8 [EGeneric, ENOENT, EIO, EAGAIN, ENOMEM, EINVAL, ERANGE, ENOPROTOOPT]);
 
 pub type Rav1dResult<T = ()> = Result<T, Rav1dError>;
 

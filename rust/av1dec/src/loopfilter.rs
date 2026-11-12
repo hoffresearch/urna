@@ -8,6 +8,7 @@ use crate::include::dav1d::picture::Rav1dPictureDataComponentOffset;
 use crate::src::align::Align16;
 use crate::src::cpu::CpuFlags;
 use crate::src::disjoint_mut::DisjointMut;
+use crate::src::enums::from_repr;
 use crate::src::ffi_safe::FFISafe;
 use crate::src::internal::Rav1dFrameData;
 use crate::src::lf_mask::Av1FilterLUT;
@@ -17,7 +18,6 @@ use crate::src::wrap_fn_ptr::wrap_fn_ptr;
 use libc::ptrdiff_t;
 use std::cmp;
 use std::ffi::c_int;
-use strum::FromRepr;
 
 #[cfg(all(
     feature = "asm",
@@ -275,17 +275,19 @@ fn loop_filter<BD: BitDepth>(
     }
 }
 
-#[derive(FromRepr)]
 enum HV {
     H,
     V,
 }
 
-#[derive(FromRepr)]
+from_repr!(HV: usize [H, V]);
+
 enum YUV {
     Y,
     UV,
 }
+
+from_repr!(YUV: usize [Y, UV]);
 
 fn loop_filter_sb128_rust<BD: BitDepth, const HV: usize, const YUV: usize>(
     mut dst: Rav1dPictureDataComponentOffset,

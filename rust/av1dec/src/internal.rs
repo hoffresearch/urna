@@ -30,6 +30,7 @@ use crate::src::disjoint_mut::DisjointImmutGuard;
 use crate::src::disjoint_mut::DisjointMut;
 use crate::src::disjoint_mut::DisjointMutArcSlice;
 use crate::src::disjoint_mut::DisjointMutGuard;
+use crate::src::enums::from_repr;
 use crate::src::env::BlockContext;
 use crate::src::error::Rav1dError;
 use crate::src::filmgrain::Rav1dFilmGrainDSPContext;
@@ -105,7 +106,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::thread::JoinHandle;
-use strum::FromRepr;
 use zerocopy::AsBytes;
 use zerocopy::FromBytes;
 use zerocopy::FromZeroes;
@@ -933,13 +933,15 @@ pub struct Rav1dTileState {
     pub lr_ref: RwLock<[Av1RestorationUnit; 3]>,
 }
 
-#[derive(Clone, Copy, Default, FromRepr)]
+#[derive(Clone, Copy, Default)]
 #[repr(u8)]
 pub enum TileStateRef {
     #[default]
     Frame,
     Local,
 }
+
+from_repr!(TileStateRef: u8 [Frame, Local]);
 
 impl Atom for TileStateRef {
     type Repr = u8;

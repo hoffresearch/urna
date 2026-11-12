@@ -45,6 +45,7 @@ pub mod src {
     mod dequant_tables;
     pub(crate) mod disjoint_mut;
     pub(crate) mod enum_map;
+    pub(crate) mod enums;
     mod env;
     pub(crate) mod error;
     mod ffi_safe;
