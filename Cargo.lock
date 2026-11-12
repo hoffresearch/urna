@@ -2381,7 +2381,6 @@ version = "0.5.6"
 dependencies = [
  "atomig",
  "bitflags 2.13.1",
- "cfg-if",
  "libc",
  "parking_lot",
  "raw-cpuid",
