@@ -1,91 +1,181 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
+#[derive(Debug)]
 pub enum UrnaError {
-    #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
-    #[error("magic mismatch: expected {expected:?}, got {got:?}")]
-    MagicMismatch { expected: [u8; 4], got: [u8; 4] },
-    #[error("unsupported version: {0}.{1}")]
+    Io(std::io::Error),
+    MagicMismatch {
+        expected: [u8; 4],
+        got: [u8; 4],
+    },
     UnsupportedVersion(u16, u16),
-    #[error("unsupported format_version: {0}")]
     UnsupportedFormatVersion(u32),
-    #[error("unsupported schema_version: {0}")]
     UnsupportedSchemaVersion(u32),
-    #[error("invalid header checksum")]
     InvalidHeaderChecksum,
-    #[error("section {section_id} offset out of bounds: {offset}")]
-    SectionOffsetOutOfBounds { section_id: u32, offset: u64 },
-    #[error("section {0} checksum mismatch")]
+    SectionOffsetOutOfBounds {
+        section_id: u32,
+        offset: u64,
+    },
     SectionChecksumMismatch(u32),
-    #[error("section {0} not found")]
     SectionNotFound(u32),
-    #[error("unsupported section payload version: section={section_id} version={version}")]
-    UnsupportedSectionVersion { section_id: u32, version: u32 },
-    #[error("unsupported section encoding: section={section_id} encoding={encoding}")]
-    UnsupportedSectionEncoding { section_id: u32, encoding: u32 },
-    #[error("section {section_id} offset not aligned: offset={offset} alignment={alignment}")]
+    UnsupportedSectionVersion {
+        section_id: u32,
+        version: u32,
+    },
+    UnsupportedSectionEncoding {
+        section_id: u32,
+        encoding: u32,
+    },
     SectionMisaligned {
         section_id: u32,
         offset: u64,
         alignment: u64,
     },
-    #[error("malformed section payload: section={section_id} reason={reason}")]
-    MalformedSectionPayload { section_id: u32, reason: String },
-    #[error("footer hash mismatch")]
+    MalformedSectionPayload {
+        section_id: u32,
+        reason: String,
+    },
     FooterHashMismatch,
-    #[error("file size mismatch: expected {expected}, got {got}")]
-    FileSizeMismatch { expected: u64, got: u64 },
-    #[error("file truncated")]
+    FileSizeMismatch {
+        expected: u64,
+        got: u64,
+    },
     FileTruncated,
-    #[error("manifest invalid: {0}")]
     ManifestInvalid(String),
-    #[error("missing required section: {0}")]
     MissingRequiredSection(&'static str),
-    #[error("embedding size mismatch: expected {expected}, got {got}")]
-    EmbeddingSizeMismatch { expected: usize, got: usize },
-    #[error("section count mismatch: section={section_id} expected={expected} got={got}")]
+    EmbeddingSizeMismatch {
+        expected: usize,
+        got: usize,
+    },
     SectionCountMismatch {
         section_id: u32,
         expected: usize,
         got: usize,
     },
-    #[error("unsupported dtype: {0}")]
     UnsupportedDType(String),
-    #[error("unsupported metric: {0}")]
     UnsupportedMetric(String),
-    #[error("unsupported score_type: {0}")]
     UnsupportedScoreType(String),
-    #[error("unsupported normalize: {0}")]
     UnsupportedNormalize(String),
-    #[error("unsupported index_type: {0}")]
     UnsupportedIndexType(String),
-    #[error("unsupported rerank_policy: {0}")]
     UnsupportedRerankPolicy(String),
-    #[error("invalid model_hash: {0}")]
     InvalidModelHash(String),
-    #[error("NaN or Inf detected in embeddings")]
     InvalidEmbeddingValue,
-    #[error("JSON error: {0}")]
-    Json(#[from] serde_json::Error),
-    #[error("query validation failed: {0}")]
+    Json(serde_json::Error),
     QueryValidation(String),
-    #[error("dimension mismatch: expected {expected}, got {got}")]
-    DimensionMismatch { expected: usize, got: usize },
-    #[error("invalid k parameter: {0}")]
+    DimensionMismatch {
+        expected: usize,
+        got: usize,
+    },
     InvalidK(i32),
-    #[error("empty query")]
     EmptyQuery,
-    #[error("zero-norm query")]
     ZeroNormQuery,
-    #[error("file not found: {0}")]
     FileNotFound(String),
-    #[error("unexpected end of file")]
     UnexpectedEof,
-    #[error("unsupported feature: {0}")]
     UnsupportedFeature(String),
-    #[error("invalid input: {0}")]
     InvalidInput(String),
+}
+
+impl std::fmt::Display for UrnaError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Io(v0) => write!(f, "I/O error: {v0}"),
+            Self::MagicMismatch { expected, got } => {
+                write!(f, "magic mismatch: expected {expected:?}, got {got:?}")
+            }
+            Self::UnsupportedVersion(v0, v1) => write!(f, "unsupported version: {v0}.{v1}"),
+            Self::UnsupportedFormatVersion(v0) => write!(f, "unsupported format_version: {v0}"),
+            Self::UnsupportedSchemaVersion(v0) => write!(f, "unsupported schema_version: {v0}"),
+            Self::InvalidHeaderChecksum => f.write_str("invalid header checksum"),
+            Self::SectionOffsetOutOfBounds { section_id, offset } => {
+                write!(f, "section {section_id} offset out of bounds: {offset}")
+            }
+            Self::SectionChecksumMismatch(v0) => write!(f, "section {v0} checksum mismatch"),
+            Self::SectionNotFound(v0) => write!(f, "section {v0} not found"),
+            Self::UnsupportedSectionVersion {
+                section_id,
+                version,
+            } => write!(
+                f,
+                "unsupported section payload version: section={section_id} version={version}"
+            ),
+            Self::UnsupportedSectionEncoding {
+                section_id,
+                encoding,
+            } => write!(
+                f,
+                "unsupported section encoding: section={section_id} encoding={encoding}"
+            ),
+            Self::SectionMisaligned {
+                section_id,
+                offset,
+                alignment,
+            } => write!(
+                f,
+                "section {section_id} offset not aligned: offset={offset} alignment={alignment}"
+            ),
+            Self::MalformedSectionPayload { section_id, reason } => write!(
+                f,
+                "malformed section payload: section={section_id} reason={reason}"
+            ),
+            Self::FooterHashMismatch => f.write_str("footer hash mismatch"),
+            Self::FileSizeMismatch { expected, got } => {
+                write!(f, "file size mismatch: expected {expected}, got {got}")
+            }
+            Self::FileTruncated => f.write_str("file truncated"),
+            Self::ManifestInvalid(v0) => write!(f, "manifest invalid: {v0}"),
+            Self::MissingRequiredSection(v0) => write!(f, "missing required section: {v0}"),
+            Self::EmbeddingSizeMismatch { expected, got } => {
+                write!(f, "embedding size mismatch: expected {expected}, got {got}")
+            }
+            Self::SectionCountMismatch {
+                section_id,
+                expected,
+                got,
+            } => write!(
+                f,
+                "section count mismatch: section={section_id} expected={expected} got={got}"
+            ),
+            Self::UnsupportedDType(v0) => write!(f, "unsupported dtype: {v0}"),
+            Self::UnsupportedMetric(v0) => write!(f, "unsupported metric: {v0}"),
+            Self::UnsupportedScoreType(v0) => write!(f, "unsupported score_type: {v0}"),
+            Self::UnsupportedNormalize(v0) => write!(f, "unsupported normalize: {v0}"),
+            Self::UnsupportedIndexType(v0) => write!(f, "unsupported index_type: {v0}"),
+            Self::UnsupportedRerankPolicy(v0) => write!(f, "unsupported rerank_policy: {v0}"),
+            Self::InvalidModelHash(v0) => write!(f, "invalid model_hash: {v0}"),
+            Self::InvalidEmbeddingValue => f.write_str("NaN or Inf detected in embeddings"),
+            Self::Json(v0) => write!(f, "JSON error: {v0}"),
+            Self::QueryValidation(v0) => write!(f, "query validation failed: {v0}"),
+            Self::DimensionMismatch { expected, got } => {
+                write!(f, "dimension mismatch: expected {expected}, got {got}")
+            }
+            Self::InvalidK(v0) => write!(f, "invalid k parameter: {v0}"),
+            Self::EmptyQuery => f.write_str("empty query"),
+            Self::ZeroNormQuery => f.write_str("zero-norm query"),
+            Self::FileNotFound(v0) => write!(f, "file not found: {v0}"),
+            Self::UnexpectedEof => f.write_str("unexpected end of file"),
+            Self::UnsupportedFeature(v0) => write!(f, "unsupported feature: {v0}"),
+            Self::InvalidInput(v0) => write!(f, "invalid input: {v0}"),
+        }
+    }
+}
+
+impl std::error::Error for UrnaError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Io(e) => Some(e),
+            Self::Json(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl From<std::io::Error> for UrnaError {
+    fn from(e: std::io::Error) -> Self {
+        Self::Io(e)
+    }
+}
+
+impl From<serde_json::Error> for UrnaError {
+    fn from(e: serde_json::Error) -> Self {
+        Self::Json(e)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, UrnaError>;
