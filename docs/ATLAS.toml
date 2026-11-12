@@ -929,6 +929,12 @@ purpose = "A workspace of its own: the tokenizer parity against the reference li
 links = ["rust/neural/src/tokenizer/mod.rs", "tool/tasks/fullcheck.sh"]
 
 [[inventory.workspace]]
+path = "rust/clitui/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: the xterm-256 color fold of cmd/tone.rs against coolor over a 4096-color grid, kept out of the urna lock and cargo-deny"
+links = ["rust/clitui/src/cmd/tone.rs", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
 path = "rust/neural/ucd"
 kind = "data-dir"
 purpose = "The vendored Unicode character database the tokenizer tables are generated from"
@@ -1239,8 +1245,8 @@ links = ["rust/clitui/src/cmd/embed_gate.rs"]
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/cmd/tone.rs"
 kind = "rust-source"
-purpose = "Color depth probe (NO_COLOR, URNA_COLOR, COLORTERM and known terminals) and the RGB -> xterm-256 fold (coolor's perceptual search, memoized) shared by the plain output and the terminal UI"
-links = ["rust/clitui/src/tui/pal.rs"]
+purpose = "Color depth probe (NO_COLOR, URNA_COLOR, COLORTERM and known terminals) and the RGB -> xterm-256 fold (a weighted search over the cube and the grey ramp, memoized) shared by the plain output and the terminal UI"
+links = ["rust/clitui/src/tui/pal.rs", "rust/clitui/parity"]
 
 [[inventory.urna_clitui]]
 path = "rust/clitui/tests/setup_e2e.rs"
