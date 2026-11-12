@@ -643,22 +643,27 @@ exit 0
     )
 }
 
-/// `isolated`, with PATH holding curl and nothing else: no uv, no python.
+/// `isolated`, with PATH holding curl, tar and gzip and nothing else: no
+/// uv, no python.
 #[cfg(unix)]
 fn bare_machine(dir: &Path, rel: &Path, args: &[&str]) -> Command {
     let tools = dir.join("tools");
     std::fs::create_dir_all(&tools).unwrap();
-    let curl = String::from_utf8(
-        Command::new("sh")
-            .args(["-c", "command -v curl"])
-            .output()
-            .unwrap()
-            .stdout,
-    )
-    .unwrap();
-    let link = tools.join("curl");
-    if !link.exists() {
-        std::os::unix::fs::symlink(curl.trim(), &link).unwrap();
+    // what setup takes from the system, as every base install has it: curl
+    // for the download, tar for the unpack (GNU tar runs gzip for a .gz).
+    for tool in ["curl", "tar", "gzip"] {
+        let found = String::from_utf8(
+            Command::new("sh")
+                .args(["-c", &format!("command -v {tool}")])
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+        let link = tools.join(tool);
+        if !found.trim().is_empty() && !link.exists() {
+            std::os::unix::fs::symlink(found.trim(), &link).unwrap();
+        }
     }
     let mut c = isolated(dir, rel, args);
     c.env("PATH", &tools).env_remove("URNA_PYTHON");
