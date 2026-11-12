@@ -10,7 +10,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 use urna_format::Sha256;
 
 pub const PAYLOAD: &str = "urna-embedder-payload.tar.gz";

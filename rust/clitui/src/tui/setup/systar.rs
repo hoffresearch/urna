@@ -16,7 +16,7 @@ use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 
 /// What a member is, from the first column of `tar -tv`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

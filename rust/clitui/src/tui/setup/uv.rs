@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 
 use super::models::UvRelease;
 use super::{net, systar};

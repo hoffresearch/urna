@@ -66,7 +66,7 @@ fn main() -> ExitCode {
 /// The checkout's short sha, from vergen. Its instructions (the reruns on
 /// `.git/HEAD` and the current ref) pass through to cargo; fail_on_error
 /// makes a failed `git rev-parse` an error instead of vergen's placeholder.
-fn short_sha() -> anyhow::Result<String> {
+fn short_sha() -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
     let git = vergen_gitcl::GitclBuilder::default().sha(true).build()?;
     let mut out = Vec::new();
     vergen_gitcl::Emitter::default()
@@ -78,5 +78,5 @@ fn short_sha() -> anyhow::Result<String> {
     out.lines()
         .find_map(|l| l.strip_prefix("cargo:rustc-env=VERGEN_GIT_SHA="))
         .map(str::to_owned)
-        .ok_or_else(|| anyhow::anyhow!("vergen emitted no VERGEN_GIT_SHA"))
+        .ok_or_else(|| "vergen emitted no VERGEN_GIT_SHA".into())
 }

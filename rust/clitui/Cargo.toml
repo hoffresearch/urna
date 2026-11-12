@@ -59,7 +59,6 @@ pre-release-replacements = [
 urna-format = { workspace = true }
 urna-engine = { workspace = true }
 clap = { workspace = true }
-anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 zstd = { workspace = true }
@@ -108,7 +107,6 @@ tui = [
 # build.rs names a development build by its git sha (issue #530). 9.1 is
 # the last line whose msrv (1.88) matches this crate's; 10.x needs 1.96.
 vergen-gitcl = "9.1.0"
-anyhow = { workspace = true }
 
 [dev-dependencies]
 tempfile = "3"

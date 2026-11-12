@@ -3,7 +3,7 @@
 //! files. Export proves each blob against its blob_refs content_hash
 //! BEFORE writing, so a corrupt section can never fan out to disk.
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 use std::path::PathBuf;
 use urna_engine::MmapUrnaFile;
 use urna_format::Sha256;

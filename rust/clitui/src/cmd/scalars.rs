@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 use urna_engine::MmapUrnaFile;
 use urna_format::layout::{SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW};
 use urna_format::manifest::schema::{DatasetSource, MediaDerivation, SchemaField};

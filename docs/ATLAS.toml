@@ -1048,6 +1048,12 @@ purpose = "Link to the root LICENSE; cargo package copies its content, so the pu
 links = ["LICENSE"]
 
 [[inventory.urna_clitui]]
+path = "rust/clitui/src/error.rs"
+kind = "rust-source"
+purpose = "The cli's Error and Result: any error plus the context each step added (Context on Result and Option, err! and bail!), printed as {} the top message, {:#} the chain on one line and {:?} the top line then Caused by: and the chain, numbered past one cause; downcast_ref finds a typed error anywhere in the chain"
+links = ["rust/clitui/src/main.rs", "rust/clitui/src/cmd/embed_failure.rs"]
+
+[[inventory.urna_clitui]]
 path = "rust/clitui/src/main.rs"
 kind = "rust-source"
 purpose = "Dispatch only: matches cli::Commands to cmd::* (engine) and cmd::agent::* (agent) implementations"

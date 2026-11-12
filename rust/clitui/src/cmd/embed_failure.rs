@@ -1,6 +1,6 @@
 //! Why a query could not be embedded or gated, as one typed value with the
 //! fix that works for it. `embed_gate` raises these inside the
-//! `anyhow::Error` it returns: the cli prints the long form, and the
+//! `crate::error::Error` it returns: the cli prints the long form, and the
 //! explorer's ask tab downcasts and prints `short`. the embedder scripts name
 //! two of the causes on a stable stderr line (`urna-needs: <pip spec>...`,
 //! `urna-fetch: <model>`); the rest come from the gate itself.

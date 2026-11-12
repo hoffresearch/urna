@@ -15,7 +15,7 @@
 //! same bytes `urna cite` returns; this verb never claims original-byte
 //! reopen (that is net-new tier-2 catalog, post-gate).
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::super::embed_gate::embed_and_search;

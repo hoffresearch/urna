@@ -9,7 +9,7 @@ use std::collections::HashMap;
 #[cfg(test)]
 use std::path::Path;
 
-use anyhow::Result;
+use crate::error::Result;
 use urna_engine::MmapUrnaFile;
 use urna_engine::scalars::Scalars;
 use urna_format::manifest::schema::SchemaField;
