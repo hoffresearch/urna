@@ -79,7 +79,7 @@ impl Error {
     /// The error and each of its causes, outermost first.
     pub fn chain(&self) -> impl Iterator<Item = &(dyn StdError + 'static)> {
         let top: &(dyn StdError + 'static) = &*self.inner;
-        std::iter::successors(Some(top), |e| e.source())
+        std::iter::successors(Some(top), |&e| e.source())
     }
 
     /// The first error of type `T` in the chain (the explorer, its only
@@ -118,7 +118,7 @@ impl fmt::Debug for Error {
         };
         f.write_str("\n\nCaused by:")?;
         let numbered = cause.source().is_some();
-        for (n, e) in std::iter::successors(Some(cause), |e| e.source()).enumerate() {
+        for (n, e) in std::iter::successors(Some(cause), |&e| e.source()).enumerate() {
             f.write_char('\n')?;
             let mut out = Indented {
                 inner: f,

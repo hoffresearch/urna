@@ -107,12 +107,10 @@ fn release_at(
 /// The tar setup itself runs (`systar::program`): System32's on windows,
 /// never a GNU tar from Git's PATH.
 fn tar_program() -> PathBuf {
-    if cfg!(windows) {
-        if let Some(root) = std::env::var_os("SystemRoot") {
-            let exe = PathBuf::from(root).join("System32").join("tar.exe");
-            if exe.is_file() {
-                return exe;
-            }
+    if let Some(root) = std::env::var_os("SystemRoot").filter(|_| cfg!(windows)) {
+        let exe = PathBuf::from(root).join("System32").join("tar.exe");
+        if exe.is_file() {
+            return exe;
         }
     }
     PathBuf::from("tar")
