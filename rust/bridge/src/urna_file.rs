@@ -241,7 +241,7 @@ impl UrnaFile {
                     let d = PyDict::new(py);
                     let _ = d.set_item(
                         "content_hash",
-                        format!("sha256:{}", hex::encode(r.content_hash)),
+                        format!("sha256:{}", urna_format::to_hex(r.content_hash)),
                     );
                     let _ = d.set_item("original_uri", &r.original_uri);
                     let _ = d.set_item("byte_len", r.byte_len);

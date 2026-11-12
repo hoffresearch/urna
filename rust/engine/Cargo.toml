@@ -14,13 +14,10 @@ categories = ["database-implementations", "algorithms"]
 [dependencies]
 urna-format = { workspace = true }
 memmap2 = { workspace = true }
-rayon = { workspace = true }
-thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
 half = { workspace = true }
-hex = "0.4"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

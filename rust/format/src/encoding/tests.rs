@@ -39,7 +39,7 @@ fn intpack_decode_payload_rebuilds_canonical_bytes() {
     // over decoded bytes) is unchanged and citations stay stable.
     use crate::sections::{encode_chunk_ids, encode_chunk_ids_intpack};
     let ids: Vec<String> = (0u8..3)
-        .map(|i| format!("sha256:{}", hex::encode([i; 32])))
+        .map(|i| format!("sha256:{}", crate::to_hex([i; 32])))
         .collect();
     let packed = encode_chunk_ids_intpack(&ids).unwrap();
     let decoded = decode_payload(SECTION_ENCODING_INTPACK, &packed).unwrap();

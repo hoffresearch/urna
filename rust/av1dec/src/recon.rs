@@ -90,7 +90,6 @@ use crate::src::to::To as _;
 use crate::src::wedge::dav1d_ii_masks;
 use crate::src::wedge::dav1d_wedge_masks;
 use crate::src::with_offset::WithOffset;
-use assert_matches::debug_assert_matches;
 use libc::intptr_t;
 use std::array;
 use std::cmp;
@@ -494,14 +493,14 @@ fn get_lo_ctx(
         Some(ctx_offsets) => {
             level(2, 1); // Bounds check all at once.
             mag = level(0, 1) + level(1, 0);
-            debug_assert_matches!(tx_class, TxClass::TwoD);
+            debug_assert!(matches!(tx_class, TxClass::TwoD));
             mag += level(1, 1);
             *hi_mag = mag;
             mag += level(0, 2) + level(2, 0);
             offset = ctx_offsets[cmp::min(y as usize, 4)][cmp::min(x as usize, 4)];
         }
         None => {
-            debug_assert_matches!(tx_class, TxClass::H | TxClass::V);
+            debug_assert!(matches!(tx_class, TxClass::H | TxClass::V));
             level(1, 4); // Bounds check all at once.
             mag = level(0, 1) + level(1, 0);
             mag += level(0, 2);

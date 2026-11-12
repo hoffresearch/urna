@@ -47,7 +47,7 @@ pub use intpack::{INTPACK_BLOCK, IntpackReader, pack_u64s, unpack_u64s};
 pub use txt_streams::{
     TXT_STREAMS_V1, TxtStreams, decode as decode_txt_streams_payload, encode_txt_streams,
 };
-pub use zstd_codec::{DEFAULT_ZSTD_LEVEL, zstd_encode};
+pub use zstd_codec::{DEFAULT_ZSTD_LEVEL, zstd_decode, zstd_encode};
 pub use zstd_dict::{
     MAX_DICT_BYTES, TXT_STREAMS_V2, decode as decode_zstd_dict_payload, encode as encode_zstd_dict,
     train_dict,

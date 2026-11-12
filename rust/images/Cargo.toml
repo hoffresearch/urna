@@ -10,7 +10,6 @@ publish = false
 
 [dependencies]
 urna-av1dec = { path = "../av1dec" }
-thiserror = { workspace = true }
 
 [lints]
 workspace = true

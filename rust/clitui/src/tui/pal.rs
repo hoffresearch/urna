@@ -111,7 +111,7 @@ pub fn ground(buf: &mut Buffer, area: Rect) {
 }
 
 /// The final pass of every frame: fold rgb into what the terminal shows.
-/// 256-color terminals get the nearest xterm index (coolor), `NO_COLOR`
+/// 256-color terminals get the nearest xterm index (tone::ansi256), `NO_COLOR`
 /// terminals keep the modifiers and lose the color.
 pub fn fit(buf: &mut Buffer, area: Rect, depth: Depth) {
     if depth == Depth::True {

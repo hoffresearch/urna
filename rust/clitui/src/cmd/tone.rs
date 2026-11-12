@@ -60,12 +60,11 @@ fn depth_from(env: impl Fn(&str) -> Option<String>) -> Depth {
     }
 }
 
-/// The xterm-256 index nearest to an rgb triple: coolor's perceptual
-/// search over the cube and the grey ramp (16..=255; 0..16 follow the
-/// user's theme). its quick `to_ansi` buckets by the red channel and sends
-/// the ground (#002b36, solarized base03) to navy; the full search lands on
-/// the grey solarized itself falls back to. memoized: a frame repeats a
-/// handful of colors thousands of times.
+/// The xterm-256 index nearest to an rgb triple, searched over the cube
+/// and the grey ramp (16..=255; 0..16 follow the user's theme). a quick
+/// bucket by the red channel sends the ground (#002b36, solarized base03)
+/// to navy; the full search lands on the grey solarized itself falls back
+/// to. memoized: a frame repeats a handful of colors thousands of times.
 pub fn ansi256(rgb: (u8, u8, u8)) -> u8 {
     use std::collections::HashMap;
     use std::sync::{Mutex, OnceLock};
@@ -77,13 +76,50 @@ pub fn ansi256(rgb: (u8, u8, u8)) -> u8 {
     {
         return hit;
     }
-    let code = coolor::Rgb::new(rgb.0, rgb.1, rgb.2)
-        .nearest_ansi_in_range(16, 255)
-        .code;
+    let code = nearest_xterm(rgb);
     if let Ok(mut map) = cache.lock() {
         map.insert(rgb, code);
     }
     code
+}
+
+/// The first index of 16..=255 at the smallest [`distance`]: a strict `<`
+/// keeps the lower index on a tie.
+pub fn nearest_xterm(rgb: (u8, u8, u8)) -> u8 {
+    let mut best = 16;
+    let mut best_distance = distance(rgb, xterm_rgb(16));
+    for code in 17..=255 {
+        let d = distance(rgb, xterm_rgb(code));
+        if d < best_distance {
+            best = code;
+            best_distance = d;
+        }
+    }
+    best
+}
+
+/// What xterm shows for an index from 16 up: the 6x6x6 cube (16..=231, the
+/// levels 0, 95, 135, 175, 215, 255) and the grey ramp (232..=255, 8 + 10n).
+pub fn xterm_rgb(code: u8) -> (u8, u8, u8) {
+    const LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+    if code >= 232 {
+        let v = 8 + 10 * (code - 232);
+        return (v, v, v);
+    }
+    let i = usize::from(code.saturating_sub(16));
+    (LEVELS[i / 36], LEVELS[i / 6 % 6], LEVELS[i % 6])
+}
+
+/// A weighted squared distance in the spirit of "redmean": red and blue
+/// weighted by the mean red, green counted twice. computed in f32 in this
+/// exact order, which is the one coolor used, so ties fall the same way
+/// (rust/clitui/parity checks it).
+pub fn distance(a: (u8, u8, u8), b: (u8, u8, u8)) -> f32 {
+    let r_sum = f32::from(a.0) + f32::from(b.0);
+    let r = f32::from(a.0) - f32::from(b.0);
+    let g = f32::from(a.1) - f32::from(b.1);
+    let blue = f32::from(a.2) - f32::from(b.2);
+    (1024.0 + r_sum) * r * r + 2048.0 * g * g + (1534.0 - r_sum) * blue * blue
 }
 
 /// A painter for one output stream, decided once.
@@ -170,6 +206,23 @@ mod tests {
             (0x00, 0x2b, 0x36),
         ] {
             assert!(ansi256(rgb) >= 16, "{rgb:?}");
+        }
+    }
+
+    #[test]
+    fn the_palette_is_xterms() {
+        assert_eq!(xterm_rgb(16), (0, 0, 0));
+        assert_eq!(xterm_rgb(21), (0, 0, 255));
+        assert_eq!(xterm_rgb(196), (255, 0, 0));
+        assert_eq!(xterm_rgb(231), (255, 255, 255));
+        assert_eq!(xterm_rgb(232), (8, 8, 8));
+        assert_eq!(xterm_rgb(241), (98, 98, 98));
+        assert_eq!(xterm_rgb(242), (108, 108, 108));
+        assert_eq!(xterm_rgb(255), (238, 238, 238));
+        // every color of the palette folds to an index that shows it exactly.
+        for code in 16..=255 {
+            let rgb = xterm_rgb(code);
+            assert_eq!(xterm_rgb(nearest_xterm(rgb)), rgb, "{code}");
         }
     }
 

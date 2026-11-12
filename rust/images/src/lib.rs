@@ -20,27 +20,46 @@ pub struct Image {
     pub rgba: Vec<u8>,
 }
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug)]
 pub enum Error {
-    #[error("avif: truncated at byte {at}: {what}")]
-    Truncated { at: usize, what: &'static str },
-    #[error("avif: box {name} declares {declared} bytes, {available} available")]
+    Truncated {
+        at: usize,
+        what: &'static str,
+    },
     HostileSize {
         name: String,
         declared: u64,
         available: usize,
     },
-    #[error("avif: not an avif file ({0})")]
     NotAvif(&'static str),
-    #[error("avif: {0} box missing")]
     Missing(&'static str),
-    #[error("avif: {0}")]
     Malformed(&'static str),
-    #[error("av1: decoder error {0}")]
     Decoder(i32),
-    #[error("av1: {0}")]
     Unsupported(&'static str),
 }
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Truncated { at, what } => write!(f, "avif: truncated at byte {at}: {what}"),
+            Self::HostileSize {
+                name,
+                declared,
+                available,
+            } => write!(
+                f,
+                "avif: box {name} declares {declared} bytes, {available} available"
+            ),
+            Self::NotAvif(v0) => write!(f, "avif: not an avif file ({v0})"),
+            Self::Missing(v0) => write!(f, "avif: {v0} box missing"),
+            Self::Malformed(v0) => write!(f, "avif: {v0}"),
+            Self::Decoder(v0) => write!(f, "av1: decoder error {v0}"),
+            Self::Unsupported(v0) => write!(f, "av1: {v0}"),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;
 
