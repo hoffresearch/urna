@@ -2484,8 +2484,14 @@ links = ["rust/bridge/python/urna/model/catalogue.py", "rust/clitui/src/tui/setu
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/model/installer.py"
 kind = "python-source"
-purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, progress lines per megabyte over HTTP and xet, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's; an open_clip model is loaded to fingerprint its tensors; a sentence-transformers backend model's corpus hash names the device dtype, so the query setup runs next compares it); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
-links = ["rust/bridge/python/urna/model/catalogue.json", "rust/bridge/python/urna/model/modelhash.py", "rust/clitui/src/tui/setup/models.rs"]
+purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, by urna.model.filefetch, progress lines per megabyte, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's; an open_clip model is loaded to fingerprint its tensors; a sentence-transformers backend model's corpus hash names the device dtype, so the query setup runs next compares it); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
+links = ["rust/bridge/python/urna/model/catalogue.json", "rust/bridge/python/urna/model/filefetch.py", "rust/bridge/python/urna/model/modelhash.py", "rust/clitui/src/tui/setup/models.rs"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/model/filefetch.py"
+kind = "python-source"
+purpose = "One pinned file from the Hugging Face hub by stdlib urllib, in place of huggingface_hub: GET the resolve/<revision> URL, follow redirects over https only, stream into the hub cache layout ($HF_HOME/hub/<kind>--org--name/snapshots/<rev>/<path>) and keep the file only when its size and its sha256 (pinned, else the hub's X-Linked-Etag; a small file's git blob sha1 from ETag) check out; reads no offline flag, every caller fetches only after URNA_ALLOW_DOWNLOAD=1"
+links = ["rust/bridge/python/urna/model/installer.py", "rust/bridge/python/urna/model/presetmap.py", "tool/tasks/benchdata.py"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_catalogue.py"

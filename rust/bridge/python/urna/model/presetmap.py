@@ -434,17 +434,18 @@ def pinned_snapshot(preset: ModelPreset, model_path: str | os.PathLike | None = 
 
 
 def _fetch_snapshot(preset: ModelPreset) -> Path:
-    """Download the preset's pinned files: the explicit URNA_ALLOW_DOWNLOAD=1 opt-in."""
-    # importing potiontab defaults the hub offline; the opt-in wins,
-    # as in stbackend. huggingface_hub reads the flag when it is first imported.
-    for k in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE", "HF_DATASETS_OFFLINE"):
-        os.environ.pop(k, None)
-    from huggingface_hub import hf_hub_download
+    """Download the preset's pinned files: the explicit URNA_ALLOW_DOWNLOAD=1 opt-in.
 
-    path = None
+    filefetch reads no offline flag, so the ones importing this module set
+    stay set for everything else in the process."""
+    from urna.model.filefetch import FetchError, fetch_file, snapshot_dir
+
     for f in preset.snapshot_files:
-        path = hf_hub_download(preset.hf_repo, f, revision=preset.revision)
-    return Path(path).parent
+        try:
+            fetch_file(preset.hf_repo, f, preset.revision)
+        except FetchError as e:
+            raise RegistryError(f"preset '{preset.name}': fetching {f} failed: {e}") from e
+    return snapshot_dir(preset.hf_repo, preset.revision)
 
 
 def verify_remote_code(preset: ModelPreset, model_dir: Path) -> None:

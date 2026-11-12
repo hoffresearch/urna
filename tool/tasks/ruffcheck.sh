@@ -58,6 +58,7 @@ tool/tasks/upstreams.py
 tool/tests/test_upstreams.py
 tool/tests/test_presetjob.py
 rust/bridge/python/urna/model/installer.py
+rust/bridge/python/urna/model/filefetch.py
 rust/bridge/python/urna/model/installed.py
 tool/tasks/presetjob.py
 rust/bridge/python/urna/entry/specbuild.py
