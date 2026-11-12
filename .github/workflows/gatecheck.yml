@@ -161,6 +161,10 @@ jobs:
           workspaces: rust/format/parity
       - name: rust/format/parity (separate workspace)
         run: cargo test --release --locked --manifest-path rust/format/parity/Cargo.toml -- --nocapture
+      # temporary, removed before merge: c_roundtrip stops `cargo test
+      # --workspace` before the format and engine suites run (fixed by #652).
+      - name: urna-format and urna-engine suites (until #652)
+        run: cargo test -p urna-format -p urna-engine
 
   fuzz:
     name: cargo-fuzz smoke
