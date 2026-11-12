@@ -58,7 +58,7 @@ pub(super) fn read_distribution(
                     return Err(corrupt("fse description has too many symbols"));
                 }
             }
-            if counts.len() >= max_symbol + 1 {
+            if counts.len() > max_symbol {
                 return Err(corrupt("fse description has too many symbols"));
             }
         }
@@ -86,7 +86,7 @@ pub(super) fn read_distribution(
             nb_bits = remaining.ilog2() + 1;
             threshold = 1 << (nb_bits - 1);
         }
-        if counts.len() >= max_symbol + 1 {
+        if counts.len() > max_symbol {
             break;
         }
     }

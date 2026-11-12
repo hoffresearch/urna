@@ -93,15 +93,4 @@ mod tests {
         assert_eq!(xxh64(b"", 0), 0xEF46_DB37_51D8_E999);
         assert_eq!(xxh64(b"abc", 0), 0x44BC_2CF5_AD77_0999);
     }
-
-    #[test]
-    fn every_tail_path_is_deterministic() {
-        // 0..=70 bytes walks the stripe loop, the 8-byte, 4-byte and 1-byte
-        // tails; the parity workspace checks the values against libzstd.
-        let data: Vec<u8> = (0u8..=70).collect();
-        for n in 0..data.len() {
-            assert_eq!(xxh64(&data[..n], 0), xxh64(&data[..n], 0));
-        }
-        assert_ne!(xxh64(&data[..31], 0), xxh64(&data[..32], 0));
-    }
 }

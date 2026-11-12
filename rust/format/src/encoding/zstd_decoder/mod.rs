@@ -71,6 +71,7 @@ fn make_room(out: &mut Vec<u8>, extra: usize, limit: usize) -> Res<()> {
 
 /// a decoder with its scratch buffers, optionally bound to a dictionary;
 /// reuse one across many small frames.
+#[derive(Default)]
 pub(crate) struct ZstdDecoder<'d> {
     dict: Option<Dictionary<'d>>,
     scratch: frame::Scratch,
@@ -81,15 +82,6 @@ impl std::fmt::Debug for ZstdDecoder<'_> {
         f.debug_struct("ZstdDecoder")
             .field("dict", &self.dict)
             .finish_non_exhaustive()
-    }
-}
-
-impl Default for ZstdDecoder<'_> {
-    fn default() -> Self {
-        Self {
-            dict: None,
-            scratch: frame::Scratch::default(),
-        }
     }
 }
 
