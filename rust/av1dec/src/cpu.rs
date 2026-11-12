@@ -1,5 +1,5 @@
 use crate::src::const_fn::const_for;
-use bitflags::bitflags;
+use crate::src::flags::bitflags;
 use std::ffi::c_uint;
 use std::num::NonZero;
 use std::sync::atomic::AtomicU32;
@@ -118,8 +118,6 @@ impl CpuFlags {
 
         #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
         {
-            use raw_cpuid::CpuId;
-
             if is_x86_feature_detected!("sse2") {
                 flags |= Self::SSE2;
             }
@@ -151,17 +149,35 @@ impl CpuFlags {
             }
 
             /// Detect Excavator, Zen, Zen+, Zen 2, Zen 3, Zen 3+, Zen 4.
+            ///
+            /// Reads `cpuid` through `std::arch` (urna #643: was `raw-cpuid`):
+            /// the vendor string of leaf 0 and the display family of leaf 1,
+            /// base family plus extended family when the base is 0xF.
             fn is_slow_gather() -> Option<()> {
-                let cpu_id = CpuId::new();
+                #[cfg(target_arch = "x86")]
+                use std::arch::x86::__cpuid;
+                #[cfg(target_arch = "x86_64")]
+                use std::arch::x86_64::__cpuid;
 
-                let vendor = cpu_id.get_vendor_info()?;
-                let is_amd = vendor.as_str() == "AuthenticAMD";
-                if !is_amd {
+                // SAFETY: `cpuid` is present on every CPU Rust's x86 and
+                // x86_64 targets run on, and leaf 0 is always defined.
+                let leaf0 = unsafe { __cpuid(0) };
+                let mut vendor = [0u8; 12];
+                vendor[0..4].copy_from_slice(&leaf0.ebx.to_le_bytes());
+                vendor[4..8].copy_from_slice(&leaf0.edx.to_le_bytes());
+                vendor[8..12].copy_from_slice(&leaf0.ecx.to_le_bytes());
+                if &vendor != b"AuthenticAMD" || leaf0.eax < 1 {
                     return None;
                 }
 
-                let features = cpu_id.get_feature_info()?;
-                let family = features.family_id();
+                // SAFETY: as above; leaf 1 exists, leaf 0 reported it.
+                let leaf1 = unsafe { __cpuid(1) };
+                let base = (leaf1.eax >> 8) & 0xF;
+                let family = if base == 0xF {
+                    base + ((leaf1.eax >> 20) & 0xFF)
+                } else {
+                    base
+                };
 
                 (family <= 0x19).then_some(())
             }

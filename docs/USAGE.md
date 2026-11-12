@@ -614,6 +614,9 @@ The fields make a search syntax, read from the schema's prefixes and never from 
 | `urna_image(corpus, chunk, &len)` | The chunk's stored image bytes (an AVIF the platform decodes), valid while the corpus is open |
 | `urna_schema_json`, `urna_content_hash`, `urna_string_free` | The manifest schema as JSON, the content hash; both freed by the caller |
 | `urna_n_chunks`, `urna_version`, `urna_last_error` | Chunk count, library version, this thread's last error |
+| `urna_embedder_open(model_dir)` / `urna_embedder_close` | The potion embedder alone, with no corpus: what the Python package calls through `ctypes` (`urna/_cabi.py`) |
+| `urna_embedder_embed(e, text, out)`, `urna_embedder_tokenize(e, text, ids, cap)` | The unit-norm vector of a text into `urna_embedder_dim` floats; its WordPiece ids (no special tokens), the full count returned |
+| `urna_embedder_dim`, `urna_embedder_model_hash` | Vector width, the table's `model_hash` |
 
 Strings are UTF-8 with a NUL; a function that fails returns `NULL` (or `0`) and leaves the reason in `urna_last_error()`, per thread; no panic crosses the boundary. A corpus may be shared by threads for `urna_ask` and `urna_image`, and `urna_close` is the last call on it. `rust/cbinds/tests/c_roundtrip.rs` compiles a C program against the header and runs the round trip.
 

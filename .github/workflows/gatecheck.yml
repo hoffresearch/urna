@@ -132,6 +132,105 @@ jobs:
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
 
+  # the forge's potion embedder runs in Rust through the urna-cbinds C ABI
+  # (urna/_cabi.py, ctypes; #643) and keeps numpy + tokenizers only as its
+  # reference. this job builds the library and holds the two paths to the
+  # same token ids, vectors (1e-6) and model_hash; no skip is allowed here.
+  potion-native:
+    name: potion through the C ABI (ctypes) against numpy + tokenizers
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: fetch the potion table, verified against its lfs pointer
+        run: sh tool/tasks/getpotion.sh
+      - name: build the C ABI library
+        run: cargo build --release -p urna-cbinds
+      - name: the reference side
+        run: python -m pip install numpy tokenizers
+      - name: native and reference agree
+        env:
+          URNA_REQUIRE_NATIVE: "1"
+        run: |
+          URNA_CBINDS="$PWD/target/release/liburna_cbinds.so" python tool/tests/test_potiontab.py
+
+  # rust/images/parity is a workspace of its own (the crates.io rav1d and
+  # avif-decode stay out of urna's lock and cargo-deny), so the rust job never
+  # builds it. this job is the proof that urna-av1dec, the rav1d fork with
+  # its own locks, atomics, enums, flags and byte casts (rust/av1dec/UPSTREAM),
+  # still decodes like upstream: avifenc encodes a set of synthetic 4:2:0
+  # stills (odd sizes, tiles, low and high quality) and every plane must
+  # match the crates.io rav1d sample for sample. the card corpus pass of
+  # fullcheck.sh (URNA_CARDS_CORPUS) is the larger local run.
+  av1-parity:
+    name: av1 parity (urna-av1dec against crates.io rav1d)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust/images/parity
+      # nasm: avif-decode pulls the crates.io rav1d with its default features,
+      # so the reference is built with its x86 asm (bit-exact by the spec,
+      # and a reference independent of our pure-Rust kernels).
+      - name: avifenc and nasm
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libavif-bin nasm
+      - name: encode the AVIF inputs
+        run: |
+          set -eu
+          dir="$RUNNER_TEMP/avif"
+          mkdir -p "$dir"
+          python3 - "$dir" <<'PY'
+          import sys
+          out = sys.argv[1]
+          state = 1
+          def noise():
+              global state
+              state = (state * 1103515245 + 12345) & 0x7FFFFFFF
+              return state >> 23
+          for w, h in [(64, 64), (127, 93), (320, 240), (513, 257), (640, 480)]:
+              y = bytearray()
+              for r in range(h):
+                  for c in range(w):
+                      if c < w // 3:
+                          v = (c * 255 // max(w // 3, 1) + r) & 0xFF
+                      elif c < 2 * w // 3:
+                          v = noise()
+                      else:
+                          v = 230 if ((r // 8) + (c // 8)) % 2 else 20
+                      y.append(v)
+              cw, ch = (w + 1) // 2, (h + 1) // 2
+              u = bytes((r * 255 // ch + noise() // 16) & 0xFF for r in range(ch) for c in range(cw))
+              v = bytes((c * 255 // cw) & 0xFF for r in range(ch) for c in range(cw))
+              with open(f"{out}/{w}x{h}.y4m", "wb") as f:
+                  f.write(f"YUV4MPEG2 W{w} H{h} F25:1 Ip A1:1 C420jpeg\n".encode())
+                  f.write(b"FRAME\n" + bytes(y) + u + v)
+          PY
+          for src in "$dir"/*.y4m; do
+            base="${src%.y4m}"
+            avifenc -s 8 -q 60 "$src" "$base-s8q60.avif"
+            avifenc -s 4 -q 25 "$src" "$base-s4q25.avif"
+            avifenc -s 6 -q 95 --tilerowslog2 1 --tilecolslog2 1 "$src" "$base-s6q95tiles.avif"
+          done
+          ls -l "$dir"/*.avif
+      - name: every plane of every input matches the crates.io rav1d
+        run: |
+          URNA_AVIF_DIR="$RUNNER_TEMP/avif" cargo test --release \
+            --manifest-path rust/images/parity/Cargo.toml --test planes -- --nocapture
+
   fuzz:
     name: cargo-fuzz smoke
     if: github.event_name != 'schedule'
@@ -332,6 +431,12 @@ jobs:
         run: |
           python tool/tasks/namecheck.py
           python tool/tests/test_namecheck.py
+      - name: urna keeps its import contracts
+        # pyproject.toml's [tool.layerscan], checked over the ast of every
+        # urna module (urna imports no module of tool/bench).
+        run: |
+          python tool/tasks/layerscan.py
+          python tool/tests/test_layerscan.py
       - name: the atlas summary is the current state, not history
         run: python tool/tests/test_atlasdocs.py
       - name: rust/ingest keeps the root's lints and rust-version

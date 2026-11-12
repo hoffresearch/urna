@@ -6,6 +6,7 @@ use crate::src::align::Align4;
 use crate::src::align::Align64;
 use crate::src::align::Align8;
 use crate::src::enum_map::DefaultValue;
+use crate::src::enums::EnumCount;
 use crate::src::levels::BlockLevel;
 use crate::src::levels::BlockPartition;
 use crate::src::levels::BlockSize;
@@ -60,7 +61,6 @@ use crate::src::levels::V_ADST;
 use crate::src::levels::V_DCT;
 use crate::src::levels::V_FLIPADST;
 use std::ffi::c_uint;
-use strum::EnumCount;
 
 #[repr(C)]
 pub struct TxfmInfo {

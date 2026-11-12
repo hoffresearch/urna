@@ -28,11 +28,6 @@ forge = [
     # image paths (orchestra, visionemb, stbackend) and the forge tests.
     "pillow>=10",
 ]
-# import-graph contracts ([tool.importlinter] below). runs from rust/bridge/python/:
-#   cd rust/bridge/python && ../../../.venv/bin/lint-imports --config ../../../pyproject.toml
-lint = [
-    "import-linter>=2.15",
-]
 
 [tool.ruff]
 target-version = "py312"
@@ -102,11 +97,11 @@ save_history = false
 # urna is the library, tool/bench the benchmarks on top of it: the benchmarks
 # may import urna, urna never imports a benchmark. tool/bench/ is not a
 # package, so its modules are top-level names; a new one joins the list.
-[tool.importlinter]
-root_packages = ["urna"]
-include_external_packages = true
+# import-graph contracts, checked by tool/tasks/layerscan.py (stdlib ast, in
+# place of import-linter since #643) in fullcheck.sh and gatecheck.yml.
+[tool.layerscan]
 
-[[tool.importlinter.contracts]]
+[[tool.layerscan.contracts]]
 name = "urna does not import tool/bench"
 type = "forbidden"
 source_modules = ["urna"]

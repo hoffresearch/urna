@@ -677,14 +677,8 @@ name = "urna-av1dec"
 version = "0.5.6"
 dependencies = [
  "assert_matches",
- "atomig",
- "bitflags",
  "cfg-if",
  "libc",
- "parking_lot",
- "raw-cpuid",
- "strum",
- "zerocopy 0.7.35",
 ]
 
 [[package]]

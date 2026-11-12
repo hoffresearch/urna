@@ -43,6 +43,9 @@ MODULES = [
     # the package root: the extension loads on first use, so the payload
     # imports it without _urna.
     "__init__.py",
+    # the C ABI through ctypes: potiontab embeds in Rust when the
+    # urna-cbinds library is beside it, numpy + tokenizers otherwise.
+    "_cabi.py",
     "embed/__init__.py",
     "embed/lexifloor.py",
     "embed/potiontab.py",
@@ -68,8 +71,10 @@ MODULES = [
     "model/catalogue.json",
     # the lock every model's packages install from (`-c`), beside it.
     "model/modellock.txt",
-    # the fetch half of the model install setup and the explorer share.
+    # the fetch half of the model install setup and the explorer share,
+    # and the stdlib hub download it, the registry and benchdata.py use.
     "model/installer.py",
+    "model/filefetch.py",
 ]
 
 

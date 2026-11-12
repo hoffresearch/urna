@@ -16,10 +16,12 @@ pinned one is refused, never measured.
     match BASELINE CORPUS    check that BASELINE was measured on CORPUS: its
                              baseline_file_hash is the sha-256 of CORPUS
 
+the fetch is urna.model.filefetch (stdlib urllib, https only, the pinned
+sha-256 checked before the file takes its name).
+
 exit codes: 2 usage, 3 corpus not cached and downloads not confirmed,
-4 huggingface_hub missing, 6 cached corpus not the pinned one, 8 download
-failed, 9 baseline missing or unreadable, 10 baseline measured on another
-corpus.
+6 cached corpus not the pinned one, 8 download failed, 9 baseline missing
+or unreadable, 10 baseline measured on another corpus.
 
 run:  python tool/tasks/benchdata.py fetch
 """
@@ -32,6 +34,7 @@ import os
 import sys
 from pathlib import Path
 
+ROOT = Path(__file__).resolve().parents[2]
 REPO = "brennercruvinel/fakenews-ptbr-urna-benchmark"
 REVISION = "b58d0c8be8dbc3b8b387a8b9047a1abbf4819f73"
 FILE = "release/v0.1/minilm-exact/fakenews.urna"
@@ -71,16 +74,12 @@ def command() -> str:
 
 
 def download() -> None:
+    sys.path.insert(0, str(ROOT / "rust" / "bridge" / "python"))
+    from urna.model.filefetch import FetchError, fetch_file
+
     try:
-        from huggingface_hub import hf_hub_download
-    except ImportError as e:
-        raise Refused(4, "fetching the corpus needs huggingface_hub") from e
-    os.environ.setdefault("HF_HUB_VERBOSITY", "error")
-    try:
-        hf_hub_download(
-            REPO, FILE, repo_type="dataset", revision=REVISION, cache_dir=str(hub_dir())
-        )
-    except Exception as e:
+        fetch_file(REPO, FILE, REVISION, repo_type="dataset", sha256=SHA256, hub=hub_dir())
+    except FetchError as e:
         raise Refused(8, f"downloading {FILE} from {REPO} failed: {e}") from e
 
 

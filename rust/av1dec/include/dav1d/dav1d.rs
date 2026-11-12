@@ -1,14 +1,14 @@
 use crate::include::dav1d::picture::Dav1dPicAllocator;
 use crate::include::dav1d::picture::Rav1dPicAllocator;
 use crate::src::c_arc::RawArc;
+use crate::src::enums::from_repr;
 use crate::src::error::Rav1dError;
+use crate::src::flags::bitflags;
 use crate::src::internal::Rav1dContext;
 pub use crate::src::log::Dav1dLogger;
 use crate::src::log::Rav1dLogger;
-use bitflags::bitflags;
 use std::ffi::c_int;
 use std::ffi::c_uint;
-use strum::FromRepr;
 
 pub type Dav1dContext = RawArc<Rav1dContext>;
 
@@ -57,7 +57,7 @@ pub const DAV1D_DECODEFRAMETYPE_INTRA: Dav1dDecodeFrameType =
 pub const DAV1D_DECODEFRAMETYPE_KEY: Dav1dDecodeFrameType =
     Rav1dDecodeFrameType::Key as Dav1dDecodeFrameType;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, FromRepr, Default)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default)]
 pub(crate) enum Rav1dDecodeFrameType {
     /// decode and return all frames
     #[default]
@@ -69,6 +69,8 @@ pub(crate) enum Rav1dDecodeFrameType {
     /// decode and return keyframes only
     Key = 3,
 }
+
+from_repr!(Rav1dDecodeFrameType: usize [All, Reference, Intra, Key]);
 
 impl From<Rav1dDecodeFrameType> for Dav1dDecodeFrameType {
     fn from(value: Rav1dDecodeFrameType) -> Self {

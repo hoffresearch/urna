@@ -141,7 +141,9 @@ entrypoints = ["rust/cbinds/src/lib.rs"]
 links = [
     "rust/cbinds/include/urna.h",
     "rust/cbinds/src/corpus.rs",
+    "rust/cbinds/src/embedder.rs",
     "rust/cbinds/tests/c_roundtrip.rs",
+    "rust/bridge/python/urna/_cabi.py",
 ]
 
 [[layers]]
@@ -671,7 +673,7 @@ links = ["tool/bench/vectorcmp.py"]
 [[inventory.root]]
 path = "pyproject.toml"
 kind = "python-config"
-purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, import-linter contracts (urna never imports tool/bench), towncrier (docs/news/ into docs/CHANGELOG at release) and the dev dependency groups"
+purpose = "Dev tooling config: ruff, pyright as an import-resolution check, Rope source folders, the import contracts tool/tasks/layerscan.py checks (urna never imports tool/bench), towncrier (docs/news/ into docs/CHANGELOG at release) and the dev dependency groups"
 links = [
     "rust/bridge/python",
     "tool/tests",
@@ -2484,8 +2486,14 @@ links = ["rust/bridge/python/urna/model/catalogue.py", "rust/clitui/src/tui/setu
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/model/installer.py"
 kind = "python-source"
-purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, progress lines per megabyte over HTTP and xet, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's; an open_clip model is loaded to fingerprint its tensors; a sentence-transformers backend model's corpus hash names the device dtype, so the query setup runs next compares it); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
-links = ["rust/bridge/python/urna/model/catalogue.json", "rust/bridge/python/urna/model/modelhash.py", "rust/clitui/src/tui/setup/models.rs"]
+purpose = "The fetch half of the model install: plan (missing packages, cached or not, bytes, no network) and fetch (exactly the catalog's files at the pinned revision into $HF_HOME/hub, by urna.model.filefetch, progress lines per megabyte, refs/main pinned when absent and never moved, then the fingerprint must equal the catalog's model_hash and the corpus's; an open_clip model is loaded to fingerprint its tensors; a sentence-transformers backend model's corpus hash names the device dtype, so the query setup runs next compares it); downloads only with URNA_ALLOW_DOWNLOAD=1, repo code only with --allow-remote-code and its reviewed hashes; typed exit codes 3 to 8"
+links = ["rust/bridge/python/urna/model/catalogue.json", "rust/bridge/python/urna/model/filefetch.py", "rust/bridge/python/urna/model/modelhash.py", "rust/clitui/src/tui/setup/models.rs"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/model/filefetch.py"
+kind = "python-source"
+purpose = "One pinned file from the Hugging Face hub by stdlib urllib, in place of huggingface_hub: GET the resolve/<revision> URL, follow redirects over https only, stream into the hub cache layout ($HF_HOME/hub/<kind>--org--name/snapshots/<rev>/<path>) and keep the file only when its size and its sha256 (pinned, else the hub's X-Linked-Etag; a small file's git blob sha1 from ETag) check out; reads no offline flag, every caller fetches only after URNA_ALLOW_DOWNLOAD=1"
+links = ["rust/bridge/python/urna/model/installer.py", "rust/bridge/python/urna/model/presetmap.py", "tool/tasks/benchdata.py"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_catalogue.py"
@@ -2516,6 +2524,12 @@ path = "tool/tests/test_preflight.py"
 kind = "python-test"
 purpose = "The release preflight against the checkout and against temp copies with one field drifted per case (a workspace pin, a crate not inheriting, a lockfile entry, each versioned CITATION field, the citation date, the changelog section, an entry under [Unreleased], a docs/news/ fragment of no towncrier type, a wheel description that opens unlike the crate's, a summary past 80 characters), and the tag checks in throwaway repos (another version, off main, dated before the release, lightweight, a stale CITATION on the tag's commit while the checkout carries the fix, a release file missing from the commit); in fullcheck.sh and gatecheck.yml; a tag made at 22:30 at -03:00 fits a release dated the next UTC day, one dated two days later is refused"
 links = ["tool/tasks/preflight.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "tool/tests/test_layerscan.py"
+kind = "python-test"
+purpose = "layerscan.py on the checkout and on a throwaway package: direct, from-, nested and submodule imports of a forbidden module are named with file and line, an unknown contract type fails, a look-alike name and relative imports pass; in fullcheck.sh and gatecheck.yml"
+links = ["tool/tasks/layerscan.py", "pyproject.toml"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "tool/tests/test_namecheck.py"
@@ -2899,6 +2913,12 @@ path = "tool/tests/test_retrieval.py"
 kind = "python-test"
 purpose = "Offline retrieve self-test over demo/corpora/intro: build_demo + retrieve open no socket, the build is deterministic (two builds byte-identical), and a retrieve hit score equals the search score byte-for-byte with a urna:// citation that round-trips to the stored canonical text (tier-1)"
 links = ["rust/bridge/python/urna/reads/retrieval.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/_cabi.py"
+kind = "python-source"
+purpose = "The urna-cbinds C ABI through ctypes (stdlib): finds the library ($URNA_CBINDS, beside the package, then target/release and target/debug of a source tree), declares the urna_embedder_* signatures and wraps them as Embedder (tokenize, embed, dim, model_hash); potiontab embeds through it by default and keeps numpy + tokenizers as its reference (#643)"
+links = ["rust/cbinds/include/urna.h", "rust/cbinds/src/embedder.rs", "rust/bridge/python/urna/embed/potiontab.py"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/__init__.py"
@@ -3345,6 +3365,12 @@ path = "tool/tasks/preflight.py"
 kind = "python-source"
 purpose = "One version everywhere a release names it: the urna-format and urna-engine pins, every crate inheriting the workspace version, the four crates in Cargo.lock, CITATION.cff (version, the versioned crates.io and release URLs, a date-released equal to the changelog's), the changelog section, and nothing under [Unreleased] with every docs/news/ fragment named <issue>.<type>.md for a towncrier type; the package texts: the crate and wheel descriptions open with the same sentence and the [workspace.metadata.pkgs] summary fits in 80 characters; tree mode in gatecheck.yml; tag mode (--tag) in tagverify.yml runs the same checks on the files of the tag's commit (git show, never the working tree) and adds the tag name, main ancestry and the tag date"
 links = [".github/workflows/tagverify.yml", ".github/workflows/gatecheck.yml", "tool/tests/test_preflight.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "tool/tasks/layerscan.py"
+kind = "python-source"
+purpose = "The import contracts of pyproject.toml's [tool.layerscan] over the ast of every urna module, in place of import-linter: a forbidden contract fails on any import of a forbidden module or its submodules, at any depth, relative imports resolved inside the package; an unknown contract type is an error; in fullcheck.sh and gatecheck.yml"
+links = ["pyproject.toml", "tool/tests/test_layerscan.py", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
 
 [[inventory.distribution]]
 path = "tool/tasks/namecheck.py"

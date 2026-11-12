@@ -1,7 +1,9 @@
 //! The C ABI the native apps call: open a corpus once, ask it in the search
 //! syntax its schema declares, read the hits' stored text and citations,
 //! take a hit's image bytes for the platform to decode, read the schema as
-//! JSON, close. One opaque handle per corpus and per answer; every string
+//! JSON, close; and the potion embedder alone (`urna_embedder_*`), which
+//! the Python forge calls through `ctypes`. One opaque handle per corpus,
+//! per answer and per embedder; every string
 //! crossing the boundary is UTF-8 with a NUL; a null pointer is refused,
 //! never dereferenced; no panic crosses the boundary (`catch_unwind`), it
 //! becomes a null return and a message in `urna_last_error`.
@@ -11,6 +13,7 @@
 //! call. `urna_last_error` is per thread.
 
 mod corpus;
+mod embedder;
 mod hits;
 
 use std::cell::RefCell;
@@ -18,6 +21,7 @@ use std::ffi::{CStr, CString, c_char};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 
 pub use corpus::Corpus;
+pub use embedder::Embedder;
 pub use hits::Hits;
 
 thread_local! {

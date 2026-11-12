@@ -1,5 +1,9 @@
 """Self-test for the forge REAL static embedder (#10, model2vec/potion-base-8M).
 
+the embedder runs in Rust through urna-cbinds when the library is built
+(urna/_cabi.py), else numpy + tokenizers; test_native_matches_the_reference
+holds the two to the same ids and vectors.
+
 run: python tool/tests/test_potiontab.py   (or: pytest this file)
 
 unlike the floor's test_lexifloor.py (stdlib only), this one needs numpy +
@@ -95,12 +99,17 @@ def test_beats_the_lexical_floor() -> None:
 def test_no_network_at_embed() -> None:
     """fail-closed: prove no socket is opened while loading the table or
     embedding. block connect/getaddrinfo, then a FRESH load+embed must work."""
-    import numpy  # noqa: F401  warm the c-extensions before blocking
-    import tokenizers  # noqa: F401
-
     from urna.embed import potiontab
 
+    if _EMB.backend == "reference":
+        import numpy  # noqa: F401  warm the c-extensions before blocking
+        import tokenizers  # noqa: F401
+    else:
+        from urna import _cabi
+
+        _cabi.library()  # load the library before blocking
     potiontab._load_table.cache_clear()  # force a fresh table load under the block
+    potiontab._native_embedder.cache_clear()
 
     real_conn, real_gai, real_cc = (
         socket.socket.connect,
@@ -146,7 +155,61 @@ def test_model_hash_stable_and_distinct() -> None:
     )
 
 
+PARITY_TEXTS = [
+    "Lightning Bolt deals 3 damage to any target.",
+    "Relâmpago: cause 3 pontos de dano a qualquer alvo.",
+    "x" * 150,
+    "😀 日本語 한국어 Ωμέγα",
+    "zzzzzq qqqzz",
+    "hello,world!!!don't(stop)",
+    "Café   naïve\tTAB\nnewline",
+    "nul\0inside",
+    "",
+]
+
+
+def test_native_matches_the_reference() -> None:
+    """the Rust path (urna-neural through the C ABI) against numpy + tokenizers:
+    the same token ids, vectors within 1e-6, the same model_hash. skipped when
+    either side is missing, unless URNA_REQUIRE_NATIVE=1 (the CI job)."""
+    import importlib.util
+
+    from urna import _cabi
+
+    have_ref = all(importlib.util.find_spec(m) for m in ("numpy", "tokenizers"))
+    if _cabi.library() is None or not have_ref:
+        assert os.environ.get("URNA_REQUIRE_NATIVE") != "1", (
+            "native parity required: no urna-cbinds library or no numpy + tokenizers"
+        )
+        print("\n[parity] skipped: no urna-cbinds library or no numpy + tokenizers")
+        return
+    from tokenizers import Tokenizer
+
+    native = _cabi.Embedder(MODEL_DIR)
+    tok = Tokenizer.from_file(str(MODEL_DIR / "tokenizer.json"))
+    os.environ["URNA_POTION_REFERENCE"] = "1"
+    try:
+        ref = PotionEmbedder(MODEL_DIR)
+        assert ref.backend == "reference"
+        theirs = ref.embed_texts(PARITY_TEXTS)
+        ref_hash = ref.model_hash()
+    finally:
+        del os.environ["URNA_POTION_REFERENCE"]
+    assert native.model_hash == ref_hash, (native.model_hash, ref_hash)
+    worst = 0.0
+    for text, b in zip(PARITY_TEXTS, theirs, strict=True):
+        ids = tok.encode(text, add_special_tokens=False).ids
+        assert native.tokenize(text) == ids, f"token ids differ on {text!r}"
+        a = native.embed(text)
+        assert len(a) == len(b) == 256, text
+        d = max(abs(x - y) for x, y in zip(a, b, strict=True))
+        worst = max(worst, d)
+        assert d <= 1e-6, f"{text!r} differs from the reference by {d:e}"
+    print(f"\n[parity] native = reference on {len(PARITY_TEXTS)} texts (worst {worst:e}): ok")
+
+
 def main() -> None:
+    test_native_matches_the_reference()
     test_dim_norm_determinism()
     test_f32_stable()
     test_semantic_jump()

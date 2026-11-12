@@ -4,20 +4,20 @@ use crate::include::dav1d::headers::Rav1dFilterMode;
 use crate::src::align::ArrayDefault;
 use crate::src::enum_map::DefaultValue;
 use crate::src::enum_map::EnumKey;
+use crate::src::enums::enum_count;
+use crate::src::enums::from_repr;
+use crate::src::enums::EnumCount;
+use crate::src::flags::bitflags;
 use crate::src::in_range::InRange;
-use bitflags::bitflags;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::mem;
 use std::ops::Neg;
-use strum::EnumCount;
-use strum::FromRepr;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
-use zerocopy::FromZeroes;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ObuMetaType {
     HdrCll = 1,
     HdrMdcv = 2,
@@ -26,7 +26,9 @@ pub enum ObuMetaType {
     Timecode = 5,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, EnumCount, FromRepr, Default, Debug)]
+from_repr!(ObuMetaType: usize [HdrCll, HdrMdcv, Scalability, ItutT35, Timecode]);
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, Debug)]
 pub enum TxfmSize {
     // Square
     #[default]
@@ -52,6 +54,9 @@ pub enum TxfmSize {
     R16x64 = 17,
     R64x16 = 18,
 }
+
+from_repr!(TxfmSize: usize [S4x4, S8x8, S16x16, S32x32, S64x64, R4x8, R8x4, R8x16, R16x8, R16x32, R32x16, R32x64, R64x32, R4x16, R16x4, R8x32, R32x8, R16x64, R64x16]);
+enum_count!(TxfmSize [S4x4, S8x8, S16x16, S32x32, S64x64, R4x8, R8x4, R8x16, R16x8, R16x32, R32x16, R32x64, R64x32, R4x16, R16x4, R8x32, R32x8, R16x64, R64x16]);
 
 impl TxfmSize {
     pub const NUM_SQUARE: usize = Self::S64x64 as usize + 1;
@@ -106,7 +111,7 @@ impl TxfmSize {
 }
 
 #[repr(u8)]
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, EnumCount)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BlockLevel {
     #[default]
     Bl128x128 = 0,
@@ -115,6 +120,8 @@ pub enum BlockLevel {
     Bl16x16 = 3,
     Bl8x8 = 4,
 }
+
+enum_count!(BlockLevel [Bl128x128, Bl64x64, Bl32x32, Bl16x16, Bl8x8]);
 
 impl BlockLevel {
     pub const fn decrease(self) -> Option<Self> {
@@ -149,12 +156,14 @@ pub const DCT_ADST: TxfmType = 2;
 pub const ADST_DCT: TxfmType = 1;
 pub const DCT_DCT: TxfmType = 0;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, FromRepr)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum TxClass {
     TwoD,
     H,
     V,
 }
+
+from_repr!(TxClass: usize [TwoD, H, V]);
 
 pub type IntraPredMode = u8;
 pub const FILTER_PRED: IntraPredMode = 13;
@@ -182,7 +191,7 @@ pub const HOR_PRED: IntraPredMode = 2;
 pub const VERT_PRED: IntraPredMode = 1;
 pub const DC_PRED: IntraPredMode = 0;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum InterIntraPredMode {
     #[default]
     Dc = 0,
@@ -191,7 +200,10 @@ pub enum InterIntraPredMode {
     Smooth = 3,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, FromRepr, EnumCount)]
+from_repr!(InterIntraPredMode: usize [Dc, Vert, Hor, Smooth]);
+enum_count!(InterIntraPredMode [Dc, Vert, Hor, Smooth]);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BlockPartition {
     #[default]
     None = 0,
@@ -206,12 +218,15 @@ pub enum BlockPartition {
     V4 = 9,
 }
 
+from_repr!(BlockPartition: usize [None, H, V, Split, TopSplit, BottomSplit, LeftSplit, RightSplit, H4, V4]);
+enum_count!(BlockPartition [None, H, V, Split, TopSplit, BottomSplit, LeftSplit, RightSplit, H4, V4]);
+
 impl BlockPartition {
     pub const N_SUB8X8_PARTITIONS: usize = 4;
 }
 
 #[repr(u8)]
-#[derive(Clone, Copy, PartialEq, Eq, FromRepr, EnumCount, FromZeroes)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum BlockSize {
     Bs128x128 = 0,
     Bs128x64 = 1,
@@ -237,7 +252,10 @@ pub enum BlockSize {
     Bs4x4 = 21,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, EnumCount, Default, FromRepr)]
+from_repr!(BlockSize: u8 [Bs128x128, Bs128x64, Bs64x128, Bs64x64, Bs64x32, Bs64x16, Bs32x64, Bs32x32, Bs32x16, Bs32x8, Bs16x64, Bs16x32, Bs16x16, Bs16x8, Bs16x4, Bs8x32, Bs8x16, Bs8x8, Bs8x4, Bs4x16, Bs4x8, Bs4x4]);
+enum_count!(BlockSize [Bs128x128, Bs128x64, Bs64x128, Bs64x64, Bs64x32, Bs64x16, Bs32x64, Bs32x32, Bs32x16, Bs32x8, Bs16x64, Bs16x32, Bs16x16, Bs16x8, Bs16x4, Bs8x32, Bs8x16, Bs8x8, Bs8x4, Bs4x16, Bs4x8, Bs4x4]);
+
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum Filter2d {
     #[default]
     Regular8Tap = 0,
@@ -251,6 +269,9 @@ pub enum Filter2d {
     SmoothSharp8Tap = 8,
     Bilinear = 9,
 }
+
+from_repr!(Filter2d: usize [Regular8Tap, RegularSmooth8Tap, RegularSharp8Tap, SharpRegular8Tap, SharpSmooth8Tap, Sharp8Tap, SmoothRegular8Tap, Smooth8Tap, SmoothSharp8Tap, Bilinear]);
+enum_count!(Filter2d [Regular8Tap, RegularSmooth8Tap, RegularSharp8Tap, SharpRegular8Tap, SharpSmooth8Tap, Sharp8Tap, SmoothRegular8Tap, Smooth8Tap, SmoothSharp8Tap, Bilinear]);
 
 impl EnumKey<{ Self::COUNT }> for Filter2d {
     const VALUES: [Self; Self::COUNT] = [
@@ -354,7 +375,7 @@ pub enum InterIntraType {
 /// which includes `&self` methods, including autogenerated ones like [`PartialEq::eq`].
 ///
 /// [`refmvs_block`]: crate::src::refmvs::refmvs_block
-#[derive(Clone, Copy, PartialEq, Eq, Default, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 #[repr(C)]
 pub struct Mv {
     pub y: i16,
@@ -390,13 +411,15 @@ impl Neg for Mv {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, FromRepr, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MotionMode {
     #[default]
     Translation = 0,
     Obmc = 1,
     Warp = 2,
 }
+
+from_repr!(MotionMode: usize [Translation, Obmc, Warp]);
 
 #[derive(Clone, Default)]
 #[repr(C)]
@@ -412,7 +435,7 @@ pub struct Av1BlockIntra {
 
 /// Really an [`InterIntraPredMode`],
 /// but stored as a `u8` so there are no invalid bits.
-#[derive(Clone, Copy, PartialEq, Eq, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct MaskedInterIntraPredMode(u8);
 
@@ -448,7 +471,7 @@ impl From<MaskedInterIntraPredMode> for InterIntraPredMode {
     }
 }
 
-#[derive(Clone, Default, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Default)]
 #[repr(C)]
 pub struct Av1BlockInter1d {
     pub mv: [Mv; 2],
@@ -469,7 +492,7 @@ impl Av1BlockInter1d {
     }
 }
 
-#[derive(Clone, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone)]
 #[repr(C)]
 pub struct Av1BlockInter2d {
     pub mv2d: Mv,

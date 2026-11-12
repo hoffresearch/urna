@@ -30,6 +30,7 @@ use crate::src::disjoint_mut::DisjointImmutGuard;
 use crate::src::disjoint_mut::DisjointMut;
 use crate::src::disjoint_mut::DisjointMutArcSlice;
 use crate::src::disjoint_mut::DisjointMutGuard;
+use crate::src::enums::from_repr;
 use crate::src::env::BlockContext;
 use crate::src::error::Rav1dError;
 use crate::src::filmgrain::Rav1dFilmGrainDSPContext;
@@ -46,6 +47,10 @@ use crate::src::lf_mask::Av1Filter;
 use crate::src::lf_mask::Av1FilterLUT;
 use crate::src::lf_mask::Av1Restoration;
 use crate::src::lf_mask::Av1RestorationUnit;
+use crate::src::locks::Condvar;
+use crate::src::locks::Mutex;
+use crate::src::locks::RwLock;
+use crate::src::locks::RwLockReadGuard;
 use crate::src::log::Rav1dLogger;
 use crate::src::loopfilter::Rav1dLoopFilterDSPContext;
 use crate::src::looprestoration::Rav1dLoopRestorationDSPContext;
@@ -57,6 +62,10 @@ use crate::src::msac::Rav1dMsacDSPContext;
 use crate::src::pal::Rav1dPalDSPContext;
 use crate::src::picture::PictureFlags;
 use crate::src::picture::Rav1dThreadPicture;
+use crate::src::plain::plain;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
+use crate::src::plain::FromZeroes;
 use crate::src::recon::rav1d_backup_ipred_edge;
 use crate::src::recon::rav1d_copy_pal_block_uv;
 use crate::src::recon::rav1d_copy_pal_block_y;
@@ -83,16 +92,12 @@ use crate::src::refmvs::Rav1dRefmvsDSPContext;
 use crate::src::refmvs::RefMvsFrame;
 use crate::src::refmvs::RefMvsTemporalBlock;
 use crate::src::refmvs::RefmvsTile;
+use crate::src::relaxed_atomic::Atom;
+use crate::src::relaxed_atomic::Atomic;
 use crate::src::relaxed_atomic::RelaxedAtomic;
 use crate::src::thread_task::Rav1dTaskIndex;
 use crate::src::thread_task::Rav1dTasks;
-use atomig::Atom;
-use atomig::Atomic;
 use libc::ptrdiff_t;
-use parking_lot::Condvar;
-use parking_lot::Mutex;
-use parking_lot::RwLock;
-use parking_lot::RwLockReadGuard;
 use std::ffi::c_int;
 use std::ffi::c_uint;
 use std::mem;
@@ -105,10 +110,6 @@ use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::OnceLock;
 use std::thread::JoinHandle;
-use strum::FromRepr;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
-use zerocopy::FromZeroes;
 
 #[derive(Default)]
 pub struct Rav1dDSPContext {
@@ -558,8 +559,20 @@ impl Rav1dFrameContextBdFn {
     }
 }
 
-#[derive(Clone, Copy, Default, Atom)]
+#[derive(Clone, Copy, Default)]
 pub struct CodedBlockInfo(i16);
+
+impl Atom for CodedBlockInfo {
+    type Repr = u16;
+
+    fn pack(self) -> u16 {
+        self.0.pack()
+    }
+
+    fn unpack(src: u16) -> Self {
+        Self(Atom::unpack(src))
+    }
+}
 
 impl CodedBlockInfo {
     const TXTP_BITS: u8 = (TxfmType::BITS - WHT_WHT.leading_zeros()) as u8;
@@ -921,13 +934,15 @@ pub struct Rav1dTileState {
     pub lr_ref: RwLock<[Av1RestorationUnit; 3]>,
 }
 
-#[derive(Clone, Copy, Default, FromRepr)]
+#[derive(Clone, Copy, Default)]
 #[repr(u8)]
 pub enum TileStateRef {
     #[default]
     Frame,
     Local,
 }
+
+from_repr!(TileStateRef: u8 [Frame, Local]);
 
 impl Atom for TileStateRef {
     type Repr = u8;
@@ -944,9 +959,11 @@ impl Atom for TileStateRef {
 pub const CF_LEN: usize = 32 * 32;
 
 /// Array of 32 * 32 coef elements (either `i16` or `i32`).
-#[derive(FromZeroes)]
 #[repr(align(64))]
 pub struct Cf([i32; CF_LEN]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(Cf: [FromZeroes] = [[i32; CF_LEN]]);
 
 impl Cf {
     #[allow(unused)]
@@ -962,8 +979,10 @@ impl Cf {
 /// 4D array of pixel elements (either `u8` or `u16`).
 ///
 /// Indices are `[2 a/l][32 bx/y4][3 plane][8 palette_idx]`.
-#[derive(FromZeroes)]
 pub struct AlPal([u16; 8 * 3 * 32 * 2]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(AlPal: [FromZeroes] = [[u16; 8 * 3 * 32 * 2]]);
 
 impl AlPal {
     pub fn select_mut<BD: BitDepth>(&mut self) -> &mut [[[[BD::Pixel; 8]; 3]; 32]; 2] {
@@ -974,20 +993,24 @@ impl AlPal {
 pub const COMPINTER_LEN: usize = 128 * 128;
 pub const SEG_MASK_LEN: usize = 128 * 128;
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C, align(64))]
 pub struct ScratchCompinter {
     pub compinter: [[i16; COMPINTER_LEN]; 2],
     pub seg_mask: [u8; SEG_MASK_LEN],
 }
 
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchCompinter: [FromZeroes, FromBytes, AsBytes] = [[[i16; COMPINTER_LEN]; 2], [u8; SEG_MASK_LEN]]);
+
 // Larger of the two between `ScratchCompinter` and `[BD::Pixel; 128 * 32]`.
 const SCRATCH_COMPINTER_SIZE: usize = mem::size_of::<ScratchCompinter>();
 pub const SCRATCH_LAP_LEN: usize = 128 * 32;
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C, align(64))]
 pub struct ScratchLapInter([u8; SCRATCH_COMPINTER_SIZE]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchLapInter: [FromZeroes, FromBytes, AsBytes] = [[u8; SCRATCH_COMPINTER_SIZE]]);
 
 impl ScratchLapInter {
     pub fn lap_mut<BD: BitDepth>(&mut self) -> &mut [BD::Pixel; SCRATCH_LAP_LEN] {
@@ -1001,9 +1024,11 @@ impl ScratchLapInter {
 
 pub const EMU_EDGE_LEN: usize = 320 * (256 + 7);
 // stride=192 for non-SVC, or 320 for SVC
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C, align(64))]
 pub struct ScratchEmuEdge([u8; EMU_EDGE_LEN * 2]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchEmuEdge: [FromZeroes, FromBytes, AsBytes] = [[u8; EMU_EDGE_LEN * 2]]);
 
 impl ScratchEmuEdge {
     pub fn buf_mut<BD: BitDepth>(&mut self) -> &mut [BD::Pixel; EMU_EDGE_LEN] {
@@ -1011,23 +1036,29 @@ impl ScratchEmuEdge {
     }
 }
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct ScratchInter {
     pub lap_inter: ScratchLapInter,
     pub emu_edge: ScratchEmuEdge,
 }
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchInter: [FromZeroes, FromBytes, AsBytes] = [ScratchLapInter, ScratchEmuEdge]);
+
 #[repr(C, align(64))]
 pub struct ScratchPal {
     pub pal_order: [[u8; 8]; 64],
     pub pal_ctx: [u8; 64],
 }
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchPal: [FromZeroes, FromBytes, AsBytes] = [[[u8; 8]; 64], [u8; 64]]);
+
 #[repr(C, align(64))]
 pub struct ScratchLevelsPal([u8; 32 * 34]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchLevelsPal: [FromZeroes, FromBytes, AsBytes] = [[u8; 32 * 34]]);
 
 impl ScratchLevelsPal {
     pub fn levels_mut(&mut self) -> &mut [u8; 32 * 34] {
@@ -1041,9 +1072,12 @@ impl ScratchLevelsPal {
 
 pub const SCRATCH_INTER_INTRA_BUF_LEN: usize = 64 * 64;
 
-#[derive(Clone, Copy, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy)]
 #[repr(C, align(64))]
 pub struct ScratchInterIntraBuf([u16; SCRATCH_INTER_INTRA_BUF_LEN * 2]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchInterIntraBuf: [FromZeroes, FromBytes, AsBytes] = [[u16; SCRATCH_INTER_INTRA_BUF_LEN * 2]]);
 
 impl ScratchInterIntraBuf {
     pub fn buf_mut<BD: BitDepth>(&mut self) -> &mut [BD::Pixel; SCRATCH_INTER_INTRA_BUF_LEN] {
@@ -1053,9 +1087,12 @@ impl ScratchInterIntraBuf {
 
 pub const SCRATCH_EDGE_LEN: usize = 257;
 
-#[derive(Clone, Copy, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy)]
 #[repr(C, align(64))]
 pub struct ScratchEdgeBuf([u8; SCRATCH_EDGE_LEN * 2 + 62]); // 257 Pixel elements + 62 padding bytes
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchEdgeBuf: [FromZeroes, FromBytes, AsBytes] = [[u8; SCRATCH_EDGE_LEN * 2 + 62]]);
 
 impl ScratchEdgeBuf {
     pub fn buf_mut<BD: BitDepth>(&mut self) -> &mut [BD::Pixel; SCRATCH_EDGE_LEN] {
@@ -1063,9 +1100,12 @@ impl ScratchEdgeBuf {
     }
 }
 
-#[derive(Clone, Copy, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy)]
 #[repr(C, align(16))] // Over-aligned for 8bpc (needs to be `align(8)` for 8bpc, `align(16)` for 16bpc).
 pub struct ScratchPalBuf([u8; 8 * 3 * 2]); /* [3 plane][8 palette_idx] */
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchPalBuf: [FromZeroes, FromBytes, AsBytes] = [[u8; 8 * 3 * 2]]);
 
 impl ScratchPalBuf {
     pub fn buf<BD: BitDepth>(&self) -> &[[BD::Pixel; 8]; 3] {
@@ -1077,7 +1117,7 @@ impl ScratchPalBuf {
     }
 }
 
-#[derive(Clone, Copy, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy)]
 #[repr(C)]
 pub struct ScratchInterIntraEdgePal {
     pub interintra: ScratchInterIntraBuf,
@@ -1088,11 +1128,17 @@ pub struct ScratchInterIntraEdgePal {
     _padding: [u8; 16],
 }
 
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchInterIntraEdgePal: [FromZeroes, FromBytes, AsBytes] = [ScratchInterIntraBuf, ScratchEdgeBuf, ScratchPalBuf, [u8; 16]]);
+
 pub const SCRATCH_AC_TXTP_LEN: usize = 32 * 32;
 
-#[derive(Clone, Copy, FromZeroes, FromBytes, AsBytes)]
+#[derive(Clone, Copy)]
 #[repr(C, align(64))]
 pub struct ScratchAcTxtpMap([u8; SCRATCH_AC_TXTP_LEN * 2]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchAcTxtpMap: [FromZeroes, FromBytes, AsBytes] = [[u8; SCRATCH_AC_TXTP_LEN * 2]]);
 
 impl ScratchAcTxtpMap {
     pub fn ac_mut(&mut self) -> &mut [i16; SCRATCH_AC_TXTP_LEN] {
@@ -1108,7 +1154,6 @@ impl ScratchAcTxtpMap {
     }
 }
 
-#[derive(FromZeroes, FromBytes, AsBytes)]
 #[repr(C)]
 pub struct ScratchInterIntra {
     pub levels_pal: ScratchLevelsPal,
@@ -1118,11 +1163,16 @@ pub struct ScratchInterIntra {
     pub interintra_edge_pal: ScratchInterIntraEdgePal,
 }
 
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(ScratchInterIntra: [FromZeroes, FromBytes, AsBytes] = [ScratchLevelsPal, ScratchAcTxtpMap, [u8; 32 * 64], [u8; 64 * 64], ScratchInterIntraEdgePal]);
+
 // Larger of the two between `ScratchInter` and `ScratchInterIntra`.
 const SCRATCH_SIZE: usize = mem::size_of::<ScratchInter>();
-#[derive(FromZeroes)]
 #[repr(C)]
 pub struct TaskContextScratch([u8; SCRATCH_SIZE]);
+
+// SAFETY: `plain!` checks the fields and the size; the struct is `repr(C)`, `repr(transparent)` or one field.
+plain!(TaskContextScratch: [FromZeroes] = [[u8; SCRATCH_SIZE]]);
 
 impl TaskContextScratch {
     pub fn inter_mut(&mut self) -> &mut ScratchInter {
