@@ -183,8 +183,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust/images/parity
-      - name: avifenc
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libavif-bin
+      # nasm: avif-decode pulls the crates.io rav1d with its default features,
+      # so the reference is built with its x86 asm (bit-exact by the spec,
+      # and a reference independent of our pure-Rust kernels).
+      - name: avifenc and nasm
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libavif-bin nasm
       - name: encode the AVIF inputs
         run: |
           set -eu
