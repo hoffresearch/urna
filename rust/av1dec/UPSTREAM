@@ -6,3 +6,64 @@ crate_sha256 = "1932f060d5e7bd49dc9f8b272c1dc5e9ce0ffe141c28be900265d3989b36c9ed
 license = "BSD-2-Clause"
 copied = ["lib.rs", "include/", "src/*.rs", "COPYING as LICENSE"]
 dropped = ["src/**/*.S", "src/ext/x86/*.asm", "build.rs", "the asm features", "paste", "to_method"]
+
+# every place this tree departs from the upstream crate named above, so an
+# upstream fix can be ported: diff the upstream file, then re-apply the
+# change listed here. the decode itself is untouched; gatecheck.yml's
+# av1-parity job (rust/images/parity, tests/planes.rs) holds every plane to
+# the crates.io rav1d sample for sample on AVIF files encoded in CI.
+dependencies = ["libc", "assert_matches", "cfg-if"]
+
+[[deviation]]
+files = ["src/wedge.rs", "src/itx.rs"]
+replaces = "paste"
+change = "the paste! sites of wedge.rs expanded by hand; the ones in itx.rs sit in asm-only macros that never expand"
+why = "paste is unmaintained (RUSTSEC-2024-0436)"
+
+[[deviation]]
+files = ["src/to.rs"]
+replaces = "to_method"
+change = "the To trait written out in ten lines"
+why = "a one-trait crate under CC0-1.0"
+
+[[deviation]]
+files = ["src/locks.rs", "src/cdf.rs", "src/disjoint_mut.rs", "src/internal.rs", "src/lf_mask.rs", "src/lib.rs", "src/mem.rs", "src/picture.rs", "src/thread_task.rs", "include/dav1d/headers.rs"]
+replaces = "parking_lot"
+change = "Mutex, RwLock and Condvar wrap std::sync with parking_lot's surface (no poisoning, try_* as Option, Condvar::wait(&mut guard)); the users change only their use lines, and thread_task.rs's RwLockReadGuard::map becomes locks::ReadElement"
+why = "urna #643: std has the locks; RwLockReadGuard::map is the one call std has not stabilized"
+
+[[deviation]]
+files = ["src/relaxed_atomic.rs", "src/internal.rs", "src/thread_task.rs"]
+replaces = "atomig"
+change = "Atom and Atomic over AtomicU8/U16/U32/U64 with the packing written per type; #[derive(Atom)] on CodedBlockInfo and Rav1dTaskIndex becomes an impl next to the type"
+why = "urna #643"
+
+[[deviation]]
+files = ["src/enums.rs", "include/dav1d/dav1d.rs", "include/dav1d/headers.rs", "src/error.rs", "src/internal.rs", "src/ipred.rs", "src/levels.rs", "src/loopfilter.rs", "src/wedge.rs", "src/enum_map.rs", "src/cdf.rs", "src/decode.rs", "src/itx.rs", "src/qm.rs", "src/scan.rs", "src/tables.rs"]
+replaces = "strum"
+change = "#[derive(EnumCount, FromRepr)] becomes enum_count!/from_repr! after each enum, with its variant list; a variant added upstream must be added to that list"
+why = "urna #643: two macro_rules instead of a proc-macro crate"
+
+[[deviation]]
+files = ["src/flags.rs", "src/cdef.rs", "src/cdef_apply.rs", "src/cpu.rs", "src/intra_edge.rs", "src/ipred_prepare.rs", "src/levels.rs", "src/looprestoration.rs", "src/lr_apply.rs", "src/picture.rs", "include/dav1d/dav1d.rs"]
+replaces = "bitflags"
+change = "a macro_rules named bitflags with the same input; the declarations are upstream's, only their use line moves"
+why = "urna #643"
+
+[[deviation]]
+files = ["src/cpu.rs"]
+replaces = "raw-cpuid"
+change = "is_slow_gather reads the vendor and the display family from std::arch's __cpuid; it sits behind the asm feature this crate does not declare, so it is not compiled"
+why = "urna #643: std::arch has cpuid"
+
+[[deviation]]
+files = ["src/plain.rs", "include/common/bitdepth.rs", "include/dav1d/picture.rs", "src/disjoint_mut.rs", "src/internal.rs", "src/ipred.rs", "src/levels.rs", "src/looprestoration.rs", "src/refmvs.rs"]
+replaces = "zerocopy"
+change = "FromZeroes, FromBytes and AsBytes with zerocopy 0.7's method names; each #[derive] becomes plain!(Type: [traits] = [field types]), which checks at compile time that the fields implement the traits and fill the struct, then writes the unsafe impl; a field added upstream must be added to that list"
+why = "urna #643"
+
+[[deviation]]
+files = ["lib.rs"]
+replaces = ""
+change = "declares the modules added here: src/locks.rs, src/enums.rs, src/flags.rs, src/plain.rs"
+why = "the four modules above"

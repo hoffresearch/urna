@@ -1,6 +1,7 @@
 //! The AV1 planes this crate's embedded decoder produces against the same
-//! decoder from crates.io, sample by sample, on every AVIF blob of the
-//! corpus named by `URNA_CARDS_CORPUS` (skipped without it). The decode is
+//! decoder from crates.io, sample by sample, on every `.avif` of
+//! `URNA_AVIF_DIR` (CI encodes a set) or every AVIF blob of the corpus
+//! named by `URNA_CARDS_CORPUS` (skipped without either). The decode is
 //! defined bit-exactly by the AV1 specification, so any difference is a
 //! bug in the fork.
 
@@ -85,42 +86,32 @@ fn upstream_planes(av1: &[u8]) -> (usize, usize, [Vec<u16>; 3]) {
 
 #[test]
 fn the_embedded_decoder_produces_the_upstream_planes() {
-    let Some(path) = std::env::var_os("URNA_CARDS_CORPUS") else {
-        eprintln!("URNA_CARDS_CORPUS unset: plane parity skipped");
+    let Some(inputs) = urna_images_parity::avif_inputs() else {
+        eprintln!("URNA_AVIF_DIR and URNA_CARDS_CORPUS unset: plane parity skipped");
         return;
     };
-    let limit: usize = std::env::var("URNA_PARITY_LIMIT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(usize::MAX);
-    let rt = urna_engine::MmapUrnaFile::open(std::path::Path::new(&path)).expect("corpus opens");
-    let refs = rt.blob_refs().expect("the corpus has blobs");
-    let avif: Vec<usize> = refs
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.inlined && r.original_uri.ends_with(".avif"))
-        .map(|(i, _)| i)
-        .take(limit)
-        .collect();
     let mut dec = urna_images::Decoder::open().expect("decoder");
     let mut equal = 0usize;
-    for &i in &avif {
-        let bytes = rt.blob_bytes(i).expect("blob bytes");
-        let container = urna_images::parse(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
+    for (label, bytes) in &inputs {
+        let container = urna_images::parse(bytes).unwrap_or_else(|e| panic!("{label}: {e}"));
         let ours = dec
             .decode(container.primary)
-            .unwrap_or_else(|e| panic!("blob {i}: {e}"));
+            .unwrap_or_else(|e| panic!("{label}: {e}"));
         assert_eq!(
             ours.chroma,
             urna_images::Chroma::C420,
-            "blob {i}: the corpus is 4:2:0"
+            "{label}: the inputs are 4:2:0"
         );
         let (w, h, theirs) = upstream_planes(container.primary);
-        assert_eq!((ours.width, ours.height), (w, h), "blob {i}: size");
+        assert_eq!((ours.width, ours.height), (w, h), "{label}: size");
         for (p, (a, b)) in ours.planes.iter().zip(&theirs).enumerate() {
-            assert!(a == b, "blob {i}: plane {p} differs");
+            assert!(a == b, "{label}: plane {p} differs");
         }
         equal += 1;
     }
-    eprintln!("plane parity over {} blobs: {equal} identical", avif.len());
+    assert!(equal > 0, "no AVIF input to compare");
+    eprintln!(
+        "plane parity over {} inputs: {equal} identical",
+        inputs.len()
+    );
 }
