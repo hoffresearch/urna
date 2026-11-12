@@ -27,7 +27,8 @@ fn inputs() -> Vec<(String, Vec<u8>)> {
     let mut mixed = text(&mut rng, 150_000);
     for _ in 0..200 {
         let at = rng.below(mixed.len());
-        let noise = random_bytes(&mut rng, 1 + rng.below(300));
+        let n = 1 + rng.below(300);
+        let noise = random_bytes(&mut rng, n);
         mixed.splice(at..at, noise);
     }
     v.push(("text with noise".to_string(), mixed));
