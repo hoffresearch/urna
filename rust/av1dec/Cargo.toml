@@ -25,7 +25,6 @@ bitdepth_8 = []
 bitdepth_16 = []
 
 [dependencies]
-assert_matches = "1.5.0"
 atomig = { version = "0.4.0", features = ["derive"] }
 bitflags = "2.4.0"
 cfg-if = "1.0.0"
