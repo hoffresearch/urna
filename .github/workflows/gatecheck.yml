@@ -63,6 +63,17 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: clippy (engine-only cli, no terminal ui)
         run: cargo clippy -p urna --no-default-features --all-targets -- -D warnings
+      # #645: zstd is decoded by urna-format's own decoder, the zstd crate
+      # (libzstd, C) only writes. the readers must build, lint clean and
+      # resolve without it.
+      - name: the read path links no C (urna-format without write, engine, cbinds)
+        run: |
+          cargo clippy -p urna-format --no-default-features -- -D warnings
+          cargo clippy -p urna-engine -p urna-cbinds -- -D warnings
+          if cargo tree -p urna-engine -p urna-cbinds -e normal,build | grep zstd; then
+            echo "a reader depends on the zstd crate" >&2
+            exit 1
+          fi
       - name: build
         run: cargo build --workspace --all-targets
       # a binary built from a branch or main never takes a release's name,

@@ -17,10 +17,18 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 sha2 = { workspace = true }
 hex = "0.4"
-zstd = { workspace = true }
+# the encoder and the dictionary trainer (libzstd, C), for writing only; the
+# read path decodes zstd with src/encoding/zstd_decoder, in safe Rust.
+zstd = { workspace = true, optional = true }
 rayon = { workspace = true }
 half = { workspace = true }
 bytemuck = { workspace = true }
+
+[features]
+default = ["write"]
+# write a .urna: the writer, the zstd encoder and the dictionary trainer.
+# readers (urna-engine, urna-cbinds, a wasm build) turn it off and link no C.
+write = ["dep:zstd"]
 
 [dev-dependencies]
 tempfile = "3"

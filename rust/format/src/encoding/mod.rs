@@ -26,6 +26,7 @@ mod int8;
 mod intpack;
 mod txt_streams;
 mod zstd_codec;
+mod zstd_decoder;
 mod zstd_dict;
 
 pub use dedup::{
@@ -44,14 +45,17 @@ pub use int8::{
     encode_int8_embeddings, quantize_f32_to_i8,
 };
 pub use intpack::{INTPACK_BLOCK, IntpackReader, pack_u64s, unpack_u64s};
-pub use txt_streams::{
-    TXT_STREAMS_V1, TxtStreams, decode as decode_txt_streams_payload, encode_txt_streams,
-};
-pub use zstd_codec::{DEFAULT_ZSTD_LEVEL, zstd_encode};
-pub use zstd_dict::{
-    MAX_DICT_BYTES, TXT_STREAMS_V2, decode as decode_zstd_dict_payload, encode as encode_zstd_dict,
-    train_dict,
-};
+pub use txt_streams::{TXT_STREAMS_V1, TxtStreams, decode as decode_txt_streams_payload};
+pub use zstd_codec::{DEFAULT_ZSTD_LEVEL, zstd_decompress, zstd_decompress_with_dict};
+pub use zstd_dict::{MAX_DICT_BYTES, TXT_STREAMS_V2, decode as decode_zstd_dict_payload};
+// the encoders call libzstd: they exist with the `write` feature only, so a
+// reader (the engine, the C ABI, a wasm build) links no C.
+#[cfg(feature = "write")]
+pub use txt_streams::encode_txt_streams;
+#[cfg(feature = "write")]
+pub use zstd_codec::zstd_encode;
+#[cfg(feature = "write")]
+pub use zstd_dict::{encode as encode_zstd_dict, train_dict};
 
 use crate::error::UrnaError;
 use crate::layout::{
@@ -151,6 +155,7 @@ pub fn decode_payload_with_dict<'a>(
 /// The embedding dtypes (float16/int8) are not general-purpose encoders
 /// and are rejected here; they are chosen by preset on the embeddings
 /// section directly.
+#[cfg(feature = "write")]
 fn encode_wire(encoding: u32, payload: &[u8]) -> crate::Result<Vec<u8>> {
     match encoding {
         SECTION_ENCODING_RAW => Ok(payload.to_vec()),
@@ -169,6 +174,7 @@ fn encode_wire(encoding: u32, payload: &[u8]) -> crate::Result<Vec<u8>> {
 /// picks among non-embedding encodings; existing presets that name an
 /// encoding explicitly are untouched, so the frozen output stays
 /// byte-identical.
+#[cfg(feature = "write")]
 pub fn encode_smallest(candidates: &[u32], payload: &[u8]) -> crate::Result<(u32, Vec<u8>)> {
     let mut best: Option<(u32, Vec<u8>)> = None;
     for &enc in candidates {
@@ -204,5 +210,6 @@ pub fn expected_embeddings_size(dtype: &str, n: usize, dim: usize) -> Option<usi
     }
 }
 
-#[cfg(test)]
+// the tests encode with libzstd (the `write` feature).
+#[cfg(all(test, feature = "write"))]
 mod tests;

@@ -1,7 +1,11 @@
-//! zstd compression for non-embedding sections. Embeddings are never
-//! zstd-compressed - they live in mmap and the runtime reads them via
-//! SIMD straight from disk.
+//! zstd for non-embedding sections. Embeddings are never zstd-compressed -
+//! they live in mmap and the runtime reads them via SIMD straight from disk.
+//!
+//! decoding goes through our own decoder (`zstd_decoder`, safe Rust), so the
+//! read path links no C; encoding stays on the `zstd` crate (libzstd) behind
+//! the `write` feature, and its bytes are unchanged (format v1 is frozen).
 
+use super::zstd_decoder::ZstdDecoder;
 use crate::error::UrnaError;
 
 /// Default zstd compression level. 19 is in the "high" tier - slow to
@@ -11,9 +15,10 @@ pub const DEFAULT_ZSTD_LEVEL: i32 = 19;
 
 /// Compress with zstd at `DEFAULT_ZSTD_LEVEL`. Returns the compressed
 /// bytes ready to write as the section payload.
+#[cfg(feature = "write")]
 pub fn zstd_encode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
     zstd::encode_all(bytes, DEFAULT_ZSTD_LEVEL)
-        .map_err(|e| UrnaError::InvalidInput(format!("zstd compression failed: {}", e)))
+        .map_err(|e| UrnaError::InvalidInput(format!("zstd compression failed: {e}")))
 }
 
 /// a reusable zstd context for many small frames. [`zstd_encode`] builds a
@@ -22,10 +27,12 @@ pub fn zstd_encode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
 /// session between frames, and feeds it the same way `zstd::encode_all`
 /// does (unknown pledged size, streaming end), so every frame is
 /// byte-identical to `zstd_encode` on the same input.
+#[cfg(feature = "write")]
 pub(super) struct ZstdFramer {
     cctx: zstd::zstd_safe::CCtx<'static>,
 }
 
+#[cfg(feature = "write")]
 impl ZstdFramer {
     pub(super) fn new() -> Self {
         Self {
@@ -36,7 +43,7 @@ impl ZstdFramer {
     /// compress `bytes` into one frame equal to `zstd_encode(bytes)`.
     pub(super) fn encode(&mut self, bytes: &[u8]) -> crate::Result<Vec<u8>> {
         let fail = |what: &str, e: String| {
-            UrnaError::InvalidInput(format!("zstd compression failed: {}: {}", what, e))
+            UrnaError::InvalidInput(format!("zstd compression failed: {what}: {e}"))
         };
         let code = |c: usize| zstd::zstd_safe::get_error_name(c).to_string();
         self.cctx
@@ -76,23 +83,30 @@ fn decompress_cap(compressed_len: usize) -> usize {
 /// at open time: a frame that declares (or expands past) more than the cap is
 /// rejected before the large allocation, never a panic.
 pub(super) fn zstd_decode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
-    let cap = decompress_cap(bytes.len());
-    let bomb = |reason: String| UrnaError::MalformedSectionPayload {
-        section_id: 0,
-        reason,
-    };
-    let fail = |e: std::io::Error| bomb(format!("zstd decompression failed: {}", e));
-    match zstd::bulk::Decompressor::upper_bound(bytes) {
-        // declared frame size already exceeds the cap: refuse before allocating.
-        Some(declared) if declared > cap => Err(bomb(format!(
-            "zstd frame declares {} bytes, exceeds cap {}",
-            declared, cap
-        ))),
-        // declared size known and within cap: allocate exactly it.
-        Some(declared) => zstd::bulk::decompress(bytes, declared).map_err(fail),
-        // no size hint: allow up to the cap, erroring if the frame exceeds it.
-        None => zstd::bulk::decompress(bytes, cap).map_err(fail),
-    }
+    ZstdDecoder::default()
+        .decompress(bytes, decompress_cap(bytes.len()))
+        .map_err(|e| UrnaError::MalformedSectionPayload {
+            section_id: 0,
+            reason: format!("zstd decompression failed: {e}"),
+        })
+}
+
+/// Decompress every zstd frame of `bytes` with our own decoder (no libzstd),
+/// producing at most `cap` bytes: a frame that declares more is refused
+/// before anything is allocated, one that keeps producing stops at the cap.
+pub fn zstd_decompress(bytes: &[u8], cap: usize) -> crate::Result<Vec<u8>> {
+    ZstdDecoder::default()
+        .decompress(bytes, cap)
+        .map_err(|e| UrnaError::InvalidInput(e.to_string()))
+}
+
+/// [`zstd_decompress`] for frames compressed against `dict`: a dictionary as
+/// the zstd trainer writes it, or raw content. A frame naming another
+/// dictionary ID is refused.
+pub fn zstd_decompress_with_dict(bytes: &[u8], dict: &[u8], cap: usize) -> crate::Result<Vec<u8>> {
+    ZstdDecoder::with_dictionary(dict)
+        .and_then(|mut d| d.decompress(bytes, cap))
+        .map_err(|e| UrnaError::InvalidInput(e.to_string()))
 }
 
 #[cfg(test)]
@@ -100,7 +114,8 @@ mod tests {
     use super::*;
 
     #[test]
-    #[cfg_attr(miri, ignore)] // zstd is c code, miri cannot call it
+    #[cfg(feature = "write")]
+    #[cfg_attr(miri, ignore)] // the encoder is c code, miri cannot call it
     fn roundtrip_within_cap() {
         let original = b"the file is the database ".repeat(256);
         let compressed = zstd_encode(&original).unwrap();
@@ -109,7 +124,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)] // zstd is c code, miri cannot call it
+    #[cfg(feature = "write")]
+    #[cfg_attr(miri, ignore)] // the encoder is c code, miri cannot call it
     fn decompression_bomb_is_rejected_not_ooming() {
         // a tiny compressed frame declaring more than the cap must error,
         // never inflate. zeros compress to a few bytes but declare their full
@@ -122,7 +138,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)] // zstd is c code, miri cannot call it
+    #[cfg(feature = "write")]
+    #[cfg_attr(miri, ignore)] // the encoder is c code, miri cannot call it
     fn framer_frames_equal_zstd_encode() {
         // one framer reused across inputs of every size class: empty, tiny,
         // and past one 128 KiB zstd block, in an order that would expose any

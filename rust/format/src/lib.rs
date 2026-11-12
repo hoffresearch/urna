@@ -33,16 +33,21 @@ pub mod layout;
 pub mod manifest;
 pub mod reader;
 pub mod sections;
+// writing a .urna needs the zstd encoder (libzstd, C): the `write` feature,
+// on by default. reading needs none of it.
+#[cfg(feature = "write")]
 pub mod writer;
 
 pub use chunk::{ChunkInput, chunk_id};
 pub use encoding::{
     DEFAULT_ZSTD_LEVEL, INT4_BLOCK, Int4EmbeddingsView, Int8EmbeddingsView, TXT_STREAMS_V1,
     TXT_STREAMS_V2, TXT_STREAMS_V3, TxtStreams, decode_payload, decode_payload_with_dict,
-    encode_int4_embeddings, encode_int8_embeddings, encode_txt_streams, expected_embeddings_size,
-    f16_bytes_to_f32, f32_to_f16_bytes, int4_blocks_per_row, nibble_to_i4, pack_nibbles,
-    quantize_f32_to_i4, quantize_f32_to_i8, zstd_encode,
+    encode_int4_embeddings, encode_int8_embeddings, expected_embeddings_size, f16_bytes_to_f32,
+    f32_to_f16_bytes, int4_blocks_per_row, nibble_to_i4, pack_nibbles, quantize_f32_to_i4,
+    quantize_f32_to_i8, zstd_decompress, zstd_decompress_with_dict,
 };
+#[cfg(feature = "write")]
+pub use encoding::{encode_txt_streams, zstd_encode};
 pub use error::{Result, UrnaError};
 pub use layout::*;
 pub use manifest::{Capabilities, Manifest};
@@ -65,4 +70,5 @@ pub use sections::{
     decode_search_contract, decode_space_table, decode_txt_streams, encode_chunks_canonical,
     encode_space_table,
 };
+#[cfg(feature = "write")]
 pub use writer::{EmbeddingDType, SectionEncoding, UrnaFileBuilder, add_sections};

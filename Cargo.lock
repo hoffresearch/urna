@@ -2378,7 +2378,6 @@ dependencies = [
  "urna-neural",
  "vergen-gitcl",
  "zip",
- "zstd",
 ]
 
 [[package]]

@@ -9,8 +9,8 @@
 //! this is the `TXT_STREAMS_V2` variant: it reuses the txt_streams container
 //! byte-for-byte (kind byte + count + intpack offset table + N streams,
 //! giving O(1) single-chunk reopen) but each stream is zstd-encoded WITH the
-//! shared dict via `EncoderDictionary`/`DecoderDictionary`. [`decode`]
-//! rebuilds the EXACT canonical payload byte-for-byte, so `content_hash` is
+//! shared dict via libzstd's `EncoderDictionary` (the `write` feature) and
+//! decoded by our own decoder (`zstd_decoder`, no C). [`decode`] rebuilds the EXACT canonical payload byte-for-byte, so `content_hash` is
 //! preserved. every read is bounds-checked and returns a typed `UrnaError`,
 //! never a panic on a truncated or hostile payload.
 //!
@@ -22,12 +22,19 @@
 //! and duckdb (per-section analyze-and-pick over candidate codecs).
 
 use super::intpack::{IntpackReader, pack_u64s};
-use super::txt_streams::{build_canonical, concat_frames, malformed, write_container};
+use super::txt_streams::{build_canonical, malformed};
+#[cfg(feature = "write")]
+use super::txt_streams::{concat_frames, write_container};
+use super::zstd_decoder::ZstdDecoder;
 use crate::bytes::le_u64;
+#[cfg(feature = "write")]
 use crate::error::UrnaError;
+#[cfg(feature = "write")]
 use rayon::prelude::*;
-use zstd::bulk::{Compressor, Decompressor};
-use zstd::dict::{DecoderDictionary, EncoderDictionary};
+#[cfg(feature = "write")]
+use zstd::bulk::Compressor;
+#[cfg(feature = "write")]
+use zstd::dict::EncoderDictionary;
 
 /// kind/version byte for the dict-framed variant. distinct from
 /// `TXT_STREAMS_V1` so a reader dispatches the right per-stream codec
@@ -36,6 +43,7 @@ pub const TXT_STREAMS_V2: u8 = 1;
 
 /// zstd level used for both dict training and per-stream compression. matches
 /// `DEFAULT_ZSTD_LEVEL` so the dict path competes on equal footing.
+#[cfg(feature = "write")]
 const DICT_LEVEL: i32 = super::zstd_codec::DEFAULT_ZSTD_LEVEL;
 
 /// max trained-dictionary size in bytes (~110 KiB). the ZDICT trainer
@@ -58,6 +66,7 @@ const STREAM_CAP: usize = 64 * 1024 * 1024;
 /// version. returns `None` when there is too little material to train a
 /// useful dictionary (the trainer needs a handful of samples); the caller
 /// then simply does not offer the dict variant for that build.
+#[cfg(feature = "write")]
 pub fn train_dict(sorted_unique: &[String]) -> Option<Vec<u8>> {
     // the trainer rejects empty / too-small corpora; guard so a tiny build
     // (e.g. the golden fixture path) never offers a dict variant.
@@ -93,6 +102,7 @@ pub fn train_dict(sorted_unique: &[String]) -> Option<Vec<u8>> {
 /// each stream is a one-shot compress against the shared prepared dict, so
 /// the streams are compressed in parallel (one compressor per rayon split)
 /// and laid out in chunk order: the bytes do not depend on the thread count.
+#[cfg(feature = "write")]
 pub fn encode(texts: &[String], dict: &[u8]) -> crate::Result<Vec<u8>> {
     let edict = EncoderDictionary::copy(dict, DICT_LEVEL);
     let frames = texts
@@ -120,28 +130,25 @@ pub fn encode(texts: &[String], dict: &[u8]) -> crate::Result<Vec<u8>> {
     ))
 }
 
-/// decompress a single dict-framed stream with the shared `dict`, validating
-/// utf-8 (the canonical encoder only ever wrote utf-8). bounds + typed
-/// errors only, never a panic on a hostile frame.
-fn decompress_stream(dec: &mut Decompressor<'_>, stream: &[u8]) -> crate::Result<Vec<u8>> {
-    let cap = Decompressor::upper_bound(stream)
-        .unwrap_or(STREAM_CAP)
-        .min(STREAM_CAP);
+/// decompress a single dict-framed stream with the shared dictionary,
+/// validating utf-8 (the canonical encoder only ever wrote utf-8). bounded
+/// by `STREAM_CAP` and typed errors only, never a panic on a hostile frame.
+fn decompress_stream(dec: &mut ZstdDecoder<'_>, stream: &[u8]) -> crate::Result<Vec<u8>> {
     let raw = dec
-        .decompress(stream, cap)
-        .map_err(|e| malformed(format!("zstd_dict: decompress: {}", e)))?;
-    std::str::from_utf8(&raw).map_err(|e| malformed(format!("zstd_dict: invalid utf-8: {}", e)))?;
+        .decompress(stream, STREAM_CAP)
+        .map_err(|e| malformed(format!("zstd_dict: decompress: {e}")))?;
+    std::str::from_utf8(&raw).map_err(|e| malformed(format!("zstd_dict: invalid utf-8: {e}")))?;
     Ok(raw)
 }
 
 /// reconstruct the canonical `chunks_canonical` payload from a dict-framed
 /// `txt_streams` V2 payload using the shared `dict`. byte-identical to
 /// `sections::encode_chunks_canonical`, so `content_hash` is preserved.
+/// one decoder (dictionary parsed once, buffers reused) reads every stream.
 pub fn decode(bytes: &[u8], dict: &[u8]) -> crate::Result<Vec<u8>> {
     let (count, offsets, streams) = parse_v2(bytes)?;
-    let ddict = DecoderDictionary::copy(dict);
-    let mut dec = Decompressor::with_prepared_dictionary(&ddict)
-        .map_err(|e| UrnaError::InvalidInput(format!("zstd_dict: decompressor init: {}", e)))?;
+    let mut dec = ZstdDecoder::with_dictionary(dict)
+        .map_err(|e| malformed(format!("zstd_dict: dictionary: {e}")))?;
     let mut bodies: Vec<Vec<u8>> = Vec::with_capacity(count);
     for i in 0..count {
         let s = stream_slice(streams, &offsets, i)?;
@@ -205,12 +212,13 @@ fn stream_slice<'a>(streams: &'a [u8], offsets: &[u64], i: usize) -> crate::Resu
         .ok_or_else(|| malformed("zstd_dict: stream slice out of bounds"))
 }
 
-#[cfg(test)]
+// the tests encode, which needs libzstd (the `write` feature).
+#[cfg(all(test, feature = "write"))]
 mod tests {
     use super::*;
 
     #[test]
-    #[cfg_attr(miri, ignore)] // zstd is c code, miri cannot call it
+    #[cfg_attr(miri, ignore)] // the encoder is c code, miri cannot call it
     fn parallel_encode_equals_sequential() {
         let t: Vec<String> = (0..2_000)
             .map(|i| {

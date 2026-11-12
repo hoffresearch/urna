@@ -86,7 +86,9 @@ half = { version = "2", features = ["bytemuck"] }
 bytemuck = { version = "1", features = ["derive"] }
 # path for the workspace, version for crates.io: `cargo publish` strips the
 # path and keeps the version, so both move with every release bump.
-urna-format = { path = "rust/format", version = "0.5.6" }
+# default features off: a crate that writes asks for `write` (the zstd
+# encoder, libzstd); the engine and the C ABI read without linking C.
+urna-format = { path = "rust/format", version = "0.5.6", default-features = false }
 urna-engine = { path = "rust/engine", version = "0.5.6" }
 urna-neural = { path = "rust/neural", version = "0.5.6" }
 
