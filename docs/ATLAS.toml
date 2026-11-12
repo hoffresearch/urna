@@ -908,7 +908,7 @@ links = ["rust/format/src/sections/scalars/mod.rs", "rust/format/src/manifest/sc
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/graphics"
 kind = "directory"
-purpose = "The terminal image protocols written here (kitty, iTerm2 with its PNG, sixel), the one-time terminal probe and the glyph sets"
+purpose = "The terminal image protocols written here (kitty, iTerm2 with its PNG, sixel; the zlib stream kitty and the PNG take is stored deflate blocks with Adler-32, zlib.rs), the one-time terminal probe and the glyph sets"
 links = ["rust/clitui/src/tui/graphics/mod.rs", "rust/images/src/lib.rs"]
 
 [[inventory.workspace]]
