@@ -393,8 +393,9 @@ path = [
     "rust/engine/tests/mutation_fuzz.rs",
     "rust/engine/src/mmap_file.rs",
     "fuzz/fuzz_targets/urna_view.rs",
+    "fuzz/fuzz_targets/zstd_decoder.rs",
 ]
-summary = "Build real files in every dtype / text-encoding combination with every optional section present, mutate them (bit flips, byte sets, zero runs, integer specials, truncation, splices; half with checksums resealed so the corruption reaches the decoders), and drive the reader, every section decoder, the mmap open path and every search verb: a typed error is fine, a panic is a finding that becomes a tests/negative_*.rs"
+summary = "Build real files in every dtype / text-encoding combination with every optional section present, mutate them (bit flips, byte sets, zero runs, integer specials, truncation, splices; half with checksums resealed so the corruption reaches the decoders), and drive the reader, every section decoder, the mmap open path and every search verb: a typed error is fine, a panic is a finding that becomes a tests/negative_*.rs. The zstd-decoder target holds urna-format's zstd decoder to libzstd on arbitrary bytes, with a dictionary and on libzstd round trips"
 
 [[flows]]
 name = "competitor-bench"

@@ -27,6 +27,7 @@ executes a few thousand mutations; this directory is the long soak.
 | `section-decoders` | One section codec picked by the first byte, fed the rest | Codec bug reachable behind a valid container |
 | `runtime-indexes` | `HnswIndex::from_bytes`, `Bm25Index::from_bytes`, `CsrIndex::from_bytes` | Index codec bug |
 | `mmap-open-search` | File on disk, `MmapUrnaFile::open` + every search verb | Runtime open / search bug |
+| `zstd-decoder` | urna-format's zstd decoder on raw bytes, with a dictionary, and on libzstd round trips | Decoder panic, or a disagreement with libzstd |
 
 `urna-view` and `mmap-open-search` reseal half of their inputs (recompute
 the header checksum, section checksums and footer hash) so the fuzzer gets

@@ -33,6 +33,10 @@ libfuzzer-sys = "0.4"
 urna-format = { path = "../rust/format" }
 urna-engine = { path = "../rust/engine" }
 
+# the reference for the zstd-decoder target: libzstd, the same crate the
+# writer encodes with.
+zstd = { version = "0.14", default-features = false }
+
 # reach the decoders with the checksum layer resealed (see fuzz_targets/
 # reseal.rs); sha2 matches the workspace pin.
 sha2 = "0.11"
@@ -61,6 +65,13 @@ bench = false
 [[bin]]
 name = "mmap-open-search"
 path = "fuzz_targets/mmap_open_search.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "zstd-decoder"
+path = "fuzz_targets/zstd_decoder.rs"
 test = false
 doc = false
 bench = false

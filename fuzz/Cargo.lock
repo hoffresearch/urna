@@ -444,6 +444,7 @@ dependencies = [
  "sha2",
  "urna-engine",
  "urna-format",
+ "zstd",
 ]
 
 [[package]]

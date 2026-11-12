@@ -161,14 +161,14 @@ jobs:
       - name: seed corpora
         run: |
           cd fuzz
-          for t in urna-view section-decoders runtime-indexes mmap-open-search; do
+          for t in urna-view section-decoders runtime-indexes mmap-open-search zstd-decoder; do
             mkdir -p corpus/$t
             cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna corpus/$t/
           done
       - name: run every target (bounded)
         run: |
           cd fuzz
-          for t in urna-view section-decoders runtime-indexes; do
+          for t in urna-view section-decoders runtime-indexes zstd-decoder; do
             cargo fuzz run $t -- -max_total_time=90 -max_len=65536
           done
           cargo fuzz run mmap-open-search -- -max_total_time=90 -max_len=65536 -rss_limit_mb=4096
@@ -246,7 +246,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [urna-view, section-decoders, runtime-indexes, mmap-open-search]
+        target: [urna-view, section-decoders, runtime-indexes, mmap-open-search, zstd-decoder]
     env:
       TARGET: ${{ matrix.target }}
       SOAK_SECONDS: ${{ inputs.seconds || 1800 }}
