@@ -62,10 +62,20 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// `target/<profile>/` of this build, from the test binary's own path.
+/// `target/<profile>/` of this build, from the test binary's own path: the
+/// nearest `debug` or `release` folder above it. cargo 1.100 moved test
+/// binaries from `target/<profile>/deps/` to
+/// `target/<profile>/build/<package>/<hash>/deps/`, while `cargo build`
+/// still puts the staticlib in `target/<profile>/`.
 fn target_dir() -> PathBuf {
     let exe = std::env::current_exe().unwrap();
-    exe.parent().unwrap().parent().unwrap().to_path_buf()
+    exe.ancestors()
+        .find(|p| {
+            p.file_name()
+                .is_some_and(|n| n == "debug" || n == "release")
+        })
+        .unwrap()
+        .to_path_buf()
 }
 
 fn have(cmd: &str) -> bool {
