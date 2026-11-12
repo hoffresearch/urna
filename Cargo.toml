@@ -119,6 +119,10 @@ targets = [
     "aarch64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
 ]
+# GitHub retired the macos-14 image dist 0.32 picks for aarch64-apple-darwin;
+# jobs on it are cancelled with "The configuration 'macos-14-arm64-us-default'
+# is not supported".
+github-custom-runners = { aarch64-apple-darwin = "macos-15" }
 install-path = "~/.local/bin"
 pr-run-mode = "plan"
 # the four abi3 wheels build next to the archives (a custom local-artifacts
