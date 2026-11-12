@@ -146,7 +146,7 @@ pub fn download(
     if !child.wait()?.success() {
         bail!("{}", curl_error(url, &err));
     }
-    Ok(hex::encode(hasher.finalize()))
+    Ok(urna_format::to_hex(hasher.finalize()))
 }
 
 #[cfg(test)]
@@ -205,7 +205,10 @@ mod tests {
         };
         let mut seen = 0;
         let got = download(&curl_bin, &url, &dir.join("dst.bin"), |n| seen = n).unwrap();
-        assert_eq!(got, hex::encode(Sha256::digest(b"urna payload bytes")));
+        assert_eq!(
+            got,
+            urna_format::to_hex(Sha256::digest(b"urna payload bytes"))
+        );
         assert_eq!(seen, 18);
         assert!(
             download(

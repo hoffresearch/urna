@@ -2319,7 +2319,6 @@ dependencies = [
  "clap",
  "crossterm",
  "flate2",
- "hex",
  "libc",
  "memmap2",
  "ratatui",
@@ -2355,7 +2354,6 @@ dependencies = [
 name = "urna-bridge"
 version = "0.5.6"
 dependencies = [
- "hex",
  "pyo3",
  "pyo3-build-config",
  "serde",
@@ -2380,7 +2378,6 @@ version = "0.5.6"
 dependencies = [
  "criterion",
  "half",
- "hex",
  "libc",
  "memmap2",
  "serde",
@@ -2396,7 +2393,6 @@ version = "0.5.6"
 dependencies = [
  "bytemuck",
  "half",
- "hex",
  "proptest",
  "rayon",
  "serde",
@@ -2420,7 +2416,6 @@ name = "urna-neural"
 version = "0.5.6"
 dependencies = [
  "half",
- "hex",
  "serde",
  "serde_json",
  "sha2 0.11.0",

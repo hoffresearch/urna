@@ -94,7 +94,7 @@ impl<'a> UrnaView<'a> {
     pub fn file_hash_hex(&self) -> String {
         use sha2::{Digest, Sha256};
         let h = Sha256::digest(self.data);
-        format!("sha256:{}", hex::encode(h))
+        format!("sha256:{}", crate::to_hex(h))
     }
 
     /// `sha256:<hex>` of the canonical sections in the order fixed by spec
@@ -120,7 +120,7 @@ impl<'a> UrnaView<'a> {
             h.update((bytes.len() as u64).to_le_bytes());
             h.update(bytes.as_ref());
         }
-        Ok(format!("sha256:{}", hex::encode(h.finalize())))
+        Ok(format!("sha256:{}", crate::to_hex(h.finalize())))
     }
 }
 

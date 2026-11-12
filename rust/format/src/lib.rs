@@ -29,6 +29,7 @@ pub mod bytes;
 pub mod chunk;
 pub mod encoding;
 pub mod error;
+pub mod hex;
 pub mod layout;
 pub mod manifest;
 pub mod reader;
@@ -44,6 +45,7 @@ pub use encoding::{
     quantize_f32_to_i4, quantize_f32_to_i8, zstd_encode,
 };
 pub use error::{Result, UrnaError};
+pub use hex::{from_hex, to_hex};
 pub use layout::*;
 pub use manifest::{Capabilities, Manifest};
 pub use reader::UrnaView;

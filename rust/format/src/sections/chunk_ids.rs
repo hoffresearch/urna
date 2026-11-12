@@ -56,10 +56,10 @@ pub fn encode_chunk_ids_intpack(ids: &[String]) -> Option<Vec<u8>> {
         if hex_part.len() != DIGEST_LEN * 2 {
             return None;
         }
-        let d = hex::decode(hex_part).ok()?;
+        let d = crate::from_hex(hex_part).ok()?;
         // guard against any non-canonical (e.g. uppercase) hex so the
         // round-trip reproduces the original ascii byte-for-byte.
-        if hex::encode(&d) != hex_part {
+        if crate::to_hex(&d) != hex_part {
             return None;
         }
         digests.extend_from_slice(&d);
@@ -91,7 +91,7 @@ pub fn decode_chunk_ids_intpack(rest: &[u8]) -> crate::Result<Vec<u8>> {
     let mut buf = Vec::with_capacity(12 + count * (4 + 71));
     write_prefix(&mut buf, count as u64);
     for d in body.chunks_exact(DIGEST_LEN) {
-        let s = format!("{}{}", SHA256_PREFIX, hex::encode(d));
+        let s = format!("{}{}", SHA256_PREFIX, crate::to_hex(d));
         write_lp_str(&mut buf, &s)?;
     }
     Ok(buf)
@@ -120,7 +120,7 @@ mod tests {
 
     fn sample_ids() -> Vec<String> {
         (0u8..4)
-            .map(|i| format!("sha256:{}", hex::encode([i; 32])))
+            .map(|i| format!("sha256:{}", crate::to_hex([i; 32])))
             .collect()
     }
 

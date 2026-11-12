@@ -31,7 +31,7 @@ pub fn run(file: PathBuf, json: bool) -> Result<()> {
             enc,
             entry.offset,
             entry.size,
-            hex::encode(entry.checksum),
+            urna_format::to_hex(entry.checksum),
         );
     }
     println!(
