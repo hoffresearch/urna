@@ -18,6 +18,7 @@ pub mod plan;
 pub mod sample;
 pub mod scan;
 mod screen;
+pub mod systar;
 pub mod text;
 pub mod tree;
 mod ui;

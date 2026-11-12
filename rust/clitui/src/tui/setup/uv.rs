@@ -7,14 +7,15 @@
 //!
 //! the binary lands at `<home>/bin/uv` (`paths::managed_uv`); the archive
 //! is a `.tar.gz` holding `uv-<target>/uv`, or on windows a `.zip` holding
-//! `uv.exe`.
+//! `uv.exe`, both read by the system tar (`systar.rs`; windows' bsdtar
+//! reads zip).
 
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
 
 use super::models::UvRelease;
-use super::net;
+use super::{net, systar};
 
 /// The archive of `release` for `target` (`<arch>-<os>`, `Scan::target`).
 pub fn archive<'a>(release: &'a UvRelease, target: &str) -> Option<&'a super::models::Archive> {
@@ -58,11 +59,7 @@ pub fn install(
             &a.sha256[..a.sha256.len().min(12)]
         );
     }
-    let res = if a.url.ends_with(".zip") {
-        unzip(&tmp, &dest)
-    } else {
-        untar(&tmp, &dest)
-    };
+    let res = unpack(&tmp, &dest);
     let _ = std::fs::remove_file(&tmp);
     res?;
     Ok(dest)
@@ -73,15 +70,11 @@ fn binary_name() -> &'static str {
     if cfg!(windows) { "uv.exe" } else { "uv" }
 }
 
-/// Writes `bytes` to `dest` through a sibling temp file, executable on
-/// unix, so a half-written uv is never at `dest`.
-fn place(mut src: impl std::io::Read, dest: &Path) -> Result<()> {
+/// Moves the unpacked `src` to `dest` through a sibling temp file,
+/// executable on unix, so a half-written uv is never at `dest`.
+fn place(src: &Path, dest: &Path) -> Result<()> {
     let part = dest.with_extension("part");
-    {
-        let mut out =
-            std::fs::File::create(&part).with_context(|| format!("create {}", part.display()))?;
-        std::io::copy(&mut src, &mut out).context("unpack uv")?;
-    }
+    std::fs::copy(src, &part).with_context(|| format!("create {}", part.display()))?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
@@ -91,52 +84,32 @@ fn place(mut src: impl std::io::Read, dest: &Path) -> Result<()> {
     Ok(())
 }
 
-/// The `uv` entry of a `.tar.gz` (any folder depth), and nothing else.
-fn untar(archive: &Path, dest: &Path) -> Result<()> {
-    let file = std::fs::File::open(archive)?;
-    let mut tar = tar::Archive::new(flate2::read::GzDecoder::new(file));
-    for entry in tar.entries().context("read the uv archive")? {
-        let entry = entry?;
-        let is_uv = entry.header().entry_type().is_file()
-            && entry
-                .path()?
+/// The `uv` entry of the archive (any folder depth), and nothing else: the
+/// archive is listed and checked first, then that one member is unpacked
+/// into a scratch folder beside `dest` and placed.
+fn unpack(archive: &Path, dest: &Path) -> Result<()> {
+    let members = systar::list(archive).context("read the uv archive")?;
+    systar::check(&members, "uv archive")?;
+    let Some(uv) = members.iter().find(|m| {
+        m.kind == systar::Kind::File
+            && Path::new(&m.name)
                 .file_name()
-                .is_some_and(|n| n == binary_name());
-        if is_uv {
-            return place(entry, dest);
-        }
-    }
-    bail!("the uv archive holds no {}", binary_name())
-}
-
-#[cfg(windows)]
-fn unzip(archive: &Path, dest: &Path) -> Result<()> {
-    let file = std::fs::File::open(archive)?;
-    let mut zip = zip::ZipArchive::new(file).context("read the uv archive")?;
-    for i in 0..zip.len() {
-        let entry = zip.by_index(i)?;
-        let is_uv = entry.is_file()
-            && entry
-                .enclosed_name()
-                .and_then(|p| p.file_name().map(|n| n == binary_name()))
-                .unwrap_or(false);
-        if is_uv {
-            return place(entry, dest);
-        }
-    }
-    bail!("the uv archive holds no {}", binary_name())
-}
-
-#[cfg(not(windows))]
-fn unzip(_archive: &Path, _dest: &Path) -> Result<()> {
-    bail!("a .zip uv archive is the windows build; this platform takes the .tar.gz")
+                .is_some_and(|n| n == binary_name())
+    }) else {
+        bail!("the uv archive holds no {}", binary_name());
+    };
+    let scratch = dest.with_extension("unpack");
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).with_context(|| format!("create {}", scratch.display()))?;
+    let res = systar::extract(archive, &scratch, Some(&uv.name))
+        .and_then(|_| place(&scratch.join(&uv.name), dest));
+    let _ = std::fs::remove_dir_all(&scratch);
+    res
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flate2::Compression;
-    use flate2::write::GzEncoder;
     use urna_format::Sha256;
 
     fn url(p: &Path) -> String {
@@ -148,18 +121,11 @@ mod tests {
         }
     }
 
-    /// a `.tar.gz` laid out like uv's: `uv-x/uvx` then `uv-x/uv`.
+    /// a tar laid out like uv's: `uv-x/uvx` then `uv-x/uv` (plain, which
+    /// the system tar reads as it reads the .tar.gz).
     fn uv_tarball(path: &Path, body: &[u8]) {
-        let gz = GzEncoder::new(std::fs::File::create(path).unwrap(), Compression::fast());
-        let mut tar = tar::Builder::new(gz);
-        for (name, data) in [("uv-x/uvx", &b"uvx"[..]), ("uv-x/uv", body)] {
-            let mut h = tar::Header::new_gnu();
-            h.set_size(data.len() as u64);
-            h.set_mode(0o755);
-            h.set_cksum();
-            tar.append_data(&mut h, name, data).unwrap();
-        }
-        tar.into_inner().unwrap().finish().unwrap();
+        let entries = [("uv-x/uvx", 0o755, &b"uvx"[..]), ("uv-x/uv", 0o755, body)];
+        std::fs::write(path, systar::ustar(&entries)).unwrap();
     }
 
     fn release(url: String, sha256: String) -> UvRelease {
