@@ -5,17 +5,15 @@
 //! `encoding` declares the on-disk payload format; v1 supports raw,
 //! zstd, float16 and int8.
 
+use crate::bytes::{array8, le_u32, le_u64};
 use crate::error::UrnaError;
 use sha2::{Digest, Sha256};
 
-use super::SECTION_ENCODING_RAW;
+use super::{SECTION_ENCODING_RAW, URNA_SECTION_ENTRY_SIZE};
 
-// `Pod` + `Zeroable` are derived, not asserted: the derive fails to
-// compile if the struct ever gains padding or a field that is not valid
-// for every bit pattern, which is exactly the invariant the on-disk
-// byte view below relies on. No `unsafe` in this file.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+/// One section table entry as fields. On disk it is serialized field by
+/// field, little endian, at the offsets `to_bytes` names, no padding.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SectionEntry {
     pub section_id: u32,
     pub encoding: u32,
@@ -35,17 +33,31 @@ impl SectionEntry {
         }
     }
 
-    /// The exact on-disk bytes of this record (little-endian host only,
-    /// which is every supported target; see `layout::tests`).
-    pub fn as_bytes(&self) -> &[u8] {
-        bytemuck::bytes_of(self)
+    /// The exact on-disk bytes of this record: `section_id` at 0,
+    /// `encoding` at 4, `offset` at 8, `size` at 16, `checksum` at 24.
+    pub fn to_bytes(&self) -> [u8; URNA_SECTION_ENTRY_SIZE] {
+        let mut out = [0u8; URNA_SECTION_ENTRY_SIZE];
+        out[0..4].copy_from_slice(&self.section_id.to_le_bytes());
+        out[4..8].copy_from_slice(&self.encoding.to_le_bytes());
+        out[8..16].copy_from_slice(&self.offset.to_le_bytes());
+        out[16..24].copy_from_slice(&self.size.to_le_bytes());
+        out[24..32].copy_from_slice(&self.checksum);
+        out
     }
 
-    /// Mutable view over the on-disk bytes; `from_bytes`-style readers copy
-    /// a slice in here. Sound for any content because every field accepts
-    /// every bit pattern (`Pod`).
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
-        bytemuck::bytes_of_mut(self)
+    /// Parse the record from the first `URNA_SECTION_ENTRY_SIZE` bytes of
+    /// `bytes`.
+    pub fn from_bytes(bytes: &[u8]) -> crate::Result<Self> {
+        let b = bytes
+            .get(..URNA_SECTION_ENTRY_SIZE)
+            .ok_or(UrnaError::UnexpectedEof)?;
+        Ok(Self {
+            section_id: le_u32(&b[0..4])?,
+            encoding: le_u32(&b[4..8])?,
+            offset: le_u64(&b[8..16])?,
+            size: le_u64(&b[16..24])?,
+            checksum: array8(&b[24..32])?,
+        })
     }
 
     pub fn compute_checksum(&mut self, data: &[u8]) {

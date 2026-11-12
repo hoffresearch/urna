@@ -234,9 +234,7 @@ fn embeddings_size_mismatch_rejected() {
 
     // Find the embeddings entry's table slot; size is at offset 16..24
     // within the 32-byte SectionEntry.
-    let mut hdr = UrnaHeader::default();
-    hdr.as_bytes_mut()
-        .copy_from_slice(&bytes[..URNA_HEADER_SIZE]);
+    let hdr = UrnaHeader::from_bytes(&bytes[..URNA_HEADER_SIZE]).unwrap();
     let n = hdr.section_table_count as usize;
     let mut emb_idx = None;
     for i in 0..n {
@@ -350,9 +348,7 @@ fn corrupt_section_hash_fails() {
         .unwrap();
 
     let mut data = std::fs::read(&path).unwrap();
-    let mut hdr = UrnaHeader::default();
-    hdr.as_bytes_mut()
-        .copy_from_slice(&data[..URNA_HEADER_SIZE]);
+    let hdr = UrnaHeader::from_bytes(&data[..URNA_HEADER_SIZE]).unwrap();
     let off = (hdr.manifest_offset + hdr.manifest_size) as usize;
     data[off] ^= 0xFF;
     let res = UrnaView::from_bytes(&data);
@@ -465,10 +461,10 @@ fn missing_required_section_fails() {
         manifest_offset,
         manifest_size,
     );
-    buf[..URNA_HEADER_SIZE].copy_from_slice(header.as_bytes());
+    buf[..URNA_HEADER_SIZE].copy_from_slice(&header.to_bytes());
     for (i, e) in entries.iter().enumerate() {
         let off = URNA_HEADER_SIZE + i * URNA_SECTION_ENTRY_SIZE;
-        buf[off..off + URNA_SECTION_ENTRY_SIZE].copy_from_slice(e.as_bytes());
+        buf[off..off + URNA_SECTION_ENTRY_SIZE].copy_from_slice(&e.to_bytes());
     }
     buf[manifest_offset as usize..manifest_offset as usize + manifest_json.len()]
         .copy_from_slice(&manifest_json);
@@ -484,7 +480,7 @@ fn missing_required_section_fails() {
     buf[data_end..data_end + 8].copy_from_slice(&URNA_FOOTER_SIZE.to_le_bytes());
     buf[data_end + 8..file_size].copy_from_slice(&footer_hash);
     header.compute_checksum();
-    buf[..URNA_HEADER_SIZE].copy_from_slice(header.as_bytes());
+    buf[..URNA_HEADER_SIZE].copy_from_slice(&header.to_bytes());
 
     // chunk_ids missing - reader rejects.
     let res = UrnaView::from_bytes(&buf).err();
@@ -650,9 +646,7 @@ fn reader_rejects_future_format_version() {
         .unwrap();
 
     // Locate the manifest in the file via the header.
-    let mut hdr = UrnaHeader::default();
-    hdr.as_bytes_mut()
-        .copy_from_slice(&bytes[..URNA_HEADER_SIZE]);
+    let hdr = UrnaHeader::from_bytes(&bytes[..URNA_HEADER_SIZE]).unwrap();
     let m_off = hdr.manifest_offset as usize;
     let m_size = hdr.manifest_size as usize;
 

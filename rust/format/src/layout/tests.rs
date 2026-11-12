@@ -3,19 +3,59 @@
 
 use super::*;
 
+// the records are written field by field; these pin every field to its
+// on-disk offset and check that parsing reads back what was written.
+
 #[test]
-fn header_size_is_128() {
-    assert_eq!(std::mem::size_of::<UrnaHeader>(), 128);
+fn header_fields_sit_at_their_offsets() {
+    let mut h = UrnaHeader::new(384, 100, 101, 1024, 128, 5, 288, 200);
+    h.flags = 0x0102_0304;
+    h.reserved[47] = 0xEE;
+    let b = h.to_bytes();
+    assert_eq!(b.len(), URNA_HEADER_SIZE);
+    assert_eq!(&b[0..4], URNA_MAGIC);
+    assert_eq!(b[4..6], URNA_VERSION_MAJOR.to_le_bytes());
+    assert_eq!(b[6..8], URNA_VERSION_MINOR.to_le_bytes());
+    assert_eq!(b[8..12], 0x0102_0304u32.to_le_bytes());
+    assert_eq!(b[12..16], 384u32.to_le_bytes());
+    assert_eq!(b[16..24], 100u64.to_le_bytes());
+    assert_eq!(b[24..32], 101u64.to_le_bytes());
+    assert_eq!(b[32..40], 1024u64.to_le_bytes());
+    assert_eq!(b[40..48], 128u64.to_le_bytes());
+    assert_eq!(b[48..56], 5u64.to_le_bytes());
+    assert_eq!(b[56..64], 288u64.to_le_bytes());
+    assert_eq!(b[64..72], 200u64.to_le_bytes());
+    assert_eq!(b[72..80], h.header_checksum);
+    assert_eq!(b[127], 0xEE);
+    assert_eq!(UrnaHeader::from_bytes(&b).unwrap(), h);
+    assert!(UrnaHeader::from_bytes(&b[..127]).is_err());
 }
 
 #[test]
-fn section_entry_size_is_32() {
-    assert_eq!(std::mem::size_of::<SectionEntry>(), 32);
+fn section_entry_fields_sit_at_their_offsets() {
+    let mut e = SectionEntry::new(0x0D, 4096, 77);
+    e.encoding = SECTION_ENCODING_ZSTD;
+    e.checksum = [1, 2, 3, 4, 5, 6, 7, 8];
+    let b = e.to_bytes();
+    assert_eq!(b.len(), URNA_SECTION_ENTRY_SIZE);
+    assert_eq!(b[0..4], 0x0Du32.to_le_bytes());
+    assert_eq!(b[4..8], SECTION_ENCODING_ZSTD.to_le_bytes());
+    assert_eq!(b[8..16], 4096u64.to_le_bytes());
+    assert_eq!(b[16..24], 77u64.to_le_bytes());
+    assert_eq!(b[24..32], [1, 2, 3, 4, 5, 6, 7, 8]);
+    assert_eq!(SectionEntry::from_bytes(&b).unwrap(), e);
+    assert!(SectionEntry::from_bytes(&b[..31]).is_err());
 }
 
 #[test]
-fn footer_size_is_40() {
-    assert_eq!(std::mem::size_of::<UrnaFooter>(), 40);
+fn footer_fields_sit_at_their_offsets() {
+    let f = UrnaFooter::new([9; 32]);
+    let b = f.to_bytes();
+    assert_eq!(b.len(), URNA_FOOTER_SIZE);
+    assert_eq!(b[0..8], (URNA_FOOTER_SIZE as u64).to_le_bytes());
+    assert_eq!(b[8..40], [9; 32]);
+    assert_eq!(UrnaFooter::from_bytes(&b).unwrap(), f);
+    assert!(UrnaFooter::from_bytes(&b[..39]).is_err());
 }
 
 #[test]

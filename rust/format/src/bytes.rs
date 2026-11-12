@@ -32,6 +32,12 @@ pub fn le_f32(b: &[u8]) -> crate::Result<f32> {
         .map_err(|_| UrnaError::UnexpectedEof)
 }
 
+/// Copy exactly 8 bytes (a truncated sha256 checksum) into an array.
+#[inline]
+pub fn array8(b: &[u8]) -> crate::Result<[u8; 8]> {
+    <[u8; 8]>::try_from(b).map_err(|_| UrnaError::UnexpectedEof)
+}
+
 /// Copy exactly 32 bytes (a sha256 digest) into an array.
 #[inline]
 pub fn array32(b: &[u8]) -> crate::Result<[u8; 32]> {

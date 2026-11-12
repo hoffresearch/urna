@@ -1,4 +1,5 @@
-// the format crate has no `unsafe` (its byte views go through bytemuck), so
+// the format crate has no `unsafe` (its records are written and parsed field
+// by field, and int8 rows are handed out as bytes), so
 // it forbids it outright; the workspace cannot, the engine's SIMD needs it.
 #![forbid(unsafe_code)]
 

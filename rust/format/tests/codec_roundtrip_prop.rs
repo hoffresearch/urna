@@ -227,10 +227,10 @@ proptest! {
         for i in 0..n {
             let scale = view.scale(i);
             prop_assert!(scale.is_finite() && scale > 0.0);
-            let row = view.row(i);
+            let row = view.row_bytes(i);
             for (j, code) in row.iter().enumerate() {
                 let x = rows[i * dim + j];
-                let y = *code as f32 * scale;
+                let y = *code as i8 as f32 * scale;
                 prop_assert!((x - y).abs() <= scale * 0.5 + 1e-5, "row {i} col {j}: {x} vs {y} (scale {scale})");
             }
         }

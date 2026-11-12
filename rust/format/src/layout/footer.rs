@@ -2,17 +2,16 @@
 //! `file_hash` (full SHA-256 over the file body) plus the footer's own
 //! size for forward compat.
 
+use crate::bytes::{array32, le_u64};
 use crate::error::UrnaError;
 use sha2::{Digest, Sha256};
 
 use super::URNA_FOOTER_SIZE;
 
-// `Pod` + `Zeroable` are derived, not asserted: the derive fails to
-// compile if the struct ever gains padding or a field that is not valid
-// for every bit pattern, which is exactly the invariant the on-disk
-// byte view below relies on. No `unsafe` in this file.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+/// The footer as fields. On disk it is serialized field by field, little
+/// endian, at the offsets `to_bytes` names: `footer_size` at 0 and
+/// `file_hash` at 8, no padding.
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct UrnaFooter {
     pub footer_size: u64,
     pub file_hash: [u8; 32],
@@ -26,17 +25,12 @@ impl UrnaFooter {
         }
     }
 
-    /// The exact on-disk bytes of this record (little-endian host only,
-    /// which is every supported target; see `layout::tests`).
-    pub fn as_bytes(&self) -> &[u8] {
-        bytemuck::bytes_of(self)
-    }
-
-    /// Mutable view over the on-disk bytes; `from_bytes`-style readers copy
-    /// a slice in here. Sound for any content because every field accepts
-    /// every bit pattern (`Pod`).
-    pub fn as_bytes_mut(&mut self) -> &mut [u8] {
-        bytemuck::bytes_of_mut(self)
+    /// The exact on-disk bytes of this record.
+    pub fn to_bytes(&self) -> [u8; URNA_FOOTER_SIZE] {
+        let mut out = [0u8; URNA_FOOTER_SIZE];
+        out[0..8].copy_from_slice(&self.footer_size.to_le_bytes());
+        out[8..40].copy_from_slice(&self.file_hash);
+        out
     }
 
     pub fn compute_file_hash(data_without_footer: &[u8]) -> [u8; 32] {
@@ -46,12 +40,14 @@ impl UrnaFooter {
         out
     }
 
+    /// Parse the record from the first `URNA_FOOTER_SIZE` bytes of `bytes`.
     pub fn from_bytes(bytes: &[u8]) -> crate::Result<Self> {
-        if bytes.len() < std::mem::size_of::<Self>() {
-            return Err(UrnaError::UnexpectedEof);
-        }
-        let mut footer = UrnaFooter::new([0; 32]);
-        footer.as_bytes_mut().copy_from_slice(bytes);
-        Ok(footer)
+        let b = bytes
+            .get(..URNA_FOOTER_SIZE)
+            .ok_or(UrnaError::UnexpectedEof)?;
+        Ok(Self {
+            footer_size: le_u64(&b[0..8])?,
+            file_hash: array32(&b[8..40])?,
+        })
     }
 }

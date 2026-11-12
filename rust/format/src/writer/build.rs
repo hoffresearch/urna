@@ -266,12 +266,12 @@ impl UrnaFileBuilder {
             manifest_offset,
             manifest_size,
         );
-        buf[..URNA_HEADER_SIZE].copy_from_slice(header.as_bytes());
+        buf[..URNA_HEADER_SIZE].copy_from_slice(&header.to_bytes());
 
         // 7. Write section table (placeholder checksums; filled below).
         for (i, entry) in section_entries.iter().enumerate() {
             let off = URNA_HEADER_SIZE + i * URNA_SECTION_ENTRY_SIZE;
-            buf[off..off + URNA_SECTION_ENTRY_SIZE].copy_from_slice(entry.as_bytes());
+            buf[off..off + URNA_SECTION_ENTRY_SIZE].copy_from_slice(&entry.to_bytes());
         }
 
         // 8. Write manifest.
@@ -297,7 +297,7 @@ impl UrnaFileBuilder {
 
         // 11. Recompute header checksum (file_size already final).
         header.compute_checksum();
-        buf[..URNA_HEADER_SIZE].copy_from_slice(header.as_bytes());
+        buf[..URNA_HEADER_SIZE].copy_from_slice(&header.to_bytes());
 
         Ok(buf)
     }

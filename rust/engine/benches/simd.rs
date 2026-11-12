@@ -13,7 +13,7 @@
 
 use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
 use urna_engine::simd::{
-    detect_backend, dot_f32_bytes, dot_f32_f16_bytes, dot_f32_i4_blocked, dot_f32_i8,
+    detect_backend, dot_f32_bytes, dot_f32_f16_bytes, dot_f32_i4_blocked, dot_f32_i8_bytes,
     score_int8_section,
 };
 use urna_format::{
@@ -72,9 +72,9 @@ fn bench_dot(c: &mut Criterion) {
 
         let i8_payload = encode_int8_embeddings(row, 1, dim).expect("int8 encode");
         let i8_view = Int8EmbeddingsView::parse(&i8_payload, 1, dim).expect("int8 parse");
-        let (i8_row, i8_scale) = (i8_view.row(0), i8_view.scale(0));
+        let (i8_row, i8_scale) = (i8_view.row_bytes(0), i8_view.scale(0));
         g.bench_with_input(BenchmarkId::new("i8", dim), &dim, |b, _| {
-            b.iter(|| dot_f32_i8(black_box(q), black_box(i8_row), i8_scale))
+            b.iter(|| dot_f32_i8_bytes(black_box(q), black_box(i8_row), i8_scale))
         });
 
         if dim % INT4_BLOCK == 0 {

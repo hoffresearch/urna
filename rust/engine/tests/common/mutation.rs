@@ -125,13 +125,12 @@ pub fn reseal(b: &mut [u8]) {
     if b.len() < URNA_HEADER_SIZE + URNA_FOOTER_SIZE || &b[..4] != URNA_MAGIC {
         return;
     }
-    let mut header = UrnaHeader::default();
-    header
-        .as_bytes_mut()
-        .copy_from_slice(&b[..URNA_HEADER_SIZE]);
+    let Ok(mut header) = UrnaHeader::from_bytes(&b[..URNA_HEADER_SIZE]) else {
+        return;
+    };
     header.file_size = b.len() as u64;
     header.compute_checksum();
-    b[..URNA_HEADER_SIZE].copy_from_slice(header.as_bytes());
+    b[..URNA_HEADER_SIZE].copy_from_slice(&header.to_bytes());
 
     let body_end = b.len() - URNA_FOOTER_SIZE;
     let table_off = header.section_table_offset as usize;
@@ -146,9 +145,9 @@ pub fn reseal(b: &mut [u8]) {
         {
             break;
         }
-        let mut e = SectionEntry::new(0, 0, 0);
-        e.as_bytes_mut()
-            .copy_from_slice(&b[at..at + URNA_SECTION_ENTRY_SIZE]);
+        let Ok(mut e) = SectionEntry::from_bytes(&b[at..at + URNA_SECTION_ENTRY_SIZE]) else {
+            break;
+        };
         let start = e.offset as usize;
         let Some(end) = start.checked_add(e.size as usize) else {
             continue;
@@ -158,9 +157,9 @@ pub fn reseal(b: &mut [u8]) {
         }
         let payload = b[start..end].to_vec();
         e.compute_checksum(&payload);
-        b[at..at + URNA_SECTION_ENTRY_SIZE].copy_from_slice(e.as_bytes());
+        b[at..at + URNA_SECTION_ENTRY_SIZE].copy_from_slice(&e.to_bytes());
     }
     let hash = UrnaFooter::compute_file_hash(&b[..body_end]);
     let footer = UrnaFooter::new(hash);
-    b[body_end..].copy_from_slice(footer.as_bytes());
+    b[body_end..].copy_from_slice(&footer.to_bytes());
 }
