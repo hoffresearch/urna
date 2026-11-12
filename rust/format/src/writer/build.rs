@@ -23,7 +23,7 @@ use crate::sections::{
     encode_chunks_canonical, encode_chunks_original_spans, encode_chunks_original_spans_intpack,
     encode_provenance, encode_search_contract,
 };
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 impl UrnaFileBuilder {
     /// Build the file in memory. Pure computation - no I/O.

@@ -15,7 +15,6 @@ categories = ["database-implementations", "encoding"]
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-sha2 = { workspace = true }
 hex = "0.4"
 zstd = { workspace = true }
 rayon = { workspace = true }

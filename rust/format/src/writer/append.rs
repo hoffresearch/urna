@@ -8,7 +8,7 @@
 
 use std::io::Write;
 
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 use crate::error::UrnaError;
 use crate::layout::{

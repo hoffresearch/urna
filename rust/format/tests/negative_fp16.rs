@@ -91,7 +91,7 @@ fn build_fp16(n: usize, dim: usize) -> Vec<u8> {
 /// metadata at offsets 40 (section_table_offset, u64 LE) and 48
 /// (section_table_count, u64 LE).
 fn rewrite_section_checksum_and_file_hash(bytes: &mut [u8], section_id: u32) {
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
 
     let table_off = u64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
     let count = u64::from_le_bytes(bytes[48..56].try_into().unwrap()) as usize;

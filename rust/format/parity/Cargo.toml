@@ -15,6 +15,7 @@ description = "parity of urna-format's f16 conversion and SHA-256 against the cr
 [dependencies]
 urna-format = { path = ".." }
 half = "2"
+sha2 = "0.11"
 
 [lib]
 path = "lib.rs"

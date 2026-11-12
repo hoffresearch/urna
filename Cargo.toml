@@ -57,8 +57,9 @@ tags = [
 # rest keep the code reviewable: no `dbg!` or `todo!` left behind, each
 # unsafe operation inside an `unsafe fn` in its own block, every public type
 # `Debug` (the ones holding file bytes print their shape, `shape_debug!`),
-# and every path naming its lifetime. `unsafe_code` cannot be forbidden here,
-# the engine's SIMD needs it; rust/format forbids it in its lib.rs.
+# and every path naming its lifetime. `unsafe_code` cannot be denied here,
+# the engine's SIMD needs it; rust/format denies it in its lib.rs, all but
+# its SHA-256 instruction kernels.
 # rust/ingest and fuzz/ are workspaces of their own and keep a copy of these
 # tables (tool/tests/test_lintmatch.py).
 [workspace.lints.rust]
@@ -77,7 +78,6 @@ expect_used = "deny"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-sha2 = "0.11"
 memmap2 = "0.9"
 rayon = "1"
 clap = { version = "4", features = ["derive"] }

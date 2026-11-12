@@ -109,7 +109,7 @@ fn embeddings_offset(bytes: &[u8]) -> usize {
 /// negative_fp16/zstd for the same pattern; centralized here too to
 /// keep the test self-contained.
 fn rewrite_emb_checksum_and_file_hash(bytes: &mut [u8]) {
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     let table_off = u64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
     let count = u64::from_le_bytes(bytes[48..56].try_into().unwrap()) as usize;
     let entry_size = urna_format::layout::URNA_SECTION_ENTRY_SIZE;

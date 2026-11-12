@@ -137,7 +137,7 @@ mod tests {
     use super::*;
     use flate2::Compression;
     use flate2::write::GzEncoder;
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
 
     fn url(p: &Path) -> String {
         let s = p.display().to_string().replace('\\', "/");

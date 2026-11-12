@@ -5,7 +5,7 @@
 //! the header checksum, every section checksum and the footer hash so a
 //! mutated file passes the integrity layer and reaches the decoders.
 
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 use urna_format::layout::{
     SectionEntry, URNA_FOOTER_SIZE, URNA_HEADER_SIZE, URNA_MAGIC, URNA_SECTION_ENTRY_SIZE,
     UrnaFooter, UrnaHeader,

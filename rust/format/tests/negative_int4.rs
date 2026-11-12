@@ -108,7 +108,7 @@ fn embeddings_offset(bytes: &[u8]) -> usize {
 }
 
 fn rewrite_emb_checksum_and_file_hash(bytes: &mut [u8]) {
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     let table_off = u64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
     let count = u64::from_le_bytes(bytes[48..56].try_into().unwrap()) as usize;
     let entry_size = urna_format::layout::URNA_SECTION_ENTRY_SIZE;
@@ -227,7 +227,7 @@ fn rejects_truncated_prefix() {
             let new_size = size - 1;
             bytes[off + 16..off + 24].copy_from_slice(&new_size.to_le_bytes());
             // recompute the section checksum over the truncated slice.
-            use sha2::{Digest, Sha256};
+            use urna_format::Sha256;
             let h = Sha256::digest(&bytes[payload_off..payload_off + new_size as usize]);
             bytes[off + 24..off + 32].copy_from_slice(&h[..8]);
             break;

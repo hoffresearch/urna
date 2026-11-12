@@ -260,7 +260,7 @@ fn embeddings_size_mismatch_rejected() {
     off_buf.copy_from_slice(&bytes[entry_off + 8..entry_off + 16]);
     let data_off = u64::from_le_bytes(off_buf) as usize;
     let new_end = data_off + new_size as usize;
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     let new_hash = Sha256::digest(&bytes[data_off..new_end]);
     bytes[entry_off + 24..entry_off + 32].copy_from_slice(&new_hash[..8]);
 
@@ -468,7 +468,7 @@ fn missing_required_section_fails() {
     }
     buf[manifest_offset as usize..manifest_offset as usize + manifest_json.len()]
         .copy_from_slice(&manifest_json);
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     for (i, (_, data)) in sections.iter().enumerate() {
         let off = entries[i].offset as usize;
         buf[off..off + data.len()].copy_from_slice(data);

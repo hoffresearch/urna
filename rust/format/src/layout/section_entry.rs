@@ -7,7 +7,7 @@
 
 use crate::bytes::{array8, le_u32, le_u64};
 use crate::error::UrnaError;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 use super::{SECTION_ENCODING_RAW, URNA_SECTION_ENTRY_SIZE};
 

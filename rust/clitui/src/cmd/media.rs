@@ -4,9 +4,9 @@
 //! BEFORE writing, so a corrupt section can never fan out to disk.
 
 use anyhow::{Context, Result, bail};
-use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use urna_engine::MmapUrnaFile;
+use urna_format::Sha256;
 
 pub fn run(file: PathBuf, export: Option<PathBuf>) -> Result<()> {
     let urna = MmapUrnaFile::open(&file)?;

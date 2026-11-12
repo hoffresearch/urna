@@ -4,7 +4,7 @@
 
 use crate::bytes::{array32, le_u64};
 use crate::error::UrnaError;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 use super::URNA_FOOTER_SIZE;
 

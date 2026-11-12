@@ -6,7 +6,7 @@
 
 use crate::bytes::{array8, le_u32, le_u64};
 use crate::error::UrnaError;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 use super::{URNA_HEADER_SIZE, URNA_MAGIC, URNA_VERSION_MAJOR, URNA_VERSION_MINOR};
 

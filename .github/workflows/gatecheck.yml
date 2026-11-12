@@ -323,11 +323,11 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: miri setup
         run: cargo miri setup
-      # urna-format has zero `unsafe`; this turns "no undefined behaviour"
-      # from a claim into a run over its parsers and codecs. tree borrows:
-      # sha2 0.11's neon loader trips stacked borrows on aarch64 hosts (a
-      # dependency, not this crate). tests that call zstd (c code miri cannot
-      # run) and the fsst table build (too slow under an interpreter) are marked in the
+      # urna-format's only `unsafe` is the SHA instruction kernels, which
+      # miri never runs (cfg(miri) takes the portable rounds); this turns
+      # "no undefined behaviour" from a claim into a run over its parsers
+      # and codecs. tests that call zstd (c code miri cannot run) and the
+      # fsst table build (too slow under an interpreter) are marked in the
       # source with the reason; the mutation and property harnesses run
       # natively in the rust job instead.
       - name: urna-format under miri

@@ -15,7 +15,7 @@ use std::process::{Command, Output};
 
 use flate2::Compression;
 use flate2::write::GzEncoder;
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 
 const PAYLOAD: &str = "urna-embedder-payload.tar.gz";
 

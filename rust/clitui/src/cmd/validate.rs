@@ -1,8 +1,8 @@
 //! `urna validate <file>` - full integrity check.
 
 use anyhow::Result;
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
+use urna_format::Sha256;
 use urna_format::layout::{SECTION_BLOB_DATA, SECTION_BLOB_REFS};
 
 /// What a file that passes every check reports.

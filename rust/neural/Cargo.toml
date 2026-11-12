@@ -14,8 +14,8 @@ workspace = true
 hex = "0.4"
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
 thiserror = { workspace = true }
-# the f16 conversion of the safetensors loader.
+# the f16 conversion of the safetensors loader and the SHA-256 of the potion
+# fingerprint.
 urna-format = { workspace = true }
 
