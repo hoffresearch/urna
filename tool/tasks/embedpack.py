@@ -43,6 +43,9 @@ MODULES = [
     # the package root: the extension loads on first use, so the payload
     # imports it without _urna.
     "__init__.py",
+    # the C ABI through ctypes: potiontab embeds in Rust when the
+    # urna-cbinds library is beside it, numpy + tokenizers otherwise.
+    "_cabi.py",
     "embed/__init__.py",
     "embed/lexifloor.py",
     "embed/potiontab.py",

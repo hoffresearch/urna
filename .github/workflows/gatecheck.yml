@@ -132,6 +132,36 @@ jobs:
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
 
+  # the forge's potion embedder runs in Rust through the urna-cbinds C ABI
+  # (urna/_cabi.py, ctypes; #643) and keeps numpy + tokenizers only as its
+  # reference. this job builds the library and holds the two paths to the
+  # same token ids, vectors (1e-6) and model_hash; no skip is allowed here.
+  potion-native:
+    name: potion through the C ABI (ctypes) against numpy + tokenizers
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: fetch the potion table, verified against its lfs pointer
+        run: sh tool/tasks/getpotion.sh
+      - name: build the C ABI library
+        run: cargo build --release -p urna-cbinds
+      - name: the reference side
+        run: python -m pip install numpy tokenizers
+      - name: native and reference agree
+        env:
+          URNA_REQUIRE_NATIVE: "1"
+        run: |
+          URNA_CBINDS="$PWD/target/release/liburna_cbinds.so" python tool/tests/test_potiontab.py
+
   # rust/images/parity is a workspace of its own (the crates.io rav1d and
   # avif-decode stay out of urna's lock and cargo-deny), so the rust job never
   # builds it. this job is the proof that urna-av1dec, the rav1d fork with

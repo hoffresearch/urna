@@ -141,7 +141,9 @@ entrypoints = ["rust/cbinds/src/lib.rs"]
 links = [
     "rust/cbinds/include/urna.h",
     "rust/cbinds/src/corpus.rs",
+    "rust/cbinds/src/embedder.rs",
     "rust/cbinds/tests/c_roundtrip.rs",
+    "rust/bridge/python/urna/_cabi.py",
 ]
 
 [[layers]]
@@ -2911,6 +2913,12 @@ path = "tool/tests/test_retrieval.py"
 kind = "python-test"
 purpose = "Offline retrieve self-test over demo/corpora/intro: build_demo + retrieve open no socket, the build is deterministic (two builds byte-identical), and a retrieve hit score equals the search score byte-for-byte with a urna:// citation that round-trips to the stored canonical text (tier-1)"
 links = ["rust/bridge/python/urna/reads/retrieval.py"]
+
+[[inventory.data_docs_python_script_tests]]
+path = "rust/bridge/python/urna/_cabi.py"
+kind = "python-source"
+purpose = "The urna-cbinds C ABI through ctypes (stdlib): finds the library ($URNA_CBINDS, beside the package, then target/release and target/debug of a source tree), declares the urna_embedder_* signatures and wraps them as Embedder (tokenize, embed, dim, model_hash); potiontab embeds through it by default and keeps numpy + tokenizers as its reference (#643)"
+links = ["rust/cbinds/include/urna.h", "rust/cbinds/src/embedder.rs", "rust/bridge/python/urna/embed/potiontab.py"]
 
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/__init__.py"

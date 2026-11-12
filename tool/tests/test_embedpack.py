@@ -40,6 +40,7 @@ POTION = "minishlab/potion-base-8M/v1"
 EXPECTED_FILES = {
     "urna/VERSION",
     "urna/python/urna/__init__.py",
+    "urna/python/urna/_cabi.py",
     "urna/python/urna/embed/__init__.py",
     "urna/python/urna/embed/searchtxt.py",
     "urna/python/urna/model/__init__.py",
