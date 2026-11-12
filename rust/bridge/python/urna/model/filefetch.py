@@ -10,9 +10,9 @@ as a plain file, which the hub libraries accept), and check it before it
 takes the final name:
 
 - the size, when the caller knows it (the model catalog does);
-- the sha256 the caller pins, else the one the hub states for a large
-  (LFS/xet) file in `X-Linked-Etag`, else the git blob sha1 it states in
-  `ETag` for a small file. a file the hub gives no hash for is refused.
+- the sha256 the caller pins, else what the hub states in `X-Linked-Etag`
+  (on its redirect) or `ETag`: a sha256 for a large (LFS/xet) file, the git
+  blob sha1 for a small one. a file the hub gives no hash for is refused.
 
 nothing here reads HF_HUB_OFFLINE: every caller fetches only after its own
 explicit opt-in (URNA_ALLOW_DOWNLOAD=1), as before. no token is sent, so
@@ -82,15 +82,18 @@ def _unquote(etag: str | None) -> str:
 
 
 def _expected(headers, pinned: str | None) -> tuple[str, str]:
-    """(algorithm, hex digest) the body must hash to."""
+    """(algorithm, hex digest) the body must hash to: the pinned sha256, else
+    what the hub states. it states X-Linked-Etag on its redirect, a sha256
+    for a large (LFS/xet) file and the git blob sha1 for a small one (which
+    it also redirects, to its resolve cache); a direct answer has ETag."""
     if pinned:
         return "sha256", pinned.lower().removeprefix("sha256:")
-    linked = _unquote(headers.get("X-Linked-Etag"))
-    if len(linked) == 64 and _HEX.match(linked):
-        return "sha256", linked
-    etag = _unquote(headers.get("ETag"))
-    if len(etag) == 40 and _HEX.match(etag):
-        return "gitsha1", etag
+    for name in ("X-Linked-Etag", "ETag"):
+        tag = _unquote(headers.get(name))
+        if _HEX.match(tag) and len(tag) == 64:
+            return "sha256", tag
+        if _HEX.match(tag) and len(tag) == 40:
+            return "gitsha1", tag
     raise FetchError("the hub stated no hash for the file and none is pinned")
 
 

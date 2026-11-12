@@ -175,6 +175,9 @@ def test_the_fetch_checks_what_the_hub_states() -> None:
     lfs = {"X-Linked-Etag": '"' + "c" * 64 + '"', "ETag": '"' + "c" * 64 + '"'}
     assert ff._expected(lfs, None) == ("sha256", "c" * 64)
     assert ff._expected({"ETag": 'W/"' + "d" * 40 + '"'}, None) == ("gitsha1", "d" * 40)
+    # a small file: the hub redirects to its resolve cache and states the blob sha1
+    small = {"X-Linked-Etag": '"' + "d" * 40 + '"', "X-Linked-Size": "190"}
+    assert ff._expected(small, None) == ("gitsha1", "d" * 40)
     assert ff._expected({}, "sha256:" + "E" * 64) == ("sha256", "e" * 64)
     for headers in ({}, {"ETag": '"not-a-hash"'}):
         try:
