@@ -11,7 +11,6 @@ use crate::src::flags::bitflags;
 use crate::src::in_range::InRange;
 use crate::src::plain::AsBytes;
 use crate::src::plain::FromBytes;
-use crate::src::plain::FromZeroes;
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
