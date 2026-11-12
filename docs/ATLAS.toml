@@ -557,6 +557,12 @@ purpose = "Typed little-endian field readers (le_u32, le_u64, le_f32, array32) r
 links = ["rust/format/src/error.rs"]
 
 [[inventory.root]]
+path = "rust/format/src/hex.rs"
+kind = "rust-source"
+purpose = "Lowercase hex for digests and checksums (to_hex, from_hex in either case, bad input an InvalidInput naming the position), re-exported at the crate root for the engine, the bridge and the cli"
+links = ["rust/format/src/sections/chunk_ids.rs", "rust/format/src/chunk.rs"]
+
+[[inventory.root]]
 path = "rust/format/src/encoding/tests.rs"
 kind = "rust-test"
 purpose = "Unit tests for the encoding dispatch, carved out of encoding/mod.rs"
