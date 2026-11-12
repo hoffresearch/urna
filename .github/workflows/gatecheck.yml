@@ -143,6 +143,25 @@ jobs:
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
 
+  # #645: urna-format decodes zstd itself; rust/format/parity (a workspace of
+  # its own, libzstd stays out of the readers' build) holds that decoder to
+  # libzstd byte for byte on every level, window, dictionary and fixture.
+  zstd-parity:
+    name: zstd parity (our decoder against libzstd)
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust/format/parity
+      - name: rust/format/parity (separate workspace)
+        run: cargo test --release --locked --manifest-path rust/format/parity/Cargo.toml -- --nocapture
+
   fuzz:
     name: cargo-fuzz smoke
     if: github.event_name != 'schedule'

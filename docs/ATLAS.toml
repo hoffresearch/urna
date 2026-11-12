@@ -948,6 +948,12 @@ purpose = "A workspace of its own: the AV1 planes and RGBA parity against the cr
 links = ["rust/images/src/lib.rs", "tool/tasks/fullcheck.sh"]
 
 [[inventory.workspace]]
+path = "rust/format/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: urna-format's zstd decoder against libzstd, byte for byte (levels -5 to 19, checksums, long and 1 KiB windows, trained and raw-content dictionaries, frames back to back, every zstd section of the tracked fixtures and of corpora built here), and a dictionary-framed corpus that the engine opens and answers from; run by gatecheck's zstd-parity job and fullcheck"
+links = ["rust/format/src/encoding/zstd_decoder/mod.rs", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
 path = "rust/av1dec"
 kind = "crate-dir"
 purpose = "rav1d 1.1.0 vendored whole as urna-av1dec, pure Rust; outside the 639-line guard, its files keep upstream's shape"

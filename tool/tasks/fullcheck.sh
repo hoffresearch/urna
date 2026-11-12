@@ -208,6 +208,18 @@ else
   printf '\033[1;33m  SKIP:\033[0m URNA_CARDS_CORPUS unset: no cards corpus to compare on\n' >&2
 fi
 
+# ---- parity of our zstd decoder ----
+# rust/format/parity holds urna-format's own zstd decoder to libzstd byte for
+# byte (#645). a workspace of its own (libzstd stays out of the readers'
+# build); it needs no corpus, so it always runs.
+zstd_parity() {
+  step "cargo test --release in rust/format/parity"
+  cargo test --release --manifest-path rust/format/parity/Cargo.toml 2>&1 \
+    | grep -E "^test result|panicked|FAILED"
+  ok "zstd decoder parity with libzstd"
+}
+cached zstd-parity "rust/format rust/engine" -- zstd_parity
+
 # ---- cargo clippy ----
 cargo_clippy() {
   step "cargo clippy --workspace --all-targets -- -D warnings"
