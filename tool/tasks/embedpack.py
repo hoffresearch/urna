@@ -68,8 +68,10 @@ MODULES = [
     "model/catalogue.json",
     # the lock every model's packages install from (`-c`), beside it.
     "model/modellock.txt",
-    # the fetch half of the model install setup and the explorer share.
+    # the fetch half of the model install setup and the explorer share,
+    # and the stdlib hub download it, the registry and benchdata.py use.
     "model/installer.py",
+    "model/filefetch.py",
 ]
 
 

@@ -55,6 +55,7 @@ EXPECTED_FILES = {
     "urna/python/urna/embed/stprocess.py",
     "urna/python/urna/embed/visionemb.py",
     "urna/python/urna/model/installer.py",
+    "urna/python/urna/model/filefetch.py",
 }
 
 
