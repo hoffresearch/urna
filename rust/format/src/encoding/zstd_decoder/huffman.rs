@@ -77,22 +77,31 @@ fn build(weights: &mut Vec<u8>, table: &mut HuffTable) -> Res<()> {
     if ones < 2 || ones & 1 == 1 {
         return Err(corrupt("huffman tree with an odd number of deepest codes"));
     }
+    // one pass: each weight's codes start where the lighter weights end,
+    // and symbols of one weight follow in symbol order.
+    let mut start = [0usize; MAX_LOG as usize + 2];
+    for &w in weights.iter().filter(|&&w| w > 0) {
+        start[usize::from(w) + 1] += 1 << (w - 1);
+    }
+    let mut acc = 0;
+    for s in start.iter_mut() {
+        acc += *s;
+        *s = acc;
+    }
     table.log = log;
     table.entries.clear();
-    table.entries.reserve(1 << log);
-    for w in 1..=log {
-        let nb_bits = (log + 1 - w) as u8;
+    table.entries.resize(1 << log, (0, 0));
+    for (symbol, &w) in weights.iter().enumerate().filter(|&(_, &w)| w > 0) {
         let span = 1usize << (w - 1);
-        for (symbol, _) in weights
-            .iter()
-            .enumerate()
-            .filter(|&(_, &x)| u32::from(x) == w)
-        {
-            let entry = (symbol as u8, nb_bits);
-            table.entries.resize(table.entries.len() + span, entry);
-        }
+        let at = start[usize::from(w)];
+        let cells = table
+            .entries
+            .get_mut(at..at + span)
+            .ok_or(corrupt("huffman codes overflow the table"))?;
+        cells.fill((symbol as u8, (log + 1 - u32::from(w)) as u8));
+        start[usize::from(w)] = at + span;
     }
-    if table.entries.len() != 1 << log {
+    if start[log as usize] != 1 << log {
         return Err(corrupt("huffman codes do not fill the table"));
     }
     Ok(())

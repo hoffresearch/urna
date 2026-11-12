@@ -45,9 +45,15 @@ fn load_le(data: &[u8], at: usize) -> u64 {
 /// significant, which is what both FSE (`readBits`) and Huffman (`lookBits`)
 /// expect. `pos` may go negative: that is an overflow, the reader then
 /// yields zeros and [`BackwardBits::overflowed`] reports it.
+///
+/// reads come from a cached 64-bit word holding bits `[word_start,
+/// word_start + 64)`; it is reloaded only when a read leaves it, about once
+/// every 7 bytes, so a read is a shift and a mask.
 pub(super) struct BackwardBits<'a> {
     data: &'a [u8],
     pos: i64,
+    word: u64,
+    word_start: i64,
 }
 
 impl std::fmt::Debug for BackwardBits<'_> {
@@ -55,7 +61,7 @@ impl std::fmt::Debug for BackwardBits<'_> {
         f.debug_struct("BackwardBits")
             .field("len", &self.data.len())
             .field("pos", &self.pos)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -70,25 +76,43 @@ impl<'a> BackwardBits<'a> {
         }
         let padding = i64::from(last.leading_zeros()) + 1;
         let pos = (data.len() as i64) * 8 - padding;
-        Ok(Self { data, pos })
+        let mut bits = Self {
+            data,
+            pos,
+            word: 0,
+            word_start: 0,
+        };
+        bits.reload();
+        Ok(bits)
+    }
+
+    /// load the lowest word that still holds the top of the stream: it
+    /// starts on a byte at or below `pos - 57`, so any read of up to 56 bits
+    /// from `pos` fits in it.
+    #[inline]
+    fn reload(&mut self) {
+        let byte = ((self.pos - 64).max(0) + 7) / 8;
+        self.word_start = byte * 8;
+        self.word = load_le(self.data, byte as usize);
     }
 
     /// the next `n` bits (`n <= 56`) without consuming them; bits below the
     /// start of the stream read as zero.
     #[inline]
-    pub(super) fn peek(&self, n: u32) -> u64 {
+    pub(super) fn peek(&mut self, n: u32) -> u64 {
         if n == 0 || self.pos <= 0 {
             return 0;
         }
         let start = self.pos - i64::from(n);
-        if start >= 0 {
-            let at = (start / 8) as usize;
-            (load_le(self.data, at) >> (start % 8)) & mask(n)
-        } else {
+        if start < 0 {
             // fewer than `n` bits left: the ones there, then zeros.
             let have = self.pos as u32;
-            (load_le(self.data, 0) & mask(have)) << (n - have)
+            return (load_le(self.data, 0) & mask(have)) << (n - have);
         }
+        if start < self.word_start || self.pos > self.word_start + 64 {
+            self.reload();
+        }
+        (self.word >> (start - self.word_start)) & mask(n)
     }
 
     /// drop `n` bits.
@@ -192,7 +216,7 @@ mod tests {
     #[test]
     fn backward_zero_fills_below_the_start() {
         let data = [0b0000_0011u8]; // marker at bit 1, one useful bit: 1
-        let bits = BackwardBits::new(&data).unwrap();
+        let mut bits = BackwardBits::new(&data).unwrap();
         assert_eq!(bits.peek(4), 0b1000);
     }
 
