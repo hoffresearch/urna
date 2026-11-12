@@ -108,7 +108,7 @@ fn embeddings_offset(bytes: &[u8]) -> usize {
 }
 
 fn rewrite_emb_checksum_and_file_hash(bytes: &mut [u8]) {
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     let table_off = u64::from_le_bytes(bytes[40..48].try_into().unwrap()) as usize;
     let count = u64::from_le_bytes(bytes[48..56].try_into().unwrap()) as usize;
     let entry_size = urna_format::layout::URNA_SECTION_ENTRY_SIZE;
@@ -131,7 +131,6 @@ fn rewrite_emb_checksum_and_file_hash(bytes: &mut [u8]) {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_unknown_payload_version() {
     let mut bytes = build_int4(2, DIM);
     let off = embeddings_offset(&bytes);
@@ -154,7 +153,6 @@ fn rejects_unknown_payload_version() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_unknown_scale_kind() {
     let mut bytes = build_int4(2, DIM);
     let off = embeddings_offset(&bytes);
@@ -177,13 +175,12 @@ fn rejects_unknown_scale_kind() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_nan_in_group_scale() {
     let mut bytes = build_int4(3, DIM);
     let off = embeddings_offset(&bytes);
     // First f16 group scale of row 0 sits right after the 8-byte prefix.
     // Set it to f16 NaN (0x7E00).
-    bytes[off + 8..off + 10].copy_from_slice(&half::f16::NAN.to_le_bytes());
+    bytes[off + 8..off + 10].copy_from_slice(&urna_format::F16::NAN.to_le_bytes());
     rewrite_emb_checksum_and_file_hash(&mut bytes);
 
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -196,11 +193,10 @@ fn rejects_nan_in_group_scale() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_inf_in_group_scale() {
     let mut bytes = build_int4(3, DIM);
     let off = embeddings_offset(&bytes);
-    bytes[off + 8..off + 10].copy_from_slice(&half::f16::INFINITY.to_le_bytes());
+    bytes[off + 8..off + 10].copy_from_slice(&urna_format::F16::INFINITY.to_le_bytes());
     rewrite_emb_checksum_and_file_hash(&mut bytes);
 
     let view = UrnaView::from_bytes(&bytes).unwrap();
@@ -213,7 +209,6 @@ fn rejects_inf_in_group_scale() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn rejects_truncated_prefix() {
     // Truncate the embeddings section size in the table by one byte so the
     // payload no longer matches the int4 expected size. The reader's
@@ -232,7 +227,7 @@ fn rejects_truncated_prefix() {
             let new_size = size - 1;
             bytes[off + 16..off + 24].copy_from_slice(&new_size.to_le_bytes());
             // recompute the section checksum over the truncated slice.
-            use sha2::{Digest, Sha256};
+            use urna_format::Sha256;
             let h = Sha256::digest(&bytes[payload_off..payload_off + new_size as usize]);
             bytes[off + 24..off + 32].copy_from_slice(&h[..8]);
             break;
@@ -270,7 +265,6 @@ fn rejects_dim_not_multiple_of_block_at_section_level() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn int4_baseline_validates_and_has_correct_size() {
     let n = 4;
     let dim = 128; // 2 blocks per row.

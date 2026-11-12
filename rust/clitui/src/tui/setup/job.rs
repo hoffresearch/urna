@@ -74,7 +74,7 @@ pub fn spawn(scan: Scan, tasks: Vec<Task>, opts: Opts) -> Receiver<Ev> {
     rx
 }
 
-fn fail(code: i32) -> impl Fn(anyhow::Error) -> Failure {
+fn fail(code: i32) -> impl Fn(crate::error::Error) -> Failure {
     move |e| (code, format!("{e:#}"))
 }
 

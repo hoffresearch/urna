@@ -1,8 +1,8 @@
 //! `urna validate <file>` - full integrity check.
 
-use anyhow::Result;
-use sha2::{Digest, Sha256};
+use crate::error::Result;
 use std::path::{Path, PathBuf};
+use urna_format::Sha256;
 use urna_format::layout::{SECTION_BLOB_DATA, SECTION_BLOB_REFS};
 
 /// What a file that passes every check reports.
@@ -32,7 +32,7 @@ pub fn check(file: &Path) -> Result<Report> {
         let payload = view.get_section_data(SECTION_BLOB_DATA)?;
         let table = urna_format::decode_blob_data_table(payload)?;
         if table.entries.len() != refs.len() {
-            anyhow::bail!(
+            crate::error::bail!(
                 "blob_data has {} entries but blob_refs has {} records",
                 table.entries.len(),
                 refs.len()
@@ -46,7 +46,7 @@ pub fn check(file: &Path) -> Result<Report> {
             }
             let bytes = &data[off as usize..(off + len) as usize];
             if Sha256::digest(bytes)[..] != r.content_hash {
-                anyhow::bail!(
+                crate::error::bail!(
                     "inlined blob {} ({}) fails its content_hash",
                     i,
                     r.original_uri

@@ -46,7 +46,7 @@ quality = [
     "The CLI stays intentionally thin and delegates behavior to runtime and format crates.",
     "The Python surface is small and explicit: load extension, build corpora, fingerprint models, and run support tooling.",
     "ANN, graph, hybrid, and space paths always rerank with exact cosine, which keeps scores consistent across search modes.",
-    "A malformed .urna may be rejected with a typed error, never with a panic: Clippy denies unwrap_used, expect_used and undocumented_unsafe_blocks workspace-wide (with dbg_macro, todo and rustc's unsafe_op_in_unsafe_fn, missing_debug_implementations and rust_2018_idioms; rust/ingest and fuzz/ carry a copy, held to it by tool/tests/test_lintmatch.py), urna-format forbids unsafe_code (bytemuck views), fixed-width fields go through urna_format::bytes, header-derived sizes are overflow-checked, cursor bounds checks are written need > remaining, every scored slab (canonical, fp, bands) passes a finite-values gate at open, and every f32 sort is a NaN-last total order (urna_engine::order). The mutation-fuzz harnesses run under cargo test and CI; fuzz/ holds the coverage-guided targets.",
+    "A malformed .urna may be rejected with a typed error, never with a panic: Clippy denies unwrap_used, expect_used and undocumented_unsafe_blocks workspace-wide (with dbg_macro, todo and rustc's unsafe_op_in_unsafe_fn, missing_debug_implementations and rust_2018_idioms; rust/ingest and fuzz/ carry a copy, held to it by tool/tests/test_lintmatch.py), urna-format denies unsafe_code outside its SHA-256 instruction kernels (the header, section table and footer are written and parsed field by field), fixed-width fields go through urna_format::bytes, header-derived sizes are overflow-checked, cursor bounds checks are written need > remaining, every scored slab (canonical, fp, bands) passes a finite-values gate at open, and every f32 sort is a NaN-last total order (urna_engine::order). The mutation-fuzz harnesses run under cargo test and CI; fuzz/ holds the coverage-guided targets.",
     "Media (blob_refs/blob_span_overlay) and multimodal spaces (space_table + bands) are additive and content_hash-excluded, so attaching them to a corpus never moves an existing text citation; each named space is gated by its own model_hash in isolation.",
 ]
 
@@ -255,6 +255,7 @@ path = [
     "rust/clitui/src/tui/setup/plan.rs",
     "rust/clitui/src/tui/setup/job.rs",
     "rust/clitui/src/tui/setup/net.rs",
+    "rust/clitui/src/tui/setup/systar.rs",
     "rust/clitui/src/tui/setup/unpack.rs",
     "rust/clitui/src/tui/setup/venv.rs",
     "rust/clitui/src/tui/setup/models.rs",
@@ -265,7 +266,7 @@ path = [
     "rust/clitui/src/tui/setup/sample.rs",
     "rust/clitui/src/cmd/validate.rs",
 ]
-summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack into a staging dir (entries escaping it abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker, which scrolls and shows each model's download with torch counted once, its estimated minimum ram against the machine's and its license; packages only into that venv, constrained by the payload's lock with torch's cpu build, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's, then presetqry.py loads the model and embeds one query with downloads off; repo code needs --allow-remote-code), run the doctor checks, then fetch the sample corpus the catalog pins (a dataset commit and its sha256, refused on any other bytes or on a failed validate check) into <root>/urna/sample; the inline screen and the --yes printer render the same event stream"
+summary = "Probe the machine (channel from the exe path, data root, payload, interpreter + deps, curl/uv/python3), derive the plan (satisfied steps unticked, impossible ones blocked with the reason), then on a worker: fetch the release .sha256, stream the payload through a curl child hashing as it arrives, unpack through the system tar into a staging dir (listed first: entries escaping it, and links, abort) and swap it in for <root>/urna/python, build <root>/urna/venv with uv or venv+pip (also when chosen models need it and another Python has the base deps), install the chosen catalog models (--model, or the picker, which scrolls and shows each model's download with torch counted once, its estimated minimum ram against the machine's and its license; packages only into that venv, constrained by the payload's lock with torch's cpu build, then installer.py fetches the pinned revision's exact files into the shared HF cache and refuses any model_hash but the catalog's, then presetqry.py loads the model and embeds one query with downloads off; repo code needs --allow-remote-code), run the doctor checks, then fetch the sample corpus the catalog pins (a dataset commit and its sha256, refused on any other bytes or on a failed validate check) into <root>/urna/sample; the inline screen and the --yes printer render the same event stream"
 
 [[flows]]
 name = "tui-model-install"
@@ -615,15 +616,21 @@ links = [
 ]
 
 [[inventory.root]]
+path = "rust/engine/benches/harness/mod.rs"
+kind = "rust-source"
+purpose = "The benches' harness: warm-up, samples sized from it, Instant timings, p50 and p95 per iteration and elements/s, a name filter from the command line"
+links = ["rust/engine/benches/simd.rs", "rust/engine/benches/rerank.rs", "rust/engine/benches/hnsw_build.rs"]
+
+[[inventory.root]]
 path = "rust/engine/benches/simd.rs"
 kind = "rust-bench"
-purpose = "criterion: f32/f16/i8/i4 dot per dim on the detected SIMD backend + the int8 section scan over 50k rows"
+purpose = "our harness (p50/p95): f32/f16/i8/i4 dot per dim on the detected SIMD backend + the int8 section scan over 50k rows"
 links = ["rust/engine/src/simd/mod.rs"]
 
 [[inventory.root]]
 path = "rust/engine/benches/rerank.rs"
 kind = "rust-bench"
-purpose = "criterion: search (exact scan) and search_ann (HNSW + exact rerank at ef=100) through the public API, one 20k-row .urna per stored dtype"
+purpose = "our harness (p50/p95): search (exact scan) and search_ann (HNSW + exact rerank at ef=100) through the public API, one 20k-row .urna per stored dtype"
 links = [
     "rust/engine/src/search.rs",
     "rust/engine/src/rerank.rs",
@@ -632,7 +639,7 @@ links = [
 [[inventory.root]]
 path = "rust/engine/benches/hnsw_build.rs"
 kind = "rust-bench"
-purpose = "criterion: HnswIndex::build over 20k x 384 at m=16 / ef_construction=200, the guard for the build-throughput work"
+purpose = "our harness (p50/p95): HnswIndex::build over 20k x 384 at m=16 / ef_construction=200, the guard for the build-throughput work"
 links = ["rust/engine/src/ann/build.rs"]
 
 [[inventory.root]]
@@ -739,7 +746,7 @@ links = [
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/setup"
 kind = "directory"
-purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), unpack (staged, traversal-safe), venv (uv or venv+pip, streamed with exit status), catalog (the payload's model catalog and what the picker reads off an entry: the download with torch counted once, the estimated minimum ram), models (the one model install setup and the explorer share: packages into the managed venv constrained by the lock, then urna/model/installer.py's verified fetch, then one offline query that must match the corpus's hash), sample (the sample corpus the catalog pins: download, sha256, validate checks, saved under <root>/urna/sample), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker: a ratatui List that scrolls, the details of the model at the cursor, the ✓ against the machine's ram from sysinfo)"
+purpose = "urna setup: scan, plan, job (the worker and its event stream), net (curl downloads + streaming SHA256), systar (the system tar: list names and kinds, refuse escapes and links, unpack; bsdtar on windows reads the uv .zip), unpack (staged, traversal-safe, through systar), venv (uv or venv+pip, streamed with exit status), catalog (the payload's model catalog and what the picker reads off an entry: the download with torch counted once, the estimated minimum ram), models (the one model install setup and the explorer share: packages into the managed venv constrained by the lock, then urna/model/installer.py's verified fetch, then one offline query that must match the corpus's hash), sample (the sample corpus the catalog pins: download, sha256, validate checks, saved under <root>/urna/sample), text (the --yes printer), ui (state + keys, the model picker), screen/ (the frame and one file per step, models.rs the picker: a ratatui List that scrolls, the details of the model at the cursor, the ✓ against the machine's ram from sysinfo)"
 links = ["rust/clitui/src/tui/setup/mod.rs"]
 
 [[inventory.workspace]]
@@ -764,6 +771,12 @@ path = "rust/format"
 kind = "crate-dir"
 purpose = "Format crate"
 links = ["rust/format/src/lib.rs"]
+
+[[inventory.workspace]]
+path = "rust/format/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: urna-format's f16 conversion and SHA-256 against the half and sha2 crates they replaced, kept out of the urna lock and cargo-deny"
+links = ["rust/format/src/encoding/float16.rs", "tool/tasks/fullcheck.sh", ".github/workflows/gatecheck.yml"]
 
 [[inventory.workspace]]
 path = "rust/format/examples"
@@ -901,7 +914,7 @@ links = ["rust/format/src/sections/scalars/mod.rs", "rust/format/src/manifest/sc
 [[inventory.workspace]]
 path = "rust/clitui/src/tui/graphics"
 kind = "directory"
-purpose = "The terminal image protocols written here (kitty, iTerm2 with its PNG, sixel), the one-time terminal probe and the glyph sets"
+purpose = "The terminal image protocols written here (kitty, iTerm2 with its PNG, sixel; the zlib stream kitty and the PNG take is stored deflate blocks with Adler-32, zlib.rs), the one-time terminal probe and the glyph sets"
 links = ["rust/clitui/src/tui/graphics/mod.rs", "rust/images/src/lib.rs"]
 
 [[inventory.workspace]]
@@ -1039,6 +1052,12 @@ path = "rust/clitui/LICENSE"
 kind = "symlink"
 purpose = "Link to the root LICENSE; cargo package copies its content, so the published crate carries the MIT text"
 links = ["LICENSE"]
+
+[[inventory.urna_clitui]]
+path = "rust/clitui/src/error.rs"
+kind = "rust-source"
+purpose = "The cli's Error and Result: any error plus the context each step added (Context on Result and Option, err! and bail!), printed as {} the top message, {:#} the chain on one line and {:?} the top line then Caused by: and the chain, numbered past one cause; downcast_ref finds a typed error anywhere in the chain"
+links = ["rust/clitui/src/main.rs", "rust/clitui/src/cmd/embed_failure.rs"]
 
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/main.rs"
@@ -1285,6 +1304,12 @@ purpose = "Regenerate the byte-frozen golden fixture"
 links = ["rust/format/tests/golden.rs"]
 
 [[inventory.urna_format]]
+path = "rust/format/src/sha256/mod.rs"
+kind = "rust-source"
+purpose = "Sha256, the hash of every integrity surface (update/finalize and digest); compression on SHA-NI or the ARMv8 SHA2 extension when the CPU has them (accel.rs, the crate's only unsafe), the portable rounds otherwise (soft.rs)"
+links = ["rust/format/src/sha256/accel.rs", "rust/format/src/sha256/soft.rs", "rust/format/parity"]
+
+[[inventory.urna_format]]
 path = "rust/format/src/chunk.rs"
 kind = "rust-source"
 purpose = "ChunkInput, chunk_id, and per-chunk validation"
@@ -1293,7 +1318,7 @@ links = ["rust/format/src/error.rs"]
 [[inventory.urna_format]]
 path = "rust/format/src/encoding/float16.rs"
 kind = "rust-source"
-purpose = "float16 encode and decode helpers"
+purpose = "F16, the IEEE binary16 conversion on the bits (round to nearest even, exact widening), and the float16 encode and decode helpers"
 links = ["rust/format/src/encoding/mod.rs"]
 
 [[inventory.urna_format]]
@@ -1656,7 +1681,7 @@ links = ["rust/format/src/encoding/int8.rs"]
 [[inventory.urna_format]]
 path = "rust/format/tests/codec_roundtrip_prop.rs"
 kind = "rust-test"
-purpose = "proptest properties for every section codec: decode(encode(x)) is the raw payload byte for byte (intpack, txt_streams, fsst, zstd_dict, dedup), float16/int8/int4 reconstruct within their quantization step and size exactly, every encoder is byte-stable across two calls"
+purpose = "Properties for every section codec over inputs from a seeded splitmix64 (256 cases each, URNA_PROP_CASES and URNA_PROP_SEED): decode(encode(x)) is the raw payload byte for byte (intpack, txt_streams, fsst, zstd_dict, dedup), float16/int8/int4 reconstruct within their quantization step and size exactly, every encoder is byte-stable across two calls"
 links = ["rust/format/src/encoding/mod.rs"]
 
 [[inventory.urna_format]]
@@ -2095,6 +2120,12 @@ links = [
     "rust/engine/src/search.rs",
     "rust/engine/src/rerank.rs",
 ]
+
+[[inventory.urna_engine]]
+path = "rust/engine/src/mapping.rs"
+kind = "rust-source"
+purpose = "Mapping, the read-only map of a whole file behind MmapUrnaFile and urna scalars: mmap/munmap through libc on unix, CreateFileMappingW/MapViewOfFile/UnmapViewOfFile declared from kernel32 on windows, an empty slice for a zero-length file, unmapped on drop; every unsafe of the mapping is here"
+links = ["rust/engine/src/mmap_file.rs", "rust/clitui/src/cmd/scalars.rs"]
 
 [[inventory.urna_engine]]
 path = "rust/engine/src/mmap_cold.rs"

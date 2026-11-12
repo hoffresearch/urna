@@ -1,22 +1,19 @@
 //! The kitty graphics protocol (kitty, ghostty, konsole, wezterm): an
 //! APC `ESC _ G <keys> ; <payload> ESC \` per command. The image goes
-//! as raw RGBA (`f=32`) zlib-compressed (`o=z`), base64, in chunks of
-//! 4096 with `m=1` on every chunk but the last, transmitted and placed in
-//! one go (`a=T`) at the cursor, scaled into `c` x `r` cells. `q=2`
+//! as raw RGBA (`f=32`) in a zlib stream (`o=z`, of stored blocks from
+//! `zlib.rs`, so not smaller), base64, in chunks of 4096 with `m=1` on
+//! every chunk but the last, transmitted and placed in one go (`a=T`) at
+//! the cursor, scaled into `c` x `r` cells. `q=2`
 //! silences the terminal's replies, so nothing lands in the key stream.
 //! `i` names the image: deleting it (`a=d,d=I`) removes its placement
 //! wherever it was, which is how the previous image leaves the screen.
 
-use std::io::Write;
-
-use super::{Rgba, base64};
+use super::{Rgba, base64, zlib};
 
 const CHUNK: usize = 4096;
 
 pub fn encode(img: &Rgba, cols: u16, rows: u16, id: u32) -> Vec<u8> {
-    let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
-    let _ = z.write_all(&img.data);
-    let packed = z.finish().unwrap_or_default();
+    let packed = zlib::store(&img.data);
     let payload = base64::encode(&packed);
     let mut out = delete(id);
     let chunks: Vec<&[u8]> = payload.chunks(CHUNK).collect();
@@ -74,9 +71,7 @@ mod tests {
         // the payload inflates to the pixels.
         let payload = &text[text.rfind(';').expect(";") + 1..text.len() - 2];
         let packed = decode_base64(payload);
-        let mut back = Vec::new();
-        std::io::Read::read_to_end(&mut flate2::read::ZlibDecoder::new(&packed[..]), &mut back)
-            .expect("inflates");
+        let back = zlib::unstore(&packed).expect("inflates");
         assert_eq!(back, img.data);
     }
 

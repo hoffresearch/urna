@@ -56,7 +56,7 @@ fuzz_target!(|data: &[u8]| {
         17 => {
             if let Ok(v) = Int8EmbeddingsView::parse(rest, n, dim) {
                 for i in 0..v.n {
-                    let _ = (v.row(i), v.scale(i));
+                    let _ = (v.row_bytes(i), v.scale(i));
                 }
             }
         }

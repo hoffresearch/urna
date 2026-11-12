@@ -18,6 +18,7 @@
 //! PRECISION (disclosed via the dtype). It never zstds/shuffles, so the
 //! runtime scores it off mmap with the fused dequant+dot kernel.
 
+use super::float16::F16;
 use crate::bytes::le_u32;
 use crate::error::UrnaError;
 
@@ -38,16 +39,16 @@ pub fn int4_blocks_per_row(dim: usize) -> usize {
 /// scale of block `g` and `codes[j]` in `[-7, 7]` reconstructs as
 /// `codes[j] as f32 * scales[j / 64]`. Mirrors `quantize_f32_to_i8` but per
 /// 64-dim group; a zero block maps to all-zero codes with scale 1.
-pub fn quantize_f32_to_i4(values: &[f32], dim: usize) -> (Vec<half::f16>, Vec<i8>) {
+pub fn quantize_f32_to_i4(values: &[f32], dim: usize) -> (Vec<F16>, Vec<i8>) {
     let blocks = int4_blocks_per_row(dim);
-    let mut scales: Vec<half::f16> = Vec::with_capacity(blocks);
+    let mut scales: Vec<F16> = Vec::with_capacity(blocks);
     let mut codes: Vec<i8> = Vec::with_capacity(dim);
     for g in 0..blocks {
         let blk = &values[g * INT4_BLOCK..(g + 1) * INT4_BLOCK];
         let max_abs = blk.iter().fold(0.0f32, |acc, &v| acc.max(v.abs()));
         // Quantize against the f16-rounded scale so the codes match the
         // stored (f16) scale the reader sees, keeping round-trip tight.
-        let scale_f16 = half::f16::from_f32(if max_abs == 0.0 { 1.0 } else { max_abs / 7.0 });
+        let scale_f16 = F16::from_f32(if max_abs == 0.0 { 1.0 } else { max_abs / 7.0 });
         let scale = scale_f16.to_f32();
         let inv = if scale > 0.0 { 1.0 / scale } else { 0.0 };
         for &v in blk {
@@ -181,7 +182,7 @@ impl<'a> Int4EmbeddingsView<'a> {
     #[inline]
     pub fn group_scale(&self, i: usize, g: usize) -> f32 {
         let off = (i * self.blocks + g) * 2;
-        half::f16::from_le_bytes([self.scales[off], self.scales[off + 1]]).to_f32()
+        F16::from_le_bytes([self.scales[off], self.scales[off + 1]]).to_f32()
     }
 
     /// Borrow row `i`'s packed nibble bytes (`dim/2` of them).

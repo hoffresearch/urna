@@ -17,7 +17,11 @@
     reason = "a bench stops on a setup failure, like a test"
 )]
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+#[allow(dead_code, reason = "each bench uses part of the harness")]
+mod harness;
+
+use harness::Group;
+use std::hint::black_box;
 use std::path::PathBuf;
 use urna_engine::MmapUrnaFile;
 use urna_engine::ann::{DEFAULT_M, HnswIndex};
@@ -78,7 +82,7 @@ fn build(path: &PathBuf, vectors: &[f32], hnsw: &[u8], dtype: EmbeddingDType) {
         .expect("write bench corpus");
 }
 
-fn bench_search(c: &mut Criterion) {
+fn main() {
     let vectors = rows(N, DIM, 0xBEEF);
     let queries = rows(QUERIES, DIM, 0xF00D);
     // ef_construction 200 keeps the setup under a minute; recall is not
@@ -92,42 +96,33 @@ fn bench_search(c: &mut Criterion) {
         ("i8", EmbeddingDType::Int8),
         ("i4", EmbeddingDType::Int4),
     ];
-    let mut exact = c.benchmark_group("search_exact");
+    let exact = Group::new("search_exact");
     let mut files = Vec::new();
     for (name, dtype) in dtypes {
         let path = dir.join(format!("urna-bench-rerank-{name}.urna"));
         build(&path, &vectors, &hnsw, dtype);
         let file = MmapUrnaFile::open(&path).expect("open bench corpus");
         let mut qi = 0usize;
-        exact.bench_with_input(BenchmarkId::new(name, N), &N, |b, _| {
-            b.iter(|| {
-                let q = &queries[(qi % QUERIES) * DIM..(qi % QUERIES + 1) * DIM];
-                qi += 1;
-                black_box(file.search(black_box(q), K).expect("search"))
-            })
+        exact.bench(format!("{name}/{N}"), || {
+            let q = &queries[(qi % QUERIES) * DIM..(qi % QUERIES + 1) * DIM];
+            qi += 1;
+            file.search(black_box(q), K).expect("search")
         });
         files.push((name, file, path));
     }
-    exact.finish();
 
-    let mut ann = c.benchmark_group("search_ann_rerank");
+    let ann = Group::new("search_ann_rerank");
     for (name, file, _) in &files {
         let mut qi = 0usize;
-        ann.bench_with_input(BenchmarkId::new(*name, EF), &EF, |b, _| {
-            b.iter(|| {
-                let q = &queries[(qi % QUERIES) * DIM..(qi % QUERIES + 1) * DIM];
-                qi += 1;
-                black_box(file.search_ann(black_box(q), K, EF).expect("search_ann"))
-            })
+        ann.bench(format!("{name}/{EF}"), || {
+            let q = &queries[(qi % QUERIES) * DIM..(qi % QUERIES + 1) * DIM];
+            qi += 1;
+            file.search_ann(black_box(q), K, EF).expect("search_ann")
         });
     }
-    ann.finish();
 
     for (_, file, path) in files {
         drop(file);
         let _ = std::fs::remove_file(path);
     }
 }
-
-criterion_group!(benches, bench_search);
-criterion_main!(benches);

@@ -132,6 +132,31 @@ jobs:
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
 
+  # rust/format/parity is a workspace of its own (the crates urna-format
+  # replaced live only there), so the rust job never builds it. both arches:
+  # the reference takes the f16 and sha instructions where the cpu has them,
+  # and so does our code, so x86_64 linux and aarch64 macos each hold a
+  # different hardware path to it.
+  format-parity:
+    name: format parity ${{ matrix.os }}
+    if: github.event_name != 'schedule'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: toolchain
+        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust/format/parity
+      - name: f16 and sha-256 against the crates they replaced
+        run: cargo test --release --manifest-path rust/format/parity/Cargo.toml
+
   fuzz:
     name: cargo-fuzz smoke
     if: github.event_name != 'schedule'
@@ -193,6 +218,8 @@ jobs:
         with:
           command: check advisories licenses bans sources
           manifest-path: fuzz/Cargo.toml
+          # no syn 2 in fuzz either since urna-format dropped `half`.
+          command-arguments: -A unmatched-skip
   semver:
     name: semver (urna-format public api)
     if: github.event_name == 'pull_request'
@@ -296,11 +323,10 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: miri setup
         run: cargo miri setup
-      # urna-format has zero `unsafe`; this turns "no undefined behaviour"
-      # from a claim into a run over its parsers and codecs. tree borrows:
-      # sha2 0.11's neon loader trips stacked borrows on aarch64 hosts (a
-      # dependency, not this crate). tests that call zstd (c code miri cannot
-      # run), the f16 conversions of `half` (inline asm on aarch64) and the
+      # urna-format's only `unsafe` is the SHA instruction kernels, which
+      # miri never runs (cfg(miri) takes the portable rounds); this turns
+      # "no undefined behaviour" from a claim into a run over its parsers
+      # and codecs. tests that call zstd (c code miri cannot run) and the
       # fsst table build (too slow under an interpreter) are marked in the
       # source with the reason; the mutation and property harnesses run
       # natively in the rust job instead.

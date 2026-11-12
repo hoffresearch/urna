@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 
 use super::models::Sample;
 use super::net;
@@ -54,8 +54,8 @@ pub fn installed(home: &Path) -> Option<PathBuf> {
 }
 
 fn sha256_of(p: &Path) -> Result<String> {
-    use sha2::{Digest, Sha256};
     use std::io::Read;
+    use urna_format::Sha256;
     let mut f = std::fs::File::open(p)?;
     let mut h = Sha256::new();
     let mut buf = vec![0u8; 64 * 1024];

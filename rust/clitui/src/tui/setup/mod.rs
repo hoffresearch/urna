@@ -18,6 +18,7 @@ pub mod plan;
 pub mod sample;
 pub mod scan;
 mod screen;
+pub mod systar;
 pub mod text;
 pub mod tree;
 mod ui;
@@ -37,7 +38,7 @@ pub use plan::Opts;
 
 /// Runs setup and returns the process exit code: 0 ready, 2..=6 a doctor
 /// failure after the steps ran, 10..=16 a step failure (`job::codes`).
-pub fn run(opts: Opts) -> anyhow::Result<i32> {
+pub fn run(opts: Opts) -> crate::error::Result<i32> {
     let tty = !opts.yes && std::io::stdin().is_terminal() && std::io::stdout().is_terminal();
     if tty {
         interactive(opts)
@@ -49,9 +50,9 @@ pub fn run(opts: Opts) -> anyhow::Result<i32> {
 /// `urna setup --uninstall`: removes what setup laid down (payload, venv,
 /// the uv and the sample it downloaded) and the explorer's memory of the
 /// corpora it opened, never the binary (its package manager owns it).
-pub fn uninstall() -> anyhow::Result<i32> {
+pub fn uninstall() -> crate::error::Result<i32> {
     let Some(home) = crate::cmd::paths::urna_home() else {
-        anyhow::bail!("no data dir (set URNA_DATA_DIR)");
+        crate::error::bail!("no data dir (set URNA_DATA_DIR)");
     };
     for sub in [crate::cmd::payload::DIR, "venv", "bin", "sample"] {
         let p = home.join(sub);
@@ -73,7 +74,7 @@ pub fn uninstall() -> anyhow::Result<i32> {
     }
     if !kept.is_empty() {
         let kept: Vec<String> = kept.iter().map(|p| p.display().to_string()).collect();
-        anyhow::bail!("could not remove {}", kept.join(", "));
+        crate::error::bail!("could not remove {}", kept.join(", "));
     }
     println!(
         "urna setup: uninstalled the payload, the env, setup's uv, the sample and the explorer's memory; the binary stays with its package manager"
@@ -82,12 +83,12 @@ pub fn uninstall() -> anyhow::Result<i32> {
 }
 
 /// Runs the interactive installer; returns the exit code.
-fn interactive(opts: Opts) -> anyhow::Result<i32> {
+fn interactive(opts: Opts) -> crate::error::Result<i32> {
     let (_, rows) = crossterm::terminal::size().unwrap_or((80, 24));
     let height = rows.saturating_sub(2).clamp(12, 22);
     let mut terminal = term::inline(height)?;
     let mut ui = ui::Ui::new(opts);
-    let res = (|| -> anyhow::Result<i32> {
+    let res = (|| -> crate::error::Result<i32> {
         loop {
             ui.pump();
             let dt = ui.clock.tick();

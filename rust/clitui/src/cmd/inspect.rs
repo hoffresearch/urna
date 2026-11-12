@@ -2,7 +2,7 @@
 //! hashes. JSON variant mirrors `MmapUrnaFile::inspect_json` for
 //! programmatic consumers.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::util::encoding_name;

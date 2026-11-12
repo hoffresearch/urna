@@ -38,9 +38,9 @@ fn int8_section_roundtrip() {
     assert_eq!(view.dim, dim);
     for i in 0..n {
         let scale = view.scale(i);
-        let row = view.row(i);
+        let row = view.row_bytes(i);
         assert_eq!(row.len(), dim);
-        let recon: Vec<f32> = row.iter().map(|&x| x as f32 * scale).collect();
+        let recon: Vec<f32> = row.iter().map(|&x| x as i8 as f32 * scale).collect();
         for (orig, r) in emb[i * dim..(i + 1) * dim].iter().zip(recon.iter()) {
             assert!((orig - r).abs() < 0.02, "{} vs {}", orig, r);
         }

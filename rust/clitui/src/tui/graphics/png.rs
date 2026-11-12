@@ -1,11 +1,8 @@
 //! The smallest PNG that every decoder reads: one IHDR, one IDAT holding
-//! the rows unfiltered in a zlib stream (deflate through flate2, already
-//! in the build), one IEND, every chunk with the CRC-32 the format
-//! requires, computed here.
+//! the rows unfiltered in a zlib stream (stored blocks, `zlib.rs`), one
+//! IEND, every chunk with the CRC-32 the format requires, computed here.
 
-use std::io::Write;
-
-use super::Rgba;
+use super::{Rgba, zlib};
 
 const SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', b'\r', b'\n', 0x1a, b'\n'];
 
@@ -42,11 +39,7 @@ pub fn encode(img: &Rgba) -> Vec<u8> {
         raw.push(0);
         raw.extend_from_slice(row);
     }
-    let mut z = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::fast());
-    // writing to a Vec cannot fail; an empty stream is the only outcome of
-    // an error here, and a decoder reports that loudly.
-    let _ = z.write_all(&raw);
-    let idat = z.finish().unwrap_or_default();
+    let idat = zlib::store(&raw);
     let mut ihdr = Vec::with_capacity(13);
     ihdr.extend_from_slice(&img.width.to_be_bytes());
     ihdr.extend_from_slice(&img.height.to_be_bytes());
@@ -88,12 +81,7 @@ mod tests {
         // the idat inflates to the unfiltered rows.
         let len = u32::from_be_bytes([png[33], png[34], png[35], png[36]]) as usize;
         assert_eq!(&png[37..41], b"IDAT");
-        let mut back = Vec::new();
-        std::io::Read::read_to_end(
-            &mut flate2::read::ZlibDecoder::new(&png[41..41 + len]),
-            &mut back,
-        )
-        .expect("inflates");
+        let back = zlib::unstore(&png[41..41 + len]).expect("inflates");
         assert_eq!(
             back,
             vec![

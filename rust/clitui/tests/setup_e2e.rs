@@ -13,9 +13,7 @@
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
 
-use flate2::Compression;
-use flate2::write::GzEncoder;
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 
 const PAYLOAD: &str = "urna-embedder-payload.tar.gz";
 
@@ -93,27 +91,63 @@ fn release_at(
     std::fs::create_dir_all(&rel).unwrap();
     std::fs::copy(golden(), rel.join(SAMPLE)).unwrap();
     let tgz = rel.join(PAYLOAD);
-    let gz = GzEncoder::new(std::fs::File::create(&tgz).unwrap(), Compression::fast());
-    let mut b = tar::Builder::new(gz);
     let mut entries: Vec<(String, Vec<u8>)> = REQUIRED
         .iter()
         .filter(|f| Some(**f) != drop)
         .map(|f| (format!("urna/{f}"), body(f, version, &rel)))
         .collect();
     entries.push(("urna/VERSION".into(), format!("{version}\n").into_bytes()));
-    for (name, body) in &entries {
-        let (name, body) = (name.as_str(), body.as_slice());
-        let mut h = tar::Header::new_gnu();
-        h.set_size(body.len() as u64);
-        h.set_mode(0o644);
-        h.set_cksum();
-        b.append_data(&mut h, name, body).unwrap();
-    }
-    b.into_inner().unwrap().finish().unwrap();
+    targz(&tgz, &entries, 0o644);
     let digest = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
     let line = format!("{} *{PAYLOAD}\n", sha.unwrap_or(&digest));
     std::fs::write(rel.join(format!("{PAYLOAD}.sha256")), line).unwrap();
     rel
+}
+
+/// The tar setup itself runs (`systar::program`): System32's on windows,
+/// never a GNU tar from Git's PATH.
+fn tar_program() -> PathBuf {
+    if let Some(root) = std::env::var_os("SystemRoot").filter(|_| cfg!(windows)) {
+        let exe = PathBuf::from(root).join("System32").join("tar.exe");
+        if exe.is_file() {
+            return exe;
+        }
+    }
+    PathBuf::from("tar")
+}
+
+/// Packs `entries` (paths under one top folder, bodies) as a `.tar.gz`
+/// with the system tar, the way the release's payload is a real gzip:
+/// the files are written to a tree beside `tgz`, with `mode` on unix.
+fn targz(tgz: &Path, entries: &[(String, Vec<u8>)], mode: u32) {
+    let tree = tgz.with_extension("tree");
+    let _ = std::fs::remove_dir_all(&tree);
+    let mut tops: Vec<String> = Vec::new();
+    for (name, body) in entries {
+        let path = tree.join(name);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, body).unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+        }
+        let top = name.split('/').next().unwrap().to_string();
+        if !tops.contains(&top) {
+            tops.push(top);
+        }
+    }
+    let _ = mode;
+    let status = Command::new(tar_program())
+        .arg("-czf")
+        .arg(tgz)
+        .arg("-C")
+        .arg(&tree)
+        .args(&tops)
+        .status()
+        .unwrap();
+    assert!(status.success(), "tar -czf {}", tgz.display());
+    std::fs::remove_dir_all(&tree).unwrap();
 }
 
 /// The sample corpus a test release serves in place of the hub's.
@@ -593,15 +627,11 @@ exit 0
         log = dir.join("uv.log").display()
     );
     let tgz = dir.join("uv-fake.tar.gz");
-    let gz = GzEncoder::new(std::fs::File::create(&tgz).unwrap(), Compression::fast());
-    let mut b = tar::Builder::new(gz);
-    let mut h = tar::Header::new_gnu();
-    h.set_size(script.len() as u64);
-    h.set_mode(0o755);
-    h.set_cksum();
-    b.append_data(&mut h, "uv-fake/uv", script.as_bytes())
-        .unwrap();
-    b.into_inner().unwrap().finish().unwrap();
+    targz(
+        &tgz,
+        &[("uv-fake/uv".to_string(), script.into_bytes())],
+        0o755,
+    );
     let digest = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
     let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
     format!(
@@ -613,22 +643,27 @@ exit 0
     )
 }
 
-/// `isolated`, with PATH holding curl and nothing else: no uv, no python.
+/// `isolated`, with PATH holding curl, tar and gzip and nothing else: no
+/// uv, no python.
 #[cfg(unix)]
 fn bare_machine(dir: &Path, rel: &Path, args: &[&str]) -> Command {
     let tools = dir.join("tools");
     std::fs::create_dir_all(&tools).unwrap();
-    let curl = String::from_utf8(
-        Command::new("sh")
-            .args(["-c", "command -v curl"])
-            .output()
-            .unwrap()
-            .stdout,
-    )
-    .unwrap();
-    let link = tools.join("curl");
-    if !link.exists() {
-        std::os::unix::fs::symlink(curl.trim(), &link).unwrap();
+    // what setup takes from the system, as every base install has it: curl
+    // for the download, tar for the unpack (GNU tar runs gzip for a .gz).
+    for tool in ["curl", "tar", "gzip"] {
+        let found = String::from_utf8(
+            Command::new("sh")
+                .args(["-c", &format!("command -v {tool}")])
+                .output()
+                .unwrap()
+                .stdout,
+        )
+        .unwrap();
+        let link = tools.join(tool);
+        if !found.trim().is_empty() && !link.exists() {
+            std::os::unix::fs::symlink(found.trim(), &link).unwrap();
+        }
     }
     let mut c = isolated(dir, rel, args);
     c.env("PATH", &tools).env_remove("URNA_PYTHON");

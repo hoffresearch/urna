@@ -73,7 +73,9 @@ impl PackedVectors {
             "int8" => {
                 let view =
                     Int8EmbeddingsView::parse(bytes, n, dim).map_err(RuntimeError::Format)?;
-                let data: Vec<i8> = (0..n).flat_map(|i| view.row(i).to_vec()).collect();
+                let data: Vec<i8> = (0..n)
+                    .flat_map(|i| view.row_bytes(i).iter().map(|&b| b as i8))
+                    .collect();
                 let scales: Vec<f32> = (0..n).map(|i| view.scale(i)).collect();
                 Ok(PackedVectors::Int8 { data, scales })
             }
@@ -127,7 +129,7 @@ impl PackedVectors {
                 for (j, slot) in scratch.iter_mut().enumerate().take(dim) {
                     let lo = b[off + j * 2];
                     let hi = b[off + j * 2 + 1];
-                    *slot = half::f16::from_le_bytes([lo, hi]).to_f32();
+                    *slot = urna_format::F16::from_le_bytes([lo, hi]).to_f32();
                 }
                 &scratch[..dim]
             }
@@ -189,7 +191,7 @@ mod tests {
         let mut s = store.scratch(4);
         let got = store.row(0, 4, &mut s);
         for (j, &g) in got.iter().enumerate() {
-            let want = view.row(0)[j] as f32 * scale;
+            let want = view.row_bytes(0)[j] as i8 as f32 * scale;
             assert_eq!(g.to_bits(), want.to_bits(), "row[{j}] decode drift");
         }
     }

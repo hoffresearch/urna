@@ -8,7 +8,7 @@
 
 use std::io::Write;
 
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 use crate::error::UrnaError;
 use crate::layout::{
@@ -126,10 +126,10 @@ pub fn add_sections<W: Write>(
         hasher: Sha256::new(),
     };
     let mut written: u64 = 0;
-    out.write_all(header.as_bytes())?;
+    out.write_all(&header.to_bytes())?;
     written += header_size;
     for e in &entries {
-        out.write_all(e.as_bytes())?;
+        out.write_all(&e.to_bytes())?;
     }
     written += table_size;
     out.write_all(&manifest_json)?;

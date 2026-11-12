@@ -1,6 +1,7 @@
 //! Lays a verified payload tarball down under the data root. The archive is
-//! unpacked into a staging dir first (entries that would escape it, `..`
-//! or absolute paths, abort the install) and checked: every file of
+//! listed and unpacked by the system tar (`systar.rs`) into a staging dir
+//! first (entries that would escape it, `..` or absolute paths, and links
+//! abort the install before anything is unpacked) and checked: every file of
 //! `REQUIRED` present, nothing but `python/` and plain files at the top (so
 //! the managed venv beside them can never be overwritten). only then is it
 //! laid down, as one restorable step: the previous payload moves aside into
@@ -9,11 +10,11 @@
 //! failure at any point removes what was placed and puts the previous
 //! payload back.
 
-use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
-use flate2::read::GzDecoder;
+use crate::error::{Context, Result, bail};
+
+use super::systar;
 
 /// The files a payload lays down beside `python/` (`embedpack.py`
 /// writes them); `--uninstall` removes exactly these.
@@ -106,19 +107,13 @@ struct Fault<'a> {
 }
 
 fn unpack_into(tar_gz: &Path, staging: &Path, on_entry: &mut impl FnMut(usize)) -> Result<()> {
-    let file = File::open(tar_gz).with_context(|| format!("open {}", tar_gz.display()))?;
-    let mut archive = tar::Archive::new(GzDecoder::new(file));
-    archive.set_preserve_permissions(false);
-    let mut n = 0usize;
-    for entry in archive.entries().context("read payload archive")? {
-        let mut entry = entry.context("read payload entry")?;
-        let path = entry.path()?.into_owned();
-        // unpack_in refuses (returns false) anything that would land outside
-        // the staging dir; an honest payload never does that, so it is fatal.
-        if !entry.unpack_in(staging)? {
-            bail!("payload entry escapes the install dir: {}", path.display());
-        }
-        n += 1;
+    let members = systar::list(tar_gz).context("read payload archive")?;
+    // anything that would land outside the staging dir, or a link that
+    // could point out of it, refuses the archive before tar writes a byte;
+    // an honest payload never carries one, so it is fatal.
+    systar::check(&members, "payload")?;
+    systar::extract(tar_gz, staging, None).context("unpack payload archive")?;
+    for n in 1..=members.len() {
         on_entry(n);
     }
     Ok(())
@@ -292,24 +287,14 @@ fn keep_previous(previous: &Path, root: &Path, fault: Fault<'_>) -> PathBuf {
 mod tests {
     use super::*;
     use crate::cmd::payload::REQUIRED;
-    use flate2::Compression;
-    use flate2::write::GzEncoder;
 
+    /// A plain tar (the system tar reads it as it reads a .tar.gz), names
+    /// written raw so a test can model a hostile archive.
     fn tarball(dir: &Path, entries: &[(&str, &[u8])]) -> PathBuf {
-        let out = dir.join("p.tar.gz");
-        let gz = GzEncoder::new(File::create(&out).unwrap(), Compression::fast());
-        let mut b = tar::Builder::new(gz);
-        for (name, data) in entries {
-            let mut h = tar::Header::new_gnu();
-            h.set_size(data.len() as u64);
-            h.set_mode(0o644);
-            // set_path refuses `..`; write the raw name to model a hostile archive.
-            let raw = &mut h.as_old_mut().name;
-            raw[..name.len()].copy_from_slice(name.as_bytes());
-            h.set_cksum();
-            b.append(&h, *data).unwrap();
-        }
-        b.into_inner().unwrap().finish().unwrap();
+        let out = dir.join("p.tar");
+        let entries: Vec<(&str, u32, &[u8])> =
+            entries.iter().map(|(n, b)| (*n, 0o644, *b)).collect();
+        std::fs::write(&out, systar::ustar(&entries)).unwrap();
         out
     }
 

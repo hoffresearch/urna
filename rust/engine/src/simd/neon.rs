@@ -58,10 +58,10 @@ pub(super) unsafe fn dot_f32_f16_neon(q: &[f32], row_bytes: &[u8]) -> f32 {
     // at or before `dim` halfs / `dim * 2` bytes and every f32 load inside
     // `q`; the `transmute` reinterprets a `uint16x4_t` as `float16x4_t`,
     // two 64-bit vector types of identical size and layout (IEEE binary16
-    // bit patterns, which is what `half::f16` writes).
+    // bit patterns, which is what `urna_format::F16` writes).
     unsafe {
         // NEON has fcvtl to widen f16 -> f32 in groups of 4. Pack 4 lanes per
-        // step. half::f16 layout matches IEEE binary16, same as ARM f16.
+        // step. urna_format::F16 is IEEE binary16 bits, same as ARM f16.
         use std::arch::aarch64::*;
         let dim = q.len();
         let row_ptr = row_bytes.as_ptr() as *const u16;
@@ -78,7 +78,7 @@ pub(super) unsafe fn dot_f32_f16_neon(q: &[f32], row_bytes: &[u8]) -> f32 {
         let mut tail = 0.0f32;
         for (i, &qv) in q.iter().enumerate().skip(chunks * 4) {
             let off = i * 2;
-            let h = half::f16::from_le_bytes([row_bytes[off], row_bytes[off + 1]]);
+            let h = urna_format::F16::from_le_bytes([row_bytes[off], row_bytes[off + 1]]);
             tail += qv * h.to_f32();
         }
         let lane_sum = vaddvq_f32(acc);

@@ -13,9 +13,9 @@
     clippy::expect_used,
     reason = "test code: a failing unwrap is a failing test"
 )]
-use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use urna_format::Sha256;
 use urna_format::manifest::Manifest;
 use urna_format::writer::UrnaFileBuilder;
 use urna_format::{
@@ -89,7 +89,7 @@ fn build_media_corpus(path: &Path, blob_hash: [u8; 32]) {
 }
 
 fn good_hash() -> [u8; 32] {
-    Sha256::digest(BLOB).into()
+    Sha256::digest(BLOB)
 }
 
 /// the `urna://content_hash/chunk_id` citation of chunk `i`, read from the

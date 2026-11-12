@@ -1,7 +1,7 @@
 //! `urna stats <file>` - size, dim, dtype, hashes, per-section sizes,
 //! SIMD backend.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::util::encoding_name;

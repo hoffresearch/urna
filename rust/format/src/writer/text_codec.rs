@@ -30,7 +30,7 @@ use crate::layout::{
     SECTION_ENCODING_RAW, SECTION_ENCODING_TXT_STREAMS, SECTION_ENCODING_ZSTD_DICT,
 };
 use crate::sections::encode_chunks_canonical;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 use std::sync::Mutex;
 
 /// the chosen chunks_canonical section plus any auxiliary optional sections
@@ -56,7 +56,7 @@ static LAST: Mutex<Option<([u8; 32], TextChoice)>> = Mutex::new(None);
 /// cold single-frame zstd is the never-regress floor.
 pub(super) fn choose(texts: &[String]) -> crate::Result<TextChoice> {
     let canonical_raw = encode_chunks_canonical(texts)?;
-    let key: [u8; 32] = Sha256::digest(&canonical_raw).into();
+    let key: [u8; 32] = Sha256::digest(&canonical_raw);
     // a poisoned lock only means another build panicked mid-update; the slot
     // is then just not used, never trusted.
     if let Ok(last) = LAST.lock() {

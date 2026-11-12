@@ -24,7 +24,7 @@ pub fn dot_f32_f16_scalar(q: &[f32], row_bytes: &[u8]) -> f32 {
     let mut acc = 0.0f32;
     for (i, qv) in q.iter().enumerate() {
         let off = i * 2;
-        let h = half::f16::from_le_bytes([row_bytes[off], row_bytes[off + 1]]);
+        let h = urna_format::F16::from_le_bytes([row_bytes[off], row_bytes[off + 1]]);
         acc += *qv * h.to_f32();
     }
     acc

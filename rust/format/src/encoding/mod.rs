@@ -32,7 +32,7 @@ pub use dedup::{
     DEDUP_MAP_V1, Deduped, decode_map as decode_dedup_map, dedup, encode_map as encode_dedup_map,
     expand as expand_dedup,
 };
-pub use float16::{f16_bytes_to_f32, f32_to_f16_bytes};
+pub use float16::{F16, f16_bytes_to_f32, f32_to_f16_bytes};
 pub use fsst::{TXT_STREAMS_V3, decode as decode_fsst_payload, encode as encode_fsst};
 pub use int4::{
     INT4_BLOCK, INT4_PAYLOAD_VERSION, INT4_PREFIX_SIZE, INT4_SCALE_KIND_PER_GROUP,

@@ -174,7 +174,7 @@ pub fn validate_slab_values(encoding: u32, data: &[u8], n: usize, dim: usize) ->
         }
         SECTION_ENCODING_FLOAT16 => {
             for chunk in data.chunks_exact(2) {
-                let v = half::f16::from_le_bytes([chunk[0], chunk[1]]).to_f32();
+                let v = crate::encoding::F16::from_le_bytes([chunk[0], chunk[1]]).to_f32();
                 if !v.is_finite() {
                     return Err(UrnaError::InvalidEmbeddingValue);
                 }

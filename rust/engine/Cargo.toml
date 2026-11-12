@@ -13,15 +13,14 @@ categories = ["database-implementations", "algorithms"]
 
 [dependencies]
 urna-format = { workspace = true }
-memmap2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-sha2 = { workspace = true }
-half = { workspace = true }
 hex = "0.4"
 
+# mmap/munmap (src/mapping.rs) and posix_madvise (src/mmap_cold.rs); on
+# windows mapping.rs declares the three kernel32 calls it needs itself.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
@@ -32,11 +31,8 @@ workspace = true
 name = "urna_engine"
 path = "src/lib.rs"
 
-# criterion benches: `cargo bench -p urna-engine`.
-# default features off: no rayon, no plotters html report, just the
-# statistics and the cli.
-[dev-dependencies]
-criterion = { version = "0.5", default-features = false, features = ["cargo_bench_support"] }
+# benches on our own harness (benches/harness: warm-up, p50 and p95):
+# `cargo bench -p urna-engine`.
 
 [[bench]]
 name = "simd"

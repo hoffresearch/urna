@@ -156,7 +156,9 @@ impl<'a> RerankSource<'a> {
                 let off = i * rs;
                 simd::dot_f32_f16_bytes(qnorm, &b[off..off + rs])
             }
-            RerankRows::Int8(view) => simd::dot_f32_i8(qnorm, view.row(i), view.scale(i)),
+            RerankRows::Int8(view) => {
+                simd::dot_f32_i8_bytes(qnorm, view.row_bytes(i), view.scale(i))
+            }
             RerankRows::Int4(view) => {
                 view.row_scales_into(i, &mut self.scales);
                 simd::dot_f32_i4_blocked(

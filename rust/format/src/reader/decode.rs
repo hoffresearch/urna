@@ -92,7 +92,7 @@ impl<'a> UrnaView<'a> {
 
     /// `sha256:<hex>` of the file as written, including the footer.
     pub fn file_hash_hex(&self) -> String {
-        use sha2::{Digest, Sha256};
+        use crate::sha256::Sha256;
         let h = Sha256::digest(self.data);
         format!("sha256:{}", hex::encode(h))
     }
@@ -109,7 +109,7 @@ impl<'a> UrnaView<'a> {
     /// `capabilities_ext` flag) move file_hash but NEVER content_hash, which
     /// is why adding a capability cannot invalidate a urna:// citation.
     pub fn content_hash_hex(&self) -> crate::Result<String> {
-        use sha2::{Digest, Sha256};
+        use crate::sha256::Sha256;
         let mut h = Sha256::new();
         for (id, name) in CANONICAL_SECTIONS {
             let bytes = self.decoded_section(*id)?;

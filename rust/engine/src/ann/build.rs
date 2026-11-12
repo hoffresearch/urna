@@ -163,9 +163,9 @@ impl HnswIndex {
         let mut vectors = vec![0.0f32; view.n * view.dim];
         for i in 0..view.n {
             let scale = view.scale(i);
-            let row = view.row(i);
+            let row = view.row_bytes(i);
             for j in 0..view.dim {
-                vectors[i * view.dim + j] = row[j] as f32 * scale;
+                vectors[i * view.dim + j] = row[j] as i8 as f32 * scale;
             }
         }
         Self::build(vectors, view.n, view.dim, m, ef, seed)

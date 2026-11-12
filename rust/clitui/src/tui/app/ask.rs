@@ -376,7 +376,7 @@ fn browse(session: &Session, keep: Option<&Bitset>) -> Vec<Answer> {
 
 /// The corpus model to offer for install: only for the two failures an
 /// install fixes (packages missing, weights missing), named by the manifest.
-fn need(err: &anyhow::Error, manifest: Option<&serde_json::Value>) -> Option<Need> {
+fn need(err: &crate::error::Error, manifest: Option<&serde_json::Value>) -> Option<Need> {
     let fixable = matches!(
         err.downcast_ref::<EmbedFailure>(),
         Some(EmbedFailure::DepsMissing { .. } | EmbedFailure::WeightsMissing { .. })
@@ -391,7 +391,7 @@ fn need(err: &anyhow::Error, manifest: Option<&serde_json::Value>) -> Option<Nee
 /// The engine's error, turned toward what fixes it from this screen: a
 /// typed embed failure says its own cause; an interpreter that cannot even
 /// start points at setup; anything else is its first line.
-pub fn explain(err: &anyhow::Error) -> String {
+pub fn explain(err: &crate::error::Error) -> String {
     if let Some(f) = err.downcast_ref::<EmbedFailure>() {
         return f.short();
     }
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn explain_names_each_cause_and_its_fix() {
-        let typed = |f: EmbedFailure| explain(&anyhow::Error::new(f));
+        let typed = |f: EmbedFailure| explain(&crate::error::Error::new(f));
         let script = typed(EmbedFailure::ScriptMissing {
             script: "/d/urna/python/urna/embed/presetqry.py".into(),
         });
@@ -472,17 +472,17 @@ mod tests {
             fingerprint: "{}".into(),
         });
         assert!(hash.starts_with("model_hash mismatch"), "{hash}");
-        let spawn = explain(&anyhow::anyhow!(
+        let spawn = explain(&crate::error::err!(
             "failed to spawn embedder: no such file (x)"
         ));
         assert!(spawn.contains("setup"), "{spawn}");
-        assert_eq!(explain(&anyhow::anyhow!("first\nsecond")), "first");
+        assert_eq!(explain(&crate::error::err!("first\nsecond")), "first");
     }
 
     #[test]
     fn only_missing_packages_or_weights_open_the_install_panel() {
         let manifest = serde_json::json!({"embedding_model": "org/m", "model_hash": "sha256:m"});
-        let deps = anyhow::Error::new(EmbedFailure::DepsMissing {
+        let deps = crate::error::Error::new(EmbedFailure::DepsMissing {
             python: "/v/bin/python".into(),
             packages: vec!["sentence-transformers".into()],
         });
@@ -493,11 +493,11 @@ mod tests {
                 corpus_hash: "sha256:m".into()
             })
         );
-        let weights = anyhow::Error::new(EmbedFailure::WeightsMissing {
+        let weights = crate::error::Error::new(EmbedFailure::WeightsMissing {
             model: "org/m".into(),
         });
         assert!(need(&weights, Some(&manifest)).is_some());
-        let hash = anyhow::Error::new(EmbedFailure::HashMismatch {
+        let hash = crate::error::Error::new(EmbedFailure::HashMismatch {
             corpus: "a".into(),
             embedder: "b".into(),
             fingerprint: "{}".into(),

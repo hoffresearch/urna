@@ -145,7 +145,6 @@ fn zstd_encoding_preserves_content_hash() {
 }
 
 #[test]
-#[cfg_attr(all(miri, target_arch = "aarch64"), ignore)] // half converts f16 with inline asm on aarch64, which miri cannot run
 fn float16_embeddings_roundtrip() {
     let mut m = good_manifest();
     m.n_chunks = 2;

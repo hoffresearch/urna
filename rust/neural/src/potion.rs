@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 
 use crate::backend::Native;
 use crate::model::StaticModel;

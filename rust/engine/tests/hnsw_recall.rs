@@ -188,7 +188,7 @@ fn hnsw_recall_realistic_size() {
 
 /// sha256 of the serialized graph, hex.
 fn graph_digest(idx: &HnswIndex) -> String {
-    use sha2::{Digest, Sha256};
+    use urna_format::Sha256;
     hex::encode(Sha256::digest(idx.to_bytes()))
 }
 

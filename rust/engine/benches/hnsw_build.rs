@@ -7,7 +7,11 @@
 //!
 //! run: `cargo bench -p urna-engine --bench hnsw_build`
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+#[allow(dead_code, reason = "each bench uses part of the harness")]
+mod harness;
+
+use harness::Group;
+use std::hint::black_box;
 use std::time::Duration;
 use urna_engine::ann::HnswIndex;
 
@@ -39,30 +43,20 @@ fn rows(n: usize, dim: usize, seed: u64) -> Vec<f32> {
     v
 }
 
-fn bench_build(c: &mut Criterion) {
+fn main() {
     let vectors = rows(N, DIM, 0xCAFE);
-    let mut g = c.benchmark_group("hnsw_build");
-    g.sample_size(10)
-        .measurement_time(Duration::from_secs(60))
-        .warm_up_time(Duration::from_secs(5));
-    g.bench_with_input(
-        BenchmarkId::new(format!("m{M}_ef{EF_CONSTRUCTION}"), N),
-        &N,
-        |b, _| {
-            b.iter(|| {
-                black_box(HnswIndex::build(
-                    vectors.clone(),
-                    N,
-                    DIM,
-                    M,
-                    EF_CONSTRUCTION,
-                    0xDEAD_BEEF,
-                ))
-            })
-        },
-    );
-    g.finish();
+    let g = Group::new("hnsw_build")
+        .samples(10)
+        .budget(Duration::from_secs(60))
+        .warmup(Duration::from_secs(5));
+    g.bench(format!("m{M}_ef{EF_CONSTRUCTION}/{N}"), || {
+        HnswIndex::build(
+            black_box(vectors.clone()),
+            N,
+            DIM,
+            M,
+            EF_CONSTRUCTION,
+            0xDEAD_BEEF,
+        )
+    });
 }
-
-criterion_group!(benches, bench_build);
-criterion_main!(benches);
