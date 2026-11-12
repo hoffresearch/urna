@@ -2320,7 +2320,7 @@ links = ["rust/bridge/python/urna/embed/stbackend.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/specs/specparse.py"
 kind = "python-source"
-purpose = "The declarative TOML/JSON contract: dataclasses with defaults, unknown keys are SpecErrors naming the key, media profiles delegated to mediaplan (resolved before explicit keys, quality table deep-merged), ${VAR} + ~/ expansion delegated to specpaths, the QualitySpec floors incl the task-utility keys, validation of the N14 single-default rule, MRL ladders, int4 dims, space cap, remote-code opt-in"
+purpose = "The declarative TOML contract (tomllib, the only spec format): dataclasses with defaults, unknown keys are SpecErrors naming the key, media profiles delegated to mediaplan (resolved before explicit keys, quality table deep-merged), ${VAR} + ~/ expansion delegated to specpaths, the QualitySpec floors incl the task-utility keys, validation of the N14 single-default rule, MRL ladders, int4 dims, space cap, remote-code opt-in"
 links = [
     "rust/bridge/python/urna/image/mediaplan.py",
     "rust/bridge/python/urna/specs/specpaths.py",

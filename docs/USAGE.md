@@ -425,7 +425,7 @@ urna build --spec corpus.toml --dry-run     # plan + dep status, loads nothing
 urna build --spec corpus.toml --sample 1500
 ```
 
-`urna build` forwards `--spec` (`.toml`, `.json`, or `.yaml` with pyyaml installed), `--sample N`, `--models a,b` (a subset of the spec's presets; it rewrites the outputs in place, so point a pilot at `--out-dir`), `--out-dir`, `--cache-dir`, `--resume`, `--rebuild-only`, `--dry-run` and `--allow-heavy`. Three flags exist only on the Python tool, `python rust/bridge/python/urna/entry/specbuild.py`: `--strict-env` (a lock divergence under `--rebuild-only` becomes an error), `--seed` and `--json` (the dry-run plan as JSON). `--dry-run` validates the spec and prints the plan without opening the source, so a missing file, a bad query or a non-total `order_by` surface on the real run.
+`urna build` forwards `--spec` (a `.toml` file, read with the standard library's `tomllib`), `--sample N`, `--models a,b` (a subset of the spec's presets; it rewrites the outputs in place, so point a pilot at `--out-dir`), `--out-dir`, `--cache-dir`, `--resume`, `--rebuild-only`, `--dry-run` and `--allow-heavy`. Three flags exist only on the Python tool, `python rust/bridge/python/urna/entry/specbuild.py`: `--strict-env` (a lock divergence under `--rebuild-only` becomes an error), `--seed` and `--json` (the dry-run plan as JSON). `--dry-run` validates the spec and prints the plan without opening the source, so a missing file, a bad query or a non-total `order_by` surface on the real run.
 
 A complete working spec: a SQLite table with per-row images, two models, media behind the dual quality gate, one self-contained output file:
 
