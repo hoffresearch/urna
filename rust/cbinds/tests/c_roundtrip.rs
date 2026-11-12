@@ -62,10 +62,16 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// `target/<profile>/` of this build, from the test binary's own path.
+/// `target/<profile>/` of this build, from the test binary's own path: the
+/// nearest ancestor named after a profile. Older cargo puts the binary in
+/// `target/<profile>/deps/`, newer cargo in `target/<profile>/build/<pkg>/
+/// <hash>/`, so a fixed number of `parent()` calls finds the wrong directory.
 fn target_dir() -> PathBuf {
     let exe = std::env::current_exe().unwrap();
-    exe.parent().unwrap().parent().unwrap().to_path_buf()
+    exe.ancestors()
+        .find(|dir| dir.ends_with("debug") || dir.ends_with("release"))
+        .unwrap_or_else(|| panic!("no debug or release directory above {}", exe.display()))
+        .to_path_buf()
 }
 
 fn have(cmd: &str) -> bool {
