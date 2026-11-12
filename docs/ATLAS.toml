@@ -2109,6 +2109,12 @@ links = [
 ]
 
 [[inventory.urna_engine]]
+path = "rust/engine/src/mapping.rs"
+kind = "rust-source"
+purpose = "Mapping, the read-only map of a whole file behind MmapUrnaFile and urna scalars: mmap/munmap through libc on unix, CreateFileMappingW/MapViewOfFile/UnmapViewOfFile declared from kernel32 on windows, an empty slice for a zero-length file, unmapped on drop; every unsafe of the mapping is here"
+links = ["rust/engine/src/mmap_file.rs", "rust/clitui/src/cmd/scalars.rs"]
+
+[[inventory.urna_engine]]
 path = "rust/engine/src/mmap_cold.rs"
 kind = "rust-source"
 purpose = "Cold-path mmap helpers for the media pillar: on-demand blob span reads that never materialize the container, carved out of mmap_file.rs"

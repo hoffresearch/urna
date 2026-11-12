@@ -82,7 +82,7 @@ pub fn run(
     // this tool (it refuses an `--out` that is the input, see same_file),
     // so no writer can truncate the mapping under us; the same model
     // `MmapUrnaFile` uses.
-    let src = unsafe { memmap2::Mmap::map(&src)? };
+    let src = unsafe { urna_engine::Mapping::map(&src)? };
     let dst =
         BufWriter::new(File::create(&out).with_context(|| format!("create {}", out.display()))?);
     let size = urna_format::add_sections(&src, dst, sections, |m| {

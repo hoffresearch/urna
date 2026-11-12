@@ -13,13 +13,14 @@ categories = ["database-implementations", "algorithms"]
 
 [dependencies]
 urna-format = { workspace = true }
-memmap2 = { workspace = true }
 rayon = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 hex = "0.4"
 
+# mmap/munmap (src/mapping.rs) and posix_madvise (src/mmap_cold.rs); on
+# windows mapping.rs declares the three kernel32 calls it needs itself.
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 

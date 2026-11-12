@@ -78,7 +78,6 @@ expect_used = "deny"
 thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
-memmap2 = "0.9"
 rayon = "1"
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
