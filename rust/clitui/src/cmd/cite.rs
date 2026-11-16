@@ -1,16 +1,16 @@
 //! `urna cite <file> urna://...` - resolve a citation URI into the
 //! canonical text, source span, and verifying hashes.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 pub fn run(file: PathBuf, citation: String) -> Result<()> {
     let rest = citation
         .strip_prefix("urna://")
-        .ok_or_else(|| anyhow::anyhow!("citation must start with 'urna://': {}", citation))?;
+        .ok_or_else(|| crate::error::err!("citation must start with 'urna://': {}", citation))?;
     let (content_hash_part, chunk_id_part) = rest
         .split_once('/')
-        .ok_or_else(|| anyhow::anyhow!("citation missing chunk_id: {}", citation))?;
+        .ok_or_else(|| crate::error::err!("citation missing chunk_id: {}", citation))?;
 
     let chunk_id = match chunk_id_part.split_once('/') {
         Some((first, _)) => first,
@@ -23,7 +23,7 @@ pub fn run(file: PathBuf, citation: String) -> Result<()> {
     let view = urna_format::UrnaView::from_bytes(&data)?;
     let actual_content_hash = view.content_hash_hex()?;
     if actual_content_hash != expected_content_hash {
-        anyhow::bail!(
+        crate::error::bail!(
             "content_hash mismatch: citation says {} but file is {}",
             expected_content_hash,
             actual_content_hash
@@ -38,7 +38,7 @@ pub fn run(file: PathBuf, citation: String) -> Result<()> {
     let idx = ids
         .iter()
         .position(|id| id == chunk_id)
-        .ok_or_else(|| anyhow::anyhow!("chunk_id {} not found in file", chunk_id))?;
+        .ok_or_else(|| crate::error::err!("chunk_id {} not found in file", chunk_id))?;
 
     let texts = urna_format::sections::decode_chunks_canonical(
         &view.decoded_section(urna_format::layout::SECTION_CHUNKS_CANONICAL)?,

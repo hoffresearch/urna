@@ -60,13 +60,12 @@ fn expected_size_reports_overflow_as_none() {
 #[test]
 fn header_with_overflowing_shape_is_rejected_not_panicked() {
     let mut bytes = minimal();
-    let mut h = UrnaHeader::default();
-    h.as_bytes_mut().copy_from_slice(&bytes[..URNA_HEADER_SIZE]);
+    let mut h = UrnaHeader::from_bytes(&bytes[..URNA_HEADER_SIZE]).unwrap();
     // n * dim * 4 wraps to a small number on 64-bit; resealed so the
     // rejection comes from the shape check, not from a checksum.
     h.n_embeddings = (1u64 << 62) + 1;
     h.embedding_dim = 16;
-    bytes[..URNA_HEADER_SIZE].copy_from_slice(h.as_bytes());
+    bytes[..URNA_HEADER_SIZE].copy_from_slice(&h.to_bytes());
     reseal(&mut bytes);
     let Err(err) = UrnaView::from_bytes(&bytes) else {
         panic!("an overflowing shape must not parse");

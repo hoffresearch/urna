@@ -135,15 +135,10 @@ def test_a_device_dtype_hash_is_left_to_the_query(d: Path) -> None:
     print("edge (an st_multimodal corpus hash does not refuse the plan, says so): OK")
 
 
-def test_two_bars_for_one_file_never_go_back() -> None:
-    # xet drives two bars per file with the reporter class (the reconstructed
-    # bytes, then the fewer transferred bytes, each from zero): the lines
-    # stay monotonic and never pass the file's size. no network.
-    try:
-        import huggingface_hub  # noqa: F401
-    except ImportError:
-        print("edge (two bars for one file) skipped: huggingface_hub is not installed")
-        return
+def test_progress_never_goes_back_and_stops_at_the_size() -> None:
+    # the callback filefetch feeds with the bytes received so far: a line
+    # per MB, monotonic, and an overshoot is capped at the file's size.
+    # no network.
     import contextlib
     import importlib.util
     import io
@@ -155,17 +150,49 @@ def test_two_bars_for_one_file_never_go_back() -> None:
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         report = mod._reporter(base, size, total, "model.safetensors")
-        reconstruct, transfer = report(total=size), report(total=size)
-        for _ in range(16):
-            reconstruct.update(1 << 20)
-        transfer.update(16535263)  # the compressed bytes, behind what was shown
-        # an overshoot (a fresh reporter, one big update) is capped at the size.
-        mod._reporter(base, size, total, "model.safetensors")(total=size).update(2 * size)
+        for i in range(1, 17):
+            report(i << 20)
+        report(1 << 20)  # a lower count prints nothing
+        # an overshoot (a fresh reporter, one big count) is capped at the size.
+        mod._reporter(base, size, total, "model.safetensors")(2 * size)
     done = [int(line.split()[1]) for line in out.getvalue().splitlines()]
-    assert done[:16] == sorted(done[:16]) and len(done) == 17, done
-    assert base + 16535263 not in done, "the transfer bar printed a lower count"
+    assert done == sorted(done) and len(done) == 17, done
     assert done[-1] == base + size, done
-    print("edge (two progress bars for one file: monotonic, capped at the size): OK")
+    print("edge (progress lines for one file: monotonic, capped at the size): OK")
+
+
+def test_the_fetch_checks_what_the_hub_states() -> None:
+    # filefetch's url, its hash choice and its https-only redirects. no network.
+    sys.path.insert(0, str(REPO / "rust" / "bridge" / "python"))
+    from urna.model import filefetch as ff
+
+    url = ff.resolve_url("org/name", "a" * 40, "1_Pooling/config.json")
+    assert url == "https://huggingface.co/org/name/resolve/" + "a" * 40 + "/1_Pooling/config.json"
+    ds = ff.resolve_url("org/d", "b" * 40, "x y.urna", repo_type="dataset")
+    assert ds.startswith("https://huggingface.co/datasets/org/d/resolve/") and ds.endswith(
+        "x%20y.urna"
+    )
+    lfs = {"X-Linked-Etag": '"' + "c" * 64 + '"', "ETag": '"' + "c" * 64 + '"'}
+    assert ff._expected(lfs, None) == ("sha256", "c" * 64)
+    assert ff._expected({"ETag": 'W/"' + "d" * 40 + '"'}, None) == ("gitsha1", "d" * 40)
+    # a small file: the hub redirects to its resolve cache and states the blob sha1
+    small = {"X-Linked-Etag": '"' + "d" * 40 + '"', "X-Linked-Size": "190"}
+    assert ff._expected(small, None) == ("gitsha1", "d" * 40)
+    assert ff._expected({}, "sha256:" + "E" * 64) == ("sha256", "e" * 64)
+    for headers in ({}, {"ETag": '"not-a-hash"'}):
+        try:
+            ff._expected(headers, None)
+        except ff.FetchError:
+            pass
+        else:
+            raise AssertionError(f"no hash stated, none pinned, and {headers} was accepted")
+    try:
+        ff._HttpsOnly().redirect_request(None, None, 302, "Found", {}, "http://cdn.example/x")
+    except ff.FetchError:
+        pass
+    else:
+        raise AssertionError("a redirect to plain http was followed")
+    print("edge (resolve url, hash from the hub's headers, https-only redirects): OK")
 
 
 def _hub_up() -> bool:
@@ -227,7 +254,8 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="urna-install-") as tmp:
         test_refusals_before_any_download(Path(tmp))
         test_a_device_dtype_hash_is_left_to_the_query(Path(tmp))
-    test_two_bars_for_one_file_never_go_back()
+    test_progress_never_goes_back_and_stops_at_the_size()
+    test_the_fetch_checks_what_the_hub_states()
     if not _hub_up():
         print("download cases skipped: huggingface.co is unreachable")
     else:

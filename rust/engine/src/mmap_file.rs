@@ -4,7 +4,7 @@
 
 use std::path::Path;
 
-use memmap2::Mmap;
+use crate::mapping::Mapping;
 use urna_format::layout::{
     SECTION_BM25_INDEX, SECTION_CHUNK_IDS, SECTION_CHUNKS_ORIGINAL_SPANS, SECTION_EMBEDDINGS,
     SECTION_EMBEDDINGS_FP, SECTION_GRAPH_ADJACENCY, SECTION_HNSW_INDEX,
@@ -24,7 +24,7 @@ use crate::rerank::FpSlab;
 use crate::simd::{self, SimdBackend};
 
 pub struct MmapUrnaFile {
-    pub(crate) _mmap: Mmap,
+    pub(crate) _mmap: Mapping,
     pub(crate) embedding_dim: usize,
     pub(crate) n_embeddings: usize,
     pub(crate) dtype: DType,
@@ -93,13 +93,13 @@ crate::shape_debug!(MmapUrnaFile {
 impl MmapUrnaFile {
     pub fn open(path: &Path) -> Result<Self, RuntimeError> {
         let file = std::fs::File::open(path)?;
-        // SAFETY: `Mmap::map` is unsafe because a concurrent writer could
+        // SAFETY: `Mapping::map` is unsafe because a concurrent writer could
         // truncate or rewrite the file under the mapping. The runtime opens
         // corpora read-only and never rewrites a `.urna` in place, so only an
         // external live writer can violate this, which is outside the
         // supported model of every mmap-based store (checksums detect
         // corruption after the fact, they do not guard a live writer).
-        let mmap = unsafe { Mmap::map(&file)? };
+        let mmap = unsafe { Mapping::map(&file)? };
         let view = UrnaView::from_bytes(&mmap)?;
         view.validate_embeddings_values()?;
 

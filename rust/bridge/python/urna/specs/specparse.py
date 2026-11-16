@@ -1,4 +1,4 @@
-"""Declarative build spec: parse + validate the TOML/JSON contract (RFC-1).
+"""Declarative build spec: parse + validate the TOML contract (RFC-1).
 
 Every user-facing choice lives here as a typed field with its default; every
 violation raises SpecError naming the offending key. Unknown keys are errors,
@@ -7,7 +7,7 @@ not silence: a typo'd knob that silently does nothing is a lie in a config.
 
 from __future__ import annotations
 
-import json
+import tomllib
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 
@@ -231,21 +231,10 @@ MAX_SPACES = 15  # SPACE_BAND_LEN - 1
 
 def load_spec(path: str | Path) -> CorpusSpec:
     path = Path(path)
-    raw = path.read_bytes()
-    if path.suffix == ".toml":
-        import tomllib
-
-        data = tomllib.loads(raw.decode())
-    elif path.suffix == ".json":
-        data = json.loads(raw)
-    elif path.suffix in (".yaml", ".yml"):
-        try:
-            import yaml
-        except ImportError as e:
-            raise SpecError("yaml specs need pyyaml: pip install pyyaml (or use .toml)") from e
-        data = yaml.safe_load(raw)
-    else:
-        raise SpecError(f"unsupported spec extension '{path.suffix}' (use .toml or .json)")
+    # one format, read by the standard library: TOML through tomllib.
+    if path.suffix != ".toml":
+        raise SpecError(f"unsupported spec extension '{path.suffix}': a spec is a .toml file")
+    data = tomllib.loads(path.read_bytes().decode())
     # ${VAR} (strict) then ~/ over every string: specs stay machine-portable.
     return _parse(expand_paths(data), str(path))
 

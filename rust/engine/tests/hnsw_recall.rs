@@ -188,8 +188,8 @@ fn hnsw_recall_realistic_size() {
 
 /// sha256 of the serialized graph, hex.
 fn graph_digest(idx: &HnswIndex) -> String {
-    use sha2::{Digest, Sha256};
-    hex::encode(Sha256::digest(idx.to_bytes()))
+    use urna_format::Sha256;
+    urna_format::to_hex(Sha256::digest(idx.to_bytes()))
 }
 
 /// the build is deterministic for a seed AND its bytes are pinned: any

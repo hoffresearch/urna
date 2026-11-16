@@ -10,7 +10,9 @@ description = "parity of urna-images and urna-av1dec against the decoders from c
 # its own workspace, like rust/neural/parity: the reference decoders (and the
 # `paste` and `to_method` crates they drag in) stay out of the urna
 # workspace build, the lock and the cargo-deny gates. run: `cargo test` here
-# with URNA_CARDS_CORPUS set; URNA_PARITY_LIMIT caps the blobs compared.
+# with URNA_AVIF_DIR (a directory of .avif files) or URNA_CARDS_CORPUS set;
+# URNA_PARITY_LIMIT caps the inputs compared. gatecheck.yml runs the plane
+# parity on AVIF files it encodes with avifenc.
 [workspace]
 
 [dependencies]

@@ -19,7 +19,7 @@ pub enum Pick {
     Open(PathBuf),
 }
 
-pub fn new(cwd: &Path) -> anyhow::Result<Picker> {
+pub fn new(cwd: &Path) -> crate::error::Result<Picker> {
     let mut p = Picker::new(cwd, |e| {
         e.is_dir || e.path.extension().is_some_and(|x| x == "urna")
     })?;

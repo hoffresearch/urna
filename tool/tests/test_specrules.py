@@ -199,6 +199,22 @@ def test_validation_errors(base: Path) -> None:
     print("test_validation_errors: OK")
 
 
+def test_spec_is_toml_only(base: Path) -> None:
+    # one format, read by the standard library: yaml and json specs are refused
+    # by name, never parsed through an optional package.
+    for name in ("spec.yaml", "spec.yml", "spec.json"):
+        p = base / name
+        p.write_text("corpus: {}\n")
+        try:
+            load_spec(p)
+        except SpecError as e:
+            assert "a spec is a .toml file" in str(e), e
+            assert p.suffix in str(e), e
+        else:
+            raise AssertionError(f"{name} must be a SpecError")
+    print("test_spec_is_toml_only: OK")
+
+
 def test_media_profiles(base: Path) -> None:
     """media.profile resolves measured knob defaults; explicit keys win."""
     from urna.specs.specparse import MEDIA_PROFILES
@@ -844,6 +860,7 @@ def main() -> None:
         CACHE_ROOT = base / "xdg-cache"
         os.environ["URNA_CACHE_DIR"] = str(CACHE_ROOT)
         test_validation_errors(base)
+        test_spec_is_toml_only(base)
         test_media_profiles(base)
         test_quality_defaults(base)
         test_env_expansion(base)

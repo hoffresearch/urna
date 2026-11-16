@@ -15,7 +15,7 @@
 //! original-byte reopen (that is net-new tier-2 catalog, post-gate). the
 //! citation_id round-trips through `urna cite`.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::super::embed_gate::embed_and_search;

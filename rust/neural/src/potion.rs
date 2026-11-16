@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 
 use crate::backend::Native;
 use crate::model::StaticModel;
@@ -73,6 +73,11 @@ impl Potion {
         let ids = self.tok.encode(text);
         self.model.embed_ids(&ids)
     }
+
+    /// The WordPiece ids of `text`, no special tokens: what `embed` pools.
+    pub fn token_ids(&self, text: &str) -> Vec<u32> {
+        self.tok.encode(text)
+    }
 }
 
 fn sha256_file(path: &Path) -> Result<String> {
@@ -80,7 +85,7 @@ fn sha256_file(path: &Path) -> Result<String> {
         path: path.display().to_string(),
         reason: e.to_string(),
     })?;
-    Ok(hex::encode(Sha256::digest(&bytes)))
+    Ok(to_hex(Sha256::digest(&bytes)))
 }
 
 /// `sha256:` of the canonical json fingerprint (keys sorted, no spaces), as
@@ -105,7 +110,7 @@ fn model_hash(dir: &Path, dim: usize) -> Result<String> {
         "dtype": "float32-stable",
         "embedder": MODEL_ID,
         "embedding_dim": dim,
-        "files_hash": format!("sha256:{}", hex::encode(files.finalize())),
+        "files_hash": format!("sha256:{}", to_hex(files.finalize())),
         "normalize": "l2",
         "pooling": "mean",
         "tokenizer": "bert-wordpiece-lower",
@@ -114,6 +119,17 @@ fn model_hash(dir: &Path, dim: usize) -> Result<String> {
     });
     Ok(format!(
         "sha256:{}",
-        hex::encode(Sha256::digest(fp.to_string().as_bytes()))
+        to_hex(Sha256::digest(fp.to_string().as_bytes()))
     ))
+}
+
+/// lowercase hex of a digest. urna-neural keeps its own four lines rather
+/// than depend on urna-format for them: the format crate brings zstd's C
+/// build, which the inference runtime has no use for.
+fn to_hex(bytes: impl AsRef<[u8]>) -> String {
+    use std::fmt::Write;
+    bytes.as_ref().iter().fold(String::new(), |mut out, b| {
+        let _ = write!(out, "{b:02x}");
+        out
+    })
 }

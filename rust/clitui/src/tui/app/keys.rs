@@ -92,7 +92,7 @@ fn key(app: &mut App, code: KeyCode, mods: KeyModifiers) {
                 .ask
                 .session
                 .clone()
-                .ok_or_else(|| anyhow::anyhow!("select a hit first"))
+                .ok_or_else(|| crate::error::err!("select a hit first"))
                 .and_then(|s| app.ask.media.open_external(&s));
             match opened {
                 Ok(msg) => app.toasts.push(msg, Kind::Info),

@@ -12,6 +12,7 @@ use crate::src::cpu::CpuFlags;
 use crate::src::enum_map::enum_map;
 use crate::src::enum_map::enum_map_ty;
 use crate::src::enum_map::DefaultValue;
+use crate::src::enums::from_repr;
 use crate::src::ffi_safe::FFISafe;
 use crate::src::internal::SCRATCH_AC_TXTP_LEN;
 use crate::src::internal::SCRATCH_EDGE_LEN;
@@ -30,6 +31,8 @@ use crate::src::levels::VERT_PRED;
 use crate::src::levels::Z1_PRED;
 use crate::src::levels::Z2_PRED;
 use crate::src::levels::Z3_PRED;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
 use crate::src::strided::Strided as _;
 use crate::src::tables::dav1d_dr_intra_derivative;
 use crate::src::tables::dav1d_filter_intra_taps;
@@ -42,9 +45,6 @@ use std::cmp;
 use std::ffi::c_int;
 use std::ffi::c_uint;
 use std::slice;
-use strum::FromRepr;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
 
 #[cfg(all(
     feature = "asm",
@@ -336,13 +336,14 @@ fn dc_gen<BD: BitDepth>(
     return dc;
 }
 
-#[derive(FromRepr)]
 #[repr(u8)]
 enum DcGen {
     Top,
     Left,
     TopLeft,
 }
+
+from_repr!(DcGen: u8 [Top, Left, TopLeft]);
 
 impl DcGen {
     fn call<BD: BitDepth>(

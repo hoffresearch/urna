@@ -14,7 +14,7 @@
 //!   `cargo install --git` checkout carries no tags at all.
 
 use std::path::Path;
-use std::process::ExitCode;
+use std::process::{Command, ExitCode};
 
 fn main() -> ExitCode {
     println!("cargo:rerun-if-env-changed=URNA_RELEASE_TAG");
@@ -48,9 +48,9 @@ fn main() -> ExitCode {
 
     // without `.git` the name has no sha; a path that does not exist reruns
     // this script on every build, so a `git init` later is picked up.
-    let git = Path::new(&manifest).join("..").join("..").join(".git");
-    if !git.exists() {
-        println!("cargo:rerun-if-changed={}", git.display());
+    let dot_git = Path::new(&manifest).join("..").join("..").join(".git");
+    if !dot_git.exists() {
+        println!("cargo:rerun-if-changed={}", dot_git.display());
     }
     let name = match short_sha() {
         Ok(sha) => format!("{version}+dev.{sha}"),
@@ -63,20 +63,41 @@ fn main() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-/// The checkout's short sha, from vergen. Its instructions (the reruns on
-/// `.git/HEAD` and the current ref) pass through to cargo; fail_on_error
-/// makes a failed `git rev-parse` an error instead of vergen's placeholder.
-fn short_sha() -> anyhow::Result<String> {
-    let git = vergen_gitcl::GitclBuilder::default().sha(true).build()?;
-    let mut out = Vec::new();
-    vergen_gitcl::Emitter::default()
-        .fail_on_error()
-        .add_instructions(&git)?
-        .emit_to(&mut out)?;
-    let out = String::from_utf8(out)?;
-    print!("{out}");
-    out.lines()
-        .find_map(|l| l.strip_prefix("cargo:rustc-env=VERGEN_GIT_SHA="))
-        .map(str::to_owned)
-        .ok_or_else(|| anyhow::anyhow!("vergen emitted no VERGEN_GIT_SHA"))
+/// The checkout's short sha, `git rev-parse --short HEAD` run in the crate
+/// directory. The script reruns when `HEAD` moves or the branch it names
+/// gets a commit (both through `--git-path`, so a linked worktree points at
+/// the shared refs). No git, or no repository, is an error the caller turns
+/// into the sha-less name.
+fn short_sha() -> Result<String, String> {
+    let sha = git(&["rev-parse", "--short", "HEAD"])?;
+    if sha.is_empty() {
+        return Err("git rev-parse --short HEAD printed nothing".into());
+    }
+    let mut watched = vec!["HEAD".to_owned()];
+    if let Ok(branch) = git(&["symbolic-ref", "-q", "HEAD"]) {
+        watched.push(branch);
+    }
+    for name in watched {
+        if let Ok(path) = git(&["rev-parse", "--git-path", &name])
+            && Path::new(&path).exists()
+        {
+            println!("cargo:rerun-if-changed={path}");
+        }
+    }
+    Ok(sha)
+}
+
+/// One git command's trimmed stdout, or why it failed. `GIT_OPTIONAL_LOCKS`
+/// keeps a build from taking the index lock an editor may hold.
+fn git(args: &[&str]) -> Result<String, String> {
+    let out = Command::new("git")
+        .args(args)
+        .env("GIT_OPTIONAL_LOCKS", "0")
+        .output()
+        .map_err(|e| format!("git {}: {e}", args.join(" ")))?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        return Err(format!("git {}: {}", args.join(" "), stderr.trim()));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).trim().to_owned())
 }

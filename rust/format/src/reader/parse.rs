@@ -17,10 +17,7 @@ impl<'a> UrnaView<'a> {
         }
 
         // ---- header ----
-        let mut header = UrnaHeader::default();
-        header
-            .as_bytes_mut()
-            .copy_from_slice(&data[..URNA_HEADER_SIZE]);
+        let header = UrnaHeader::from_bytes(&data[..URNA_HEADER_SIZE])?;
 
         if &header.magic != URNA_MAGIC && &header.magic != LEGACY_MAGIC {
             return Err(UrnaError::MagicMismatch {
@@ -66,11 +63,9 @@ impl<'a> UrnaView<'a> {
         let mut section_table = Vec::with_capacity(section_table_count);
         for i in 0..section_table_count {
             let off = section_table_offset + i * URNA_SECTION_ENTRY_SIZE;
-            let mut entry = SectionEntry::new(0, 0, 0);
-            entry
-                .as_bytes_mut()
-                .copy_from_slice(&data[off..off + URNA_SECTION_ENTRY_SIZE]);
-            section_table.push(entry);
+            section_table.push(SectionEntry::from_bytes(
+                &data[off..off + URNA_SECTION_ENTRY_SIZE],
+            )?);
         }
 
         // ---- section bounds + alignment + encoding + checksums ----
