@@ -62,10 +62,31 @@ fn root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// `target/<profile>/` of this build, from the test binary's own path.
-fn target_dir() -> PathBuf {
+/// The cargo profile this test runs under: the first directory below the
+/// target root (the parent of `CARGO_TARGET_TMPDIR`) on the way to the test
+/// binary. Read off the path, not guessed from a fixed number of `parent()`
+/// calls: older cargo puts the binary in `target/<profile>/deps/`, newer
+/// cargo in `target/<profile>/build/<pkg>/<hash>/`, and a custom profile is
+/// named after itself.
+fn profile() -> String {
     let exe = std::env::current_exe().unwrap();
-    exe.parent().unwrap().parent().unwrap().to_path_buf()
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).parent().unwrap();
+    exe.strip_prefix(root)
+        .ok()
+        .and_then(|rel| rel.components().next())
+        .and_then(|first| first.as_os_str().to_str())
+        .unwrap_or_else(|| panic!("{} is not under {}", exe.display(), root.display()))
+        .to_owned()
+}
+
+/// The `cargo build` flags for `profile`: none for `debug` (the dev and
+/// test profiles), `--release`, or `--profile <name>` for a custom one.
+fn profile_args(profile: &str) -> Vec<String> {
+    match profile {
+        "debug" => Vec::new(),
+        "release" => vec!["--release".into()],
+        name => vec!["--profile".into(), name.into()],
+    }
 }
 
 fn have(cmd: &str) -> bool {
@@ -76,17 +97,33 @@ fn have(cmd: &str) -> bool {
 }
 
 fn staticlib() -> PathBuf {
-    let dir = target_dir();
-    let lib = dir.join("liburna_cbinds.a");
     // built every time, in the profile this test runs under, so the C
     // program links the library of this checkout and never a stale one.
-    let mut build = Command::new(env!("CARGO"));
-    build.args(["build", "-p", "urna-cbinds"]);
-    if dir.ends_with("release") {
-        build.arg("--release");
-    }
-    let status = build.current_dir(root()).status().expect("cargo build");
-    assert!(status.success(), "cargo build -p urna-cbinds");
+    // cargo names the file it wrote, wherever its layout puts it.
+    let out = Command::new(env!("CARGO"))
+        .args([
+            "build",
+            "-p",
+            "urna-cbinds",
+            "--message-format=json-render-diagnostics",
+        ])
+        .args(profile_args(&profile()))
+        .current_dir(root())
+        .output()
+        .expect("cargo build");
+    assert!(
+        out.status.success(),
+        "cargo build -p urna-cbinds:\n{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let lib = String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|line| serde_json::from_str::<serde_json::Value>(line).ok())
+        .filter(|msg| msg["reason"] == "compiler-artifact")
+        .flat_map(|msg| msg["filenames"].as_array().cloned().unwrap_or_default())
+        .filter_map(|f| f.as_str().map(PathBuf::from))
+        .find(|f| f.file_name().is_some_and(|n| n == "liburna_cbinds.a"))
+        .expect("cargo build reported no liburna_cbinds.a");
     assert!(lib.is_file(), "{} missing", lib.display());
     lib
 }
