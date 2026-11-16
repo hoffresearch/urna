@@ -189,12 +189,12 @@ pub enum Commands {
         #[arg(long)]
         expect_model_hash: Option<String>,
     },
-    /// [agent] Declarative corpus build from a TOML/JSON spec (launcher over
+    /// [agent] Declarative corpus build from a TOML spec (launcher over
     /// rust/bridge/python/urna/entry/specbuild.py; the build is officially a python
     /// frontend). Streams the tool's output and propagates its exit code.
     #[command(display_order = 20)]
     Build {
-        /// Build spec path (.toml or .json).
+        /// Build spec path (.toml).
         #[arg(long)]
         spec: PathBuf,
         /// Evenly-spaced row subset for pilots.

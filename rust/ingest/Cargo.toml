@@ -23,7 +23,6 @@ resolver = "3"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thiserror = "2"
 
 # a copy of the root [workspace.lints]: an excluded workspace inherits
 # nothing. tool/tests/test_lintmatch.py fails when the two drift.

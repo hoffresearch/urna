@@ -187,7 +187,7 @@ mod tests {
         std::fs::create_dir_all(&d).unwrap();
         let tgz = d.join("uv.tar.gz");
         uv_tarball(&tgz, b"#!/bin/sh\necho uv 0.0.1\n");
-        let sha = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
+        let sha = urna_format::to_hex(Sha256::digest(std::fs::read(&tgz).unwrap()));
         let home = d.join("home");
 
         let bad = release(url(&tgz), "0".repeat(64));

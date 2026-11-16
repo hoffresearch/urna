@@ -66,7 +66,7 @@ fn sha256_of(p: &Path) -> Result<String> {
         }
         h.update(&buf[..n]);
     }
-    Ok(hex::encode(h.finalize()))
+    Ok(urna_format::to_hex(h.finalize()))
 }
 
 /// `20 MB`.

@@ -110,7 +110,7 @@ fn release_at(
         b.append_data(&mut h, name, body).unwrap();
     }
     b.into_inner().unwrap().finish().unwrap();
-    let digest = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
+    let digest = urna_format::to_hex(Sha256::digest(std::fs::read(&tgz).unwrap()));
     let line = format!("{} *{PAYLOAD}\n", sha.unwrap_or(&digest));
     std::fs::write(rel.join(format!("{PAYLOAD}.sha256")), line).unwrap();
     rel
@@ -137,7 +137,7 @@ fn body(f: &str, version: &str, rel: &Path) -> Vec<u8> {
         s["url"] = file_url(&rel.join(SAMPLE)).into();
         s["path"] = format!("release/test/{SAMPLE}").into();
         s["size"] = bytes.len().into();
-        s["sha256"] = hex::encode(Sha256::digest(&bytes)).into();
+        s["sha256"] = urna_format::to_hex(Sha256::digest(&bytes)).into();
         return serde_json::to_vec_pretty(&cat).unwrap();
     }
     format!("{f}@{version}").into_bytes()
@@ -602,7 +602,7 @@ exit 0
     b.append_data(&mut h, "uv-fake/uv", script.as_bytes())
         .unwrap();
     b.into_inner().unwrap().finish().unwrap();
-    let digest = hex::encode(Sha256::digest(std::fs::read(&tgz).unwrap()));
+    let digest = urna_format::to_hex(Sha256::digest(std::fs::read(&tgz).unwrap()));
     let target = format!("{}-{}", std::env::consts::ARCH, std::env::consts::OS);
     format!(
         r#"{{"schema": 1, "excluded": [], "models": [],

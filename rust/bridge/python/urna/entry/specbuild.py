@@ -1,4 +1,4 @@
-"""specbuild.py - declarative corpus builds from a TOML/JSON spec (RFC-1).
+"""specbuild.py - declarative corpus builds from a TOML spec (RFC-1).
 
   python rust/bridge/python/urna/entry/specbuild.py --spec corpus.toml [--sample N] [--models a,b]
       [--out-dir D] [--cache-dir C] [--resume] [--rebuild-only] [--strict-env]

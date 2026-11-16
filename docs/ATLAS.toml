@@ -252,6 +252,7 @@ name = "cli-setup"
 entry = "rust/clitui/src/tui/setup/mod.rs"
 path = [
     "rust/clitui/src/tui/setup/scan.rs",
+    "rust/clitui/src/tui/setup/ram.rs",
     "rust/clitui/src/tui/setup/plan.rs",
     "rust/clitui/src/tui/setup/job.rs",
     "rust/clitui/src/tui/setup/net.rs",
@@ -554,6 +555,12 @@ path = "rust/format/src/bytes.rs"
 kind = "rust-source"
 purpose = "Typed little-endian field readers (le_u32, le_u64, le_f32, array32) returning UnexpectedEof: the replacement for every try_into().unwrap() on a parse path"
 links = ["rust/format/src/error.rs"]
+
+[[inventory.root]]
+path = "rust/format/src/hex.rs"
+kind = "rust-source"
+purpose = "Lowercase hex for digests and checksums (to_hex, from_hex in either case, bad input an InvalidInput naming the position), re-exported at the crate root for the engine, the bridge and the cli"
+links = ["rust/format/src/sections/chunk_ids.rs", "rust/format/src/chunk.rs"]
 
 [[inventory.root]]
 path = "rust/format/src/encoding/tests.rs"
@@ -929,6 +936,12 @@ purpose = "A workspace of its own: the tokenizer parity against the reference li
 links = ["rust/neural/src/tokenizer/mod.rs", "tool/tasks/fullcheck.sh"]
 
 [[inventory.workspace]]
+path = "rust/clitui/parity"
+kind = "crate-dir"
+purpose = "A workspace of its own: the xterm-256 color fold of cmd/tone.rs against coolor over a 4096-color grid, kept out of the urna lock and cargo-deny"
+links = ["rust/clitui/src/cmd/tone.rs", ".github/workflows/gatecheck.yml", "tool/tasks/fullcheck.sh"]
+
+[[inventory.workspace]]
 path = "rust/neural/ucd"
 kind = "data-dir"
 purpose = "The vendored Unicode character database the tokenizer tables are generated from"
@@ -1239,8 +1252,8 @@ links = ["rust/clitui/src/cmd/embed_gate.rs"]
 [[inventory.urna_clitui]]
 path = "rust/clitui/src/cmd/tone.rs"
 kind = "rust-source"
-purpose = "Color depth probe (NO_COLOR, URNA_COLOR, COLORTERM and known terminals) and the RGB -> xterm-256 fold (coolor's perceptual search, memoized) shared by the plain output and the terminal UI"
-links = ["rust/clitui/src/tui/pal.rs"]
+purpose = "Color depth probe (NO_COLOR, URNA_COLOR, COLORTERM and known terminals) and the RGB -> xterm-256 fold (a weighted search over the cube and the grey ramp, memoized) shared by the plain output and the terminal UI"
+links = ["rust/clitui/src/tui/pal.rs", "rust/clitui/parity"]
 
 [[inventory.urna_clitui]]
 path = "rust/clitui/tests/setup_e2e.rs"
@@ -1874,6 +1887,12 @@ purpose = "Python chunk_id helper"
 links = ["rust/format/src/chunk.rs"]
 
 [[inventory.urna_bridge]]
+path = "rust/bridge/src/zstd_decode_fn.rs"
+kind = "rust-source"
+purpose = "Python zstd_decode helper: urna-format's bounded zstd decoder, so the Python tools read zstd frames without the zstandard package"
+links = ["rust/format/src/encoding/zstd_codec.rs", "rust/bridge/python/urna/entry/oldformat.py"]
+
+[[inventory.urna_bridge]]
 path = "rust/bridge/src/lib.rs"
 kind = "rust-source"
 purpose = "_urna module registration (UrnaFile, SearchHitPy, RetrieveHitPy, build, chunk_id)"
@@ -2301,7 +2320,7 @@ links = ["rust/bridge/python/urna/embed/stbackend.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/specs/specparse.py"
 kind = "python-source"
-purpose = "The declarative TOML/JSON contract: dataclasses with defaults, unknown keys are SpecErrors naming the key, media profiles delegated to mediaplan (resolved before explicit keys, quality table deep-merged), ${VAR} + ~/ expansion delegated to specpaths, the QualitySpec floors incl the task-utility keys, validation of the N14 single-default rule, MRL ladders, int4 dims, space cap, remote-code opt-in"
+purpose = "The declarative TOML contract (tomllib, the only spec format): dataclasses with defaults, unknown keys are SpecErrors naming the key, media profiles delegated to mediaplan (resolved before explicit keys, quality table deep-merged), ${VAR} + ~/ expansion delegated to specpaths, the QualitySpec floors incl the task-utility keys, validation of the N14 single-default rule, MRL ladders, int4 dims, space cap, remote-code opt-in"
 links = [
     "rust/bridge/python/urna/image/mediaplan.py",
     "rust/bridge/python/urna/specs/specpaths.py",
@@ -2681,7 +2700,7 @@ links = ["rust/bridge/python/urna/pipes/buildfile.py"]
 [[inventory.data_docs_python_script_tests]]
 path = "rust/bridge/python/urna/entry/oldformat.py"
 kind = "python-source"
-purpose = "Legacy SQLite to v1 binary converter"
+purpose = "Legacy SQLite to v1 binary converter; its zstd blocks decode through _urna.zstd_decode"
 links = [
     "rust/bridge/python/urna/model/modelhash.py",
     "rust/bridge/python/urna/__init__.py",

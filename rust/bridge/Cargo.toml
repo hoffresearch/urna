@@ -21,7 +21,6 @@ urna-format = { workspace = true }
 urna-engine = { workspace = true }
 serde_json = { workspace = true }
 serde = { workspace = true }
-hex = "0.4"
 
 [build-dependencies]
 pyo3-build-config = "0.29"

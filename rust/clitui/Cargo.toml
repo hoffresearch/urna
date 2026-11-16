@@ -64,11 +64,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 zstd = { workspace = true }
 memmap2 = { workspace = true }
-rand = "0.10"
-hex = "0.4"
 sha2 = { workspace = true }
-# rgb -> xterm-256 for terminals without truecolor (Terminal.app); no deps.
-coolor = "1.1"
 # the potion query embedder in process (#205): urna's own runtime, with the
 # wordpiece tokenizer and the native backend the table is read through.
 urna-neural = { workspace = true }
@@ -87,9 +83,6 @@ crossterm = { version = "0.29", optional = true }
 urna-images = { path = "../images", optional = true }
 flate2 = { version = "1.1", optional = true }
 tar = { version = "0.4.46", optional = true }
-# the machine's total ram, for the model screen's fit mark; only its memory
-# probe (`system`), none of the process, disk or network ones.
-sysinfo = { version = "0.38", default-features = false, features = ["system"], optional = true }
 
 # the uv archive setup downloads on windows is a .zip (a .tar.gz elsewhere,
 # read with flate2 + tar); reading deflate is all it needs. `deflate-flate2`
@@ -111,19 +104,11 @@ tui = [
     "dep:flate2",
     "dep:tar",
     "dep:zip",
-    "dep:sysinfo",
     "dep:urna-images",
     "dep:libc",
 ]
 
-[build-dependencies]
-# build.rs names a development build by its git sha (issue #530). 9.1 is
-# the last line whose msrv (1.88) matches this crate's; 10.x needs 1.96.
-vergen-gitcl = "9.1.0"
-anyhow = { workspace = true }
-
 [dev-dependencies]
-tempfile = "3"
 # tests/setup_e2e.rs packs a real payload tarball for `urna setup` to fetch
 # from a file:// release.
 flate2 = "1.1"

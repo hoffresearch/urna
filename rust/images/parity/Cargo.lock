@@ -270,12 +270,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2304e00983f87ffb38b55b444b5e3b60a884b5d30c0fca7d82fe33449bbe55ea"
 
 [[package]]
-name = "hex"
-version = "0.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-
-[[package]]
 name = "hybrid-array"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -635,26 +629,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "thiserror"
-version = "2.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
-dependencies = [
- "thiserror-impl",
-]
-
-[[package]]
-name = "thiserror-impl"
-version = "2.0.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe5197923287db20a58125f0bc85c062f7f2c892de97b18c356f9efb14b28524"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.9",
-]
-
-[[package]]
 name = "to_method"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -676,10 +650,8 @@ checksum = "a2c754d6c33795a1c324727428e5a7dedb5b06195f9890bdbcba760d3e246563"
 name = "urna-av1dec"
 version = "0.5.6"
 dependencies = [
- "assert_matches",
  "atomig",
  "bitflags",
- "cfg-if",
  "libc",
  "parking_lot",
  "raw-cpuid",
@@ -692,14 +664,11 @@ name = "urna-engine"
 version = "0.5.6"
 dependencies = [
  "half",
- "hex",
  "libc",
  "memmap2",
- "rayon",
  "serde",
  "serde_json",
  "sha2",
- "thiserror",
  "urna-format",
 ]
 
@@ -709,12 +678,10 @@ version = "0.5.6"
 dependencies = [
  "bytemuck",
  "half",
- "hex",
  "rayon",
  "serde",
  "serde_json",
  "sha2",
- "thiserror",
  "zstd",
 ]
 
@@ -722,7 +689,6 @@ dependencies = [
 name = "urna-images"
 version = "0.5.6"
 dependencies = [
- "thiserror",
  "urna-av1dec",
 ]
 
