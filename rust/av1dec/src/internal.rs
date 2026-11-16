@@ -282,16 +282,14 @@ pub enum Grain {
 }
 
 impl Default for Grain {
+    #[cfg(feature = "bitdepth_8")]
     fn default() -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "bitdepth_8")] {
-                Self::Bpc8(Default::default())
-            } else if #[cfg(feature = "bitdepth_16")] {
-                Self::Bpc16(Default::default())
-            } else {
-                compile_error!("No bitdepths enabled");
-            }
-        }
+        Self::Bpc8(Default::default())
+    }
+
+    #[cfg(all(not(feature = "bitdepth_8"), feature = "bitdepth_16"))]
+    fn default() -> Self {
+        Self::Bpc16(Default::default())
     }
 }
 

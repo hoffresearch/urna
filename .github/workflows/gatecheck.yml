@@ -83,6 +83,10 @@ jobs:
         shell: bash
       - name: test
         run: cargo test --workspace
+      # rust/clitui/parity is a workspace of its own: coolor, the crate the
+      # cli's xterm-256 fold replaced, never enters the urna build or lock.
+      - name: color fold parity against coolor (rust/clitui/parity)
+        run: cargo test --locked --manifest-path rust/clitui/parity/Cargo.toml
       - name: benches compile (numbers are not a gate on shared runners)
         run: cargo bench -p urna-engine --no-run
       - name: mutation fuzz (deterministic, higher count)

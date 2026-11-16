@@ -153,9 +153,14 @@ fn print_latency(times: &[f64]) {
 }
 
 fn random_unit_queries(n: usize, dim: usize) -> Vec<Vec<f32>> {
+    // a fresh draw per run, as before: the clock seeds the generator.
+    let seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_nanos() as u64);
+    let mut rng = SplitMix64(seed);
     let mut queries = Vec::with_capacity(n);
     for _ in 0..n {
-        let mut q: Vec<f32> = (0..dim).map(|_| rand::random::<f32>()).collect();
+        let mut q: Vec<f32> = (0..dim).map(|_| rng.next_f32()).collect();
         let norm = q.iter().map(|x| x * x).sum::<f32>().sqrt();
         if norm > 0.0 {
             for x in &mut q {
@@ -165,4 +170,52 @@ fn random_unit_queries(n: usize, dim: usize) -> Vec<Vec<f32>> {
         queries.push(q);
     }
     queries
+}
+
+/// splitmix64 (Steele, Lea and Flood, 2014): the benchmark wants query
+/// vectors spread over the space, not secret ones, and this is enough for
+/// that in ten lines.
+struct SplitMix64(u64);
+
+impl SplitMix64 {
+    fn next_u64(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    }
+
+    /// uniform in [0, 1): the top 24 bits over 2^24, the f32 mantissa.
+    fn next_f32(&mut self) -> f32 {
+        (self.next_u64() >> 40) as f32 / 16_777_216.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn splitmix64_matches_the_reference_sequence() {
+        // the first outputs for seed 0 in the reference implementation.
+        let mut rng = SplitMix64(0);
+        assert_eq!(rng.next_u64(), 0xe220_a839_7b1d_cdaf);
+        assert_eq!(rng.next_u64(), 0x6e78_9e6a_a1b9_65f4);
+        assert_eq!(rng.next_u64(), 0x06c4_5d18_8009_454f);
+    }
+
+    #[test]
+    fn queries_are_unit_vectors_in_the_unit_interval() {
+        let mut rng = SplitMix64(7);
+        assert!(
+            (0..10_000)
+                .map(|_| rng.next_f32())
+                .all(|x| (0.0..1.0).contains(&x))
+        );
+        for q in random_unit_queries(4, 32) {
+            let norm = q.iter().map(|x| x * x).sum::<f32>().sqrt();
+            assert!((norm - 1.0).abs() < 1e-5, "{norm}");
+        }
+    }
 }

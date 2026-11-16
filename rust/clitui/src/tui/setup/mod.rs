@@ -15,6 +15,7 @@ pub mod job;
 pub mod models;
 pub mod net;
 pub mod plan;
+mod ram;
 pub mod sample;
 pub mod scan;
 mod screen;

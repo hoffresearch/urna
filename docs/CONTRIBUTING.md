@@ -38,7 +38,7 @@ cp target/release/lib_urna.dylib rust/bridge/python/urna/_urna.so   # macOS
 cp target/release/lib_urna.so   rust/bridge/python/urna/_urna.so    # linux
 
 python3 -m venv .venv && source .venv/bin/activate
-pip install ruff pyyaml numpy tokenizers pillow sentence-transformers pandas zstandard pyarrow
+pip install ruff pyyaml numpy tokenizers pillow sentence-transformers pandas pyarrow
 ```
 
 `numpy` and `tokenizers` are the forge deps the potion embedder needs; `pyyaml` is for the release rehearsal generator and its tests; `pillow` is for the image tests; `sentence-transformers` only for the pt-BR corpus and `search-text`.

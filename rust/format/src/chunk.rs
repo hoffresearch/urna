@@ -55,7 +55,7 @@ pub fn chunk_id(
     h.update(byte_end.to_le_bytes());
     write_lp(&mut h, chunker_version.as_bytes());
     let digest = h.finalize();
-    format!("sha256:{}", hex::encode(digest))
+    format!("sha256:{}", crate::to_hex(digest))
 }
 
 fn write_lp(h: &mut Sha256, bytes: &[u8]) {

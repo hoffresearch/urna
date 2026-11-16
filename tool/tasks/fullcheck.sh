@@ -219,6 +219,17 @@ format_parity() {
 }
 cached format-parity "rust/format" -- format_parity
 
+# ---- parity of the cli's color fold ----
+# rust/clitui/parity is a workspace of its own (coolor, the crate the fold
+# replaced, stays out of urna's lock); it needs no corpus.
+tone_parity() {
+  step "cargo test in rust/clitui/parity"
+  cargo test --locked --manifest-path rust/clitui/parity/Cargo.toml 2>&1 \
+    | grep -E "^test result|panicked|FAILED"
+  ok "xterm-256 fold matches coolor"
+}
+cached tone-parity "rust/clitui/src/cmd/tone.rs rust/clitui/parity" -- tone_parity
+
 # ---- cargo clippy ----
 cargo_clippy() {
   step "cargo clippy --workspace --all-targets -- -D warnings"

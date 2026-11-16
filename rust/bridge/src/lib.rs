@@ -14,12 +14,14 @@ mod chunk_id_fn;
 mod retrieve_fn;
 mod search_hit;
 mod urna_file;
+mod zstd_decode_fn;
 
 use build_fn::build;
 use chunk_id_fn::chunk_id;
 use retrieve_fn::RetrieveHitPy;
 use search_hit::SearchHitPy;
 use urna_file::UrnaFile;
+use zstd_decode_fn::zstd_decode;
 
 #[pymodule]
 fn _urna(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -28,5 +30,6 @@ fn _urna(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<RetrieveHitPy>()?;
     m.add_function(wrap_pyfunction!(build, m)?)?;
     m.add_function(wrap_pyfunction!(chunk_id, m)?)?;
+    m.add_function(wrap_pyfunction!(zstd_decode, m)?)?;
     Ok(())
 }

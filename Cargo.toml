@@ -1,11 +1,17 @@
 [workspace]
 members = ["rust/*"]
-# rust/ingest, rust/neural/parity, rust/images/parity and rust/format/parity
-# are workspaces of their own (forge ingestion deps, the reference
-# tokenizer, the reference decoders and the crates urna-format replaced stay
-# out of the sovereign crates); they share the directory, not the lockfile
-# or the build.
-exclude = ["rust/ingest", "rust/neural/parity", "rust/images/parity", "rust/format/parity"]
+# rust/ingest, rust/neural/parity, rust/images/parity, rust/format/parity
+# and rust/clitui/parity are workspaces of their own (forge ingestion deps,
+# the reference tokenizer, the reference decoders, the crates urna-format
+# replaced and the reference color fold stay out of the sovereign crates);
+# they share the directory, not the lockfile or the build.
+exclude = [
+    "rust/ingest",
+    "rust/neural/parity",
+    "rust/images/parity",
+    "rust/format/parity",
+    "rust/clitui/parity",
+]
 resolver = "3"
 
 [workspace.package]
@@ -75,7 +81,6 @@ todo = "deny"
 expect_used = "deny"
 
 [workspace.dependencies]
-thiserror = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["preserve_order"] }
 rayon = "1"
@@ -116,6 +121,10 @@ targets = [
     "aarch64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
 ]
+# GitHub retired the macos-14 image dist 0.32 picks for aarch64-apple-darwin;
+# jobs on it are cancelled with "The configuration 'macos-14-arm64-us-default'
+# is not supported".
+github-custom-runners = { aarch64-apple-darwin = "macos-15" }
 install-path = "~/.local/bin"
 pr-run-mode = "plan"
 # the four abi3 wheels build next to the archives (a custom local-artifacts

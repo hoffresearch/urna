@@ -62,10 +62,6 @@ clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 zstd = { workspace = true }
-rand = "0.10"
-hex = "0.4"
-# rgb -> xterm-256 for terminals without truecolor (Terminal.app); no deps.
-coolor = "1.1"
 # the potion query embedder in process (#205): urna's own runtime, with the
 # wordpiece tokenizer and the native backend the table is read through.
 urna-neural = { workspace = true }
@@ -84,9 +80,6 @@ crossterm = { version = "0.29", optional = true }
 # carried in the tree); the terminal protocols, and the query that asks the
 # terminal which one it speaks, are written in tui/graphics.
 urna-images = { path = "../images", optional = true }
-# the machine's total ram, for the model screen's fit mark; only its memory
-# probe (`system`), none of the process, disk or network ones.
-sysinfo = { version = "0.38", default-features = false, features = ["system"], optional = true }
 
 # `poll` on stdin with a deadline, for the reply to the terminal query in
 # tui/graphics/probe.rs; already in the tree through cpufeatures.
@@ -98,15 +91,6 @@ default = ["tui"]
 tui = [
     "dep:ratatui",
     "dep:crossterm",
-    "dep:sysinfo",
     "dep:urna-images",
     "dep:libc",
 ]
-
-[build-dependencies]
-# build.rs names a development build by its git sha (issue #530). 9.1 is
-# the last line whose msrv (1.88) matches this crate's; 10.x needs 1.96.
-vergen-gitcl = "9.1.0"
-
-[dev-dependencies]
-tempfile = "3"
