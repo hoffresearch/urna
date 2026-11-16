@@ -63,6 +63,17 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: clippy (engine-only cli, no terminal ui)
         run: cargo clippy -p urna --no-default-features --all-targets -- -D warnings
+      # #645: zstd is decoded by urna-format's own decoder, the zstd crate
+      # (libzstd, C) only writes. the readers must build, lint clean and
+      # resolve without it.
+      - name: the read path links no C (urna-format without write, engine, cbinds)
+        run: |
+          cargo clippy -p urna-format --no-default-features -- -D warnings
+          cargo clippy -p urna-engine -p urna-cbinds -- -D warnings
+          if cargo tree -p urna-engine -p urna-cbinds -e normal,build | grep zstd; then
+            echo "a reader depends on the zstd crate" >&2
+            exit 1
+          fi
       - name: build
         run: cargo build --workspace --all-targets
       # a binary built from a branch or main never takes a release's name,
@@ -236,10 +247,11 @@ jobs:
             --manifest-path rust/images/parity/Cargo.toml --test planes -- --nocapture
 
   # rust/format/parity is a workspace of its own (the crates urna-format
-  # replaced live only there), so the rust job never builds it. both arches:
-  # the reference takes the f16 and sha instructions where the cpu has them,
-  # and so does our code, so x86_64 linux and aarch64 macos each hold a
-  # different hardware path to it.
+  # replaced live only there: half, sha2 and libzstd), so the rust job never
+  # builds it. it holds the f16 conversion, SHA-256 and the zstd decoder
+  # (#645) to those references. both arches: the reference takes the f16 and
+  # sha instructions where the cpu has them, and so does our code, so x86_64
+  # linux and aarch64 macos each hold a different hardware path to it.
   format-parity:
     name: format parity ${{ matrix.os }}
     if: github.event_name != 'schedule'
@@ -257,7 +269,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust/format/parity
-      - name: f16 and sha-256 against the crates they replaced
+      - name: f16, sha-256 and the zstd decoder against the crates they replaced
         run: cargo test --release --manifest-path rust/format/parity/Cargo.toml
 
   fuzz:
@@ -278,14 +290,14 @@ jobs:
       - name: seed corpora
         run: |
           cd fuzz
-          for t in urna-view section-decoders runtime-indexes mmap-open-search; do
+          for t in urna-view section-decoders runtime-indexes mmap-open-search zstd-decoder; do
             mkdir -p corpus/$t
             cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna corpus/$t/
           done
       - name: run every target (bounded)
         run: |
           cd fuzz
-          for t in urna-view section-decoders runtime-indexes; do
+          for t in urna-view section-decoders runtime-indexes zstd-decoder; do
             cargo fuzz run $t -- -max_total_time=90 -max_len=65536
           done
           cargo fuzz run mmap-open-search -- -max_total_time=90 -max_len=65536 -rss_limit_mb=4096
@@ -365,7 +377,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [urna-view, section-decoders, runtime-indexes, mmap-open-search]
+        target: [urna-view, section-decoders, runtime-indexes, mmap-open-search, zstd-decoder]
     env:
       TARGET: ${{ matrix.target }}
       SOAK_SECONDS: ${{ inputs.seconds || 1800 }}

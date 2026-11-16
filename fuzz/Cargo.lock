@@ -278,6 +278,7 @@ dependencies = [
  "libfuzzer-sys",
  "urna-engine",
  "urna-format",
+ "zstd",
 ]
 
 [[package]]

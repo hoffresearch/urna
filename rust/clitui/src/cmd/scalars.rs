@@ -140,7 +140,9 @@ fn same_file(out: &Path, file: &Path) -> bool {
 fn read_json<T: serde::de::DeserializeOwned>(path: &Path) -> Result<T> {
     let raw = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
     let bytes = if path.extension().is_some_and(|e| e == "zst") {
-        zstd::decode_all(raw.as_slice()).with_context(|| format!("zstd {}", path.display()))?
+        // our decoder (no libzstd); no cap beyond memory, as decode_all had.
+        urna_format::zstd_decompress(&raw, usize::MAX)
+            .with_context(|| format!("zstd {}", path.display()))?
     } else {
         raw
     };

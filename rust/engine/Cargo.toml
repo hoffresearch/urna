@@ -30,6 +30,10 @@ path = "src/lib.rs"
 
 # benches on our own harness (benches/harness: warm-up, p50 and p95):
 # `cargo bench -p urna-engine`.
+[dev-dependencies]
+# the tests and benches build their corpora, so they write: the zstd encoder
+# comes in here only, the engine itself reads without linking C.
+urna-format = { workspace = true, features = ["write"] }
 
 [[bench]]
 name = "simd"

@@ -217,16 +217,17 @@ else
   printf '\033[1;33m  SKIP:\033[0m URNA_CARDS_CORPUS unset: no cards corpus to compare on\n' >&2
 fi
 
-# ---- parity of urna-format's own f16 and SHA-256 ----
-# rust/format/parity is a workspace of its own too: the crates the format
-# replaced (`half`, `sha2`) live only there. it needs no corpus.
+# ---- parity of urna-format's own f16, SHA-256 and zstd decoder ----
+# rust/format/parity holds all three to the crates they replaced (`half`,
+# `sha2` and libzstd), a workspace of its own so those stay out of the
+# readers' build; one run covers them, and it needs no corpus.
 format_parity() {
   step "cargo test --release in rust/format/parity"
   cargo test --release --manifest-path rust/format/parity/Cargo.toml 2>&1 \
     | grep -E "^test result|panicked|FAILED"
-  ok "f16 and sha-256 parity"
+  ok "f16, sha-256 and zstd decoder parity"
 }
-cached format-parity "rust/format" -- format_parity
+cached format-parity "rust/format rust/engine" -- format_parity
 
 # ---- parity of the cli's color fold ----
 # rust/clitui/parity is a workspace of its own (coolor, the crate the fold

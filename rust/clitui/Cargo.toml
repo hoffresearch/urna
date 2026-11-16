@@ -56,12 +56,11 @@ pre-release-replacements = [
 ]
 
 [dependencies]
-urna-format = { workspace = true }
+urna-format = { workspace = true, features = ["write"] }
 urna-engine = { workspace = true }
 clap = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-zstd = { workspace = true }
 # the potion query embedder in process (#205): urna's own runtime, with the
 # wordpiece tokenizer and the native backend the table is read through.
 urna-neural = { workspace = true }

@@ -3,8 +3,8 @@ members = ["rust/*"]
 # rust/ingest, rust/neural/parity, rust/images/parity, rust/format/parity
 # and rust/clitui/parity are workspaces of their own (forge ingestion deps,
 # the reference tokenizer, the reference decoders, the crates urna-format
-# replaced and the reference color fold stay out of the sovereign crates);
-# they share the directory, not the lockfile or the build.
+# replaced plus libzstd, and the reference color fold stay out of the
+# sovereign crates); they share the directory, not the lockfile or the build.
 exclude = [
     "rust/ingest",
     "rust/neural/parity",
@@ -88,7 +88,9 @@ clap = { version = "4", features = ["derive"] }
 zstd = { version = "0.14", default-features = false, features = ["experimental", "zdict_builder"] }
 # path for the workspace, version for crates.io: `cargo publish` strips the
 # path and keeps the version, so both move with every release bump.
-urna-format = { path = "rust/format", version = "0.5.6" }
+# default features off: a crate that writes asks for `write` (the zstd
+# encoder, libzstd); the engine and the C ABI read without linking C.
+urna-format = { path = "rust/format", version = "0.5.6", default-features = false }
 urna-engine = { path = "rust/engine", version = "0.5.6" }
 urna-neural = { path = "rust/neural", version = "0.5.6" }
 

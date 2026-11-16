@@ -1750,7 +1750,6 @@ dependencies = [
  "urna-format",
  "urna-images",
  "urna-neural",
- "zstd",
 ]
 
 [[package]]

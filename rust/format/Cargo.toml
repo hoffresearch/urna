@@ -14,8 +14,15 @@ categories = ["database-implementations", "encoding"]
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-zstd = { workspace = true }
+# the encoder and the dictionary trainer (libzstd, C), for writing only; the
+# read path decodes zstd with src/encoding/zstd_decoder, in safe Rust.
+zstd = { workspace = true, optional = true }
 rayon = { workspace = true }
+[features]
+default = ["write"]
+# write a .urna: the writer, the zstd encoder and the dictionary trainer.
+# readers (urna-engine, urna-cbinds, a wasm build) turn it off and link no C.
+write = ["dep:zstd"]
 
 [lints]
 workspace = true
