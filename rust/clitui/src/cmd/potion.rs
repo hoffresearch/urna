@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{Result, anyhow};
+use crate::error::{Result, err};
 
 pub use urna_neural::Potion;
 
@@ -23,7 +23,7 @@ type Loaded = Option<(PathBuf, Arc<Potion>)>;
 pub fn shared(dir: &Path) -> Result<Arc<Potion>> {
     static CACHE: OnceLock<Mutex<Loaded>> = OnceLock::new();
     let cell = CACHE.get_or_init(|| Mutex::new(None));
-    let mut slot = cell.lock().map_err(|_| anyhow!("potion cache poisoned"))?;
+    let mut slot = cell.lock().map_err(|_| err!("potion cache poisoned"))?;
     if let Some((d, p)) = slot.as_ref()
         && d == dir
     {

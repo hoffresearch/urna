@@ -136,13 +136,12 @@ impl<'a> Int8EmbeddingsView<'a> {
         ])
     }
 
-    /// Borrow row[i] as `&[i8]`.
+    /// Borrow row[i] as its stored bytes: each one is an i8 code in two's
+    /// complement (`b as i8`). The format has no `unsafe`, so it hands out
+    /// the bytes; the engine reads them as `&[i8]` in its SIMD module.
     #[inline]
-    pub fn row(&self, i: usize) -> &'a [i8] {
+    pub fn row_bytes(&self, i: usize) -> &'a [u8] {
         let start = i * self.dim;
-        let end = start + self.dim;
-        // i8 has the same size and alignment as u8; bytemuck checks both at
-        // compile time, so this reinterpretation carries no `unsafe`.
-        bytemuck::cast_slice(&self.bodies[start..end])
+        &self.bodies[start..start + self.dim]
     }
 }

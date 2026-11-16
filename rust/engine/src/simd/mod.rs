@@ -170,6 +170,18 @@ pub fn dot_f32_i8(q: &[f32], row: &[i8], scale: f32) -> f32 {
     acc * scale
 }
 
+/// `dot_f32_i8` over a row as the int8 view stores it: bytes, each an i8
+/// code in two's complement. The format crate has no `unsafe`, so the
+/// reinterpretation happens here, once per row, without a copy.
+#[inline]
+pub fn dot_f32_i8_bytes(q: &[f32], row: &[u8], scale: f32) -> f32 {
+    // SAFETY: i8 and u8 have the same size and alignment and every bit
+    // pattern is a valid i8, so the same bytes read as `len` i8 values for
+    // the borrow's lifetime are a sound slice.
+    let codes = unsafe { std::slice::from_raw_parts(row.as_ptr().cast::<i8>(), row.len()) };
+    dot_f32_i8(q, codes, scale)
+}
+
 /// Fused dequant + dot for an int4 block-`block` row against an f32 query.
 /// `codes` is `dim/2` packed nibble bytes (low nibble first), `group_scales`
 /// is one f32 per `block`-dim group. The SIMD backends vectorize the nibble
@@ -239,7 +251,6 @@ pub fn score_int8_section(q: &[f32], view: &Int8EmbeddingsView<'_>, out: &mut [f
     );
     for (i, slot) in out.iter_mut().enumerate().take(view.n) {
         let scale = view.scale(i);
-        let row = view.row(i);
-        *slot = dot_f32_i8(q, row, scale);
+        *slot = dot_f32_i8_bytes(q, view.row_bytes(i), scale);
     }
 }

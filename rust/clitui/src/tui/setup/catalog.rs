@@ -193,7 +193,7 @@ pub struct Catalog {
 }
 
 impl Catalog {
-    pub fn parse(text: &str) -> anyhow::Result<Catalog> {
+    pub fn parse(text: &str) -> crate::error::Result<Catalog> {
         Ok(serde_json::from_str(text)?)
     }
 

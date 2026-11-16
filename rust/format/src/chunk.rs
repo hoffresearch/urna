@@ -6,7 +6,7 @@
 //! different IDs for the same content, which breaks reproducibility.
 
 use crate::error::UrnaError;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 /// One chunk's worth of input that the writer needs to produce a v1 file.
 ///
@@ -55,7 +55,7 @@ pub fn chunk_id(
     h.update(byte_end.to_le_bytes());
     write_lp(&mut h, chunker_version.as_bytes());
     let digest = h.finalize();
-    format!("sha256:{}", hex::encode(digest))
+    format!("sha256:{}", crate::to_hex(digest))
 }
 
 fn write_lp(h: &mut Sha256, bytes: &[u8]) {

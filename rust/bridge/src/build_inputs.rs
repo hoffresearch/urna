@@ -84,7 +84,7 @@ pub(crate) fn parse_blob_refs(
             .ok_or_else(|| PyValueError::new_err(format!("blob_refs[{}] missing content_hash", i)))?
             .extract()?;
         let hex_part = hash_str.strip_prefix("sha256:").unwrap_or(&hash_str);
-        let raw = hex::decode(hex_part).map_err(|e| {
+        let raw = urna_format::from_hex(hex_part).map_err(|e| {
             PyValueError::new_err(format!("blob_refs[{}] content_hash hex: {}", i, e))
         })?;
         let content_hash: [u8; 32] = raw.try_into().map_err(|_| {

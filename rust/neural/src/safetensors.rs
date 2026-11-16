@@ -129,13 +129,13 @@ impl SafeTensors {
                 .as_chunks::<2>()
                 .0
                 .iter()
-                .map(|c| half::f16::from_le_bytes(*c).to_f32())
+                .map(|c| urna_format::F16::from_le_bytes(*c).to_f32())
                 .collect(),
             "BF16" => data
                 .as_chunks::<2>()
                 .0
                 .iter()
-                .map(|c| half::bf16::from_le_bytes(*c).to_f32())
+                .map(|c| bf16_to_f32(u16::from_le_bytes(*c)))
                 .collect(),
             other => {
                 return Err(InferError::SafeTensors {
@@ -144,6 +144,17 @@ impl SafeTensors {
                 });
             }
         })
+    }
+}
+
+/// bfloat16 is the top half of an f32, so widening is a shift; a NaN gets
+/// its quiet bit set, as the hardware conversions do.
+fn bf16_to_f32(bits: u16) -> f32 {
+    let wide = (bits as u32) << 16;
+    if bits & 0x7FFF > 0x7F80 {
+        f32::from_bits(wide | 0x0040_0000)
+    } else {
+        f32::from_bits(wide)
     }
 }
 
@@ -165,8 +176,8 @@ mod tests {
         for x in [1.0f32, 2.0, 3.0, 4.0] {
             data.extend_from_slice(&x.to_le_bytes());
         }
-        data.extend_from_slice(&half::f16::from_f32(0.5).to_le_bytes());
-        data.extend_from_slice(&half::f16::from_f32(-2.0).to_le_bytes());
+        data.extend_from_slice(&urna_format::F16::from_f32(0.5).to_le_bytes());
+        data.extend_from_slice(&urna_format::F16::from_f32(-2.0).to_le_bytes());
         let header = r#"{"__metadata__":{"x":"y"},"embeddings":{"dtype":"F32","shape":[2,2],"data_offsets":[0,16]},"half":{"dtype":"F16","shape":[2],"data_offsets":[16,20]}}"#;
         let st = SafeTensors::from_bytes(file(header, &data), "t").expect("opens");
         assert_eq!(st.shape("embeddings"), Some(&[2, 2][..]));
@@ -188,5 +199,13 @@ mod tests {
             Err(InferError::LfsPointer { .. })
         ));
         assert!(SafeTensors::from_bytes(vec![1, 2, 3], "t").is_err());
+    }
+
+    #[test]
+    fn bf16_is_the_top_half_of_an_f32() {
+        assert_eq!(bf16_to_f32(0x3F80), 1.0);
+        assert_eq!(bf16_to_f32(0xC000), -2.0);
+        assert_eq!(bf16_to_f32(0x7F80), f32::INFINITY);
+        assert_eq!(bf16_to_f32(0x7F81).to_bits(), 0x7FC1_0000);
     }
 }

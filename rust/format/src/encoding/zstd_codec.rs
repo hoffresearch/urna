@@ -71,11 +71,12 @@ fn decompress_cap(compressed_len: usize) -> usize {
         .max(MIN_DECOMPRESS_CAP)
 }
 
-/// Decompress a zstd payload. Internal helper used by `decode_payload`.
+/// Decompress a zstd payload: what `decode_payload` runs on a zstd section,
+/// and what the Python bridge exposes for tools that read zstd frames.
 /// Bounded by [`decompress_cap`] so a decompression bomb cannot exhaust memory
 /// at open time: a frame that declares (or expands past) more than the cap is
 /// rejected before the large allocation, never a panic.
-pub(super) fn zstd_decode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
+pub fn zstd_decode(bytes: &[u8]) -> crate::Result<Vec<u8>> {
     let cap = decompress_cap(bytes.len());
     let bomb = |reason: String| UrnaError::MalformedSectionPayload {
         section_id: 0,

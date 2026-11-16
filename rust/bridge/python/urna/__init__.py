@@ -70,6 +70,7 @@ _EXPORTS = {
     "RetrieveHit": "RetrieveHitPy",
     "build": "build",
     "chunk_id": "chunk_id",
+    "zstd_decode": "zstd_decode",
 }
 _ext = None
 
@@ -114,5 +115,6 @@ __all__ = [
     "open",
     "build",
     "chunk_id",
+    "zstd_decode",
     "potion_model_path",
 ]

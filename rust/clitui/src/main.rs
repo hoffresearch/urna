@@ -1,11 +1,12 @@
 //! Dispatch only: the clap surface lives in `cli.rs`, implementations in
 //! `cmd/*` (one module per subcommand).
 
-use anyhow::Result;
+use crate::error::Result;
 use clap::Parser;
 
 mod cli;
 mod cmd;
+mod error;
 #[cfg(feature = "tui")]
 mod tui;
 

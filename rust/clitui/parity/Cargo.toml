@@ -1,0 +1,20 @@
+[package]
+name = "urna-clitui-parity"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "MIT"
+publish = false
+description = "parity of the cli's xterm-256 color fold against coolor, the crate it replaced; a workspace of its own so the reference never enters urna's build or its gates"
+
+# its own workspace, like rust/neural/parity and rust/images/parity: coolor
+# stays out of the urna workspace build, the lock and the cargo-deny gates.
+# the cli is a binary crate, so the test compiles its tone.rs in place.
+# run: `cargo test` here (gatecheck.yml runs it on every pull request).
+[workspace]
+
+[dev-dependencies]
+coolor = "1.1"
+
+[lib]
+path = "lib.rs"
