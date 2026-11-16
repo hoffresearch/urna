@@ -52,6 +52,19 @@ fn one_sequence(stream: [u8; 3]) -> Vec<u8> {
 const SEQ_STREAM: [u8; 3] = [0x0E, 0x6E, 0x08];
 
 #[test]
+fn raw_or_rle_block_over_the_block_maximum_is_refused() {
+    // window log 10 (1 KiB) caps the block at 1 KiB; a raw or RLE block that
+    // declares more is refused at the header, before any byte is read, as
+    // libzstd refuses it. no payload is needed to reach the check.
+    let raw = block(true, 0, 2000).to_vec();
+    let err = decode(&frame(0x00, &[0x00], &raw)).unwrap_err();
+    assert!(format!("{err}").contains("raw block larger"), "{err}");
+    let rle = block(true, 1, 2000).to_vec();
+    let err = decode(&frame(0x00, &[0x00], &rle)).unwrap_err();
+    assert!(format!("{err}").contains("rle block larger"), "{err}");
+}
+
+#[test]
 fn raw_rle_and_empty_frames() {
     assert_eq!(decode(&raw_hello()).unwrap(), b"hello");
     let mut rle = block(true, 1, 10).to_vec();

@@ -8,7 +8,7 @@
 //! `--mrl-dim` when the manifest records a truncated default space
 //! (`full_dim` present).
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcCommand;
 
@@ -136,9 +136,9 @@ pub fn spawn_embedder(
         cmd.arg(a);
     }
     cmd.arg(model).arg(query);
-    let out = cmd
-        .output()
-        .map_err(|e| anyhow::anyhow!("failed to spawn embedder: {} ({})", e, embedder.display()))?;
+    let out = cmd.output().map_err(|e| {
+        crate::error::err!("failed to spawn embedder: {} ({})", e, embedder.display())
+    })?;
     if !out.status.success() {
         // a script inside an installed payload that lacks files fails for
         // that reason, whatever python printed (a missing module, a missing
@@ -158,7 +158,7 @@ pub fn spawn_embedder(
         return Err(EmbedFailure::from_embedder(&status, &stderr, model, &interpreter).into());
     }
     serde_json::from_slice(&out.stdout).map_err(|e| {
-        anyhow::anyhow!(
+        crate::error::err!(
             "invalid embedder output: {} (stdout={:?})",
             e,
             String::from_utf8_lossy(&out.stdout)
@@ -201,7 +201,7 @@ pub fn validate_gate(
         if skip_model_hash_check {
             return Ok(());
         }
-        anyhow::bail!(
+        crate::error::bail!(
             "manifest carries the legacy placeholder model_hash ({}). Rebuild \
              this corpus with a real fingerprint, or pass --skip-model-hash-check \
              to proceed at your own risk.",

@@ -174,6 +174,9 @@ fn decode_frame(
         let (last, kind, size) = (bh & 1 == 1, (bh >> 1) & 3, bh >> 3);
         match kind {
             0 => {
+                if size > block_max {
+                    return Err(corrupt("raw block larger than the block maximum"));
+                }
                 let raw = src
                     .get(pos..pos + size)
                     .ok_or(corrupt("raw block truncated"))?;
@@ -182,6 +185,9 @@ fn decode_frame(
                 pos += size;
             }
             1 => {
+                if size > block_max {
+                    return Err(corrupt("rle block larger than the block maximum"));
+                }
                 let byte = *src.get(pos).ok_or(corrupt("rle block truncated"))?;
                 make_room(out, size, limit)?;
                 out.resize(out.len() + size, byte);

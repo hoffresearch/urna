@@ -32,7 +32,7 @@ pub mod codes {
     pub const EMBEDDER_FAILED: i32 = 6;
 }
 
-pub fn run(build: bool) -> anyhow::Result<()> {
+pub fn run(build: bool) -> crate::error::Result<()> {
     let t = Tone::stdout();
     println!("{}", t.bold("urna doctor"));
     let rows = if build {

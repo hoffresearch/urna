@@ -5,7 +5,7 @@
 //! SpaceModelMismatch via --expect-model-hash) fail loudly, never fall back
 //! to the text path.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::util::print_result;
@@ -18,7 +18,7 @@ pub fn run(
     expect_model_hash: Option<String>,
 ) -> Result<()> {
     let qvec: Vec<f32> = serde_json::from_str(&query)
-        .map_err(|e| anyhow::anyhow!("query must be a JSON array of f32: {}", e))?;
+        .map_err(|e| crate::error::err!("query must be a JSON array of f32: {}", e))?;
     let runtime = urna_engine::MmapUrnaFile::open(&file)?;
     let result = runtime.search_space(&space, &qvec, k, expect_model_hash.as_deref())?;
     println!("space:        {}", space);

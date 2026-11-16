@@ -8,7 +8,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::Result;
+use crate::error::Result;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 

@@ -1,4 +1,4 @@
-use strum::EnumCount;
+use crate::src::enums::EnumCount;
 
 use crate::include::common::bitdepth::AsPrimitive;
 use crate::include::common::bitdepth::BitDepth;

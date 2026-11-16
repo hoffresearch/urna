@@ -4,7 +4,7 @@
 //! hybrid, hnsw -> ann, else exact). Keeps `--skip-model-hash-check` for
 //! legacy placeholder corpora.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::embed_gate::embed_and_route;

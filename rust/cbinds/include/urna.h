@@ -1,4 +1,5 @@
-/* urna C ABI: open a corpus, ask it, read hits, take image bytes, close.
+/* urna C ABI: open a corpus, ask it, read hits, take image bytes, close;
+ * and embed text with the potion table alone.
  *
  * Strings are UTF-8 with a NUL. A function that returns NULL or 0 on
  * failure leaves the reason in urna_last_error(), per thread. No call
@@ -63,6 +64,33 @@ char *urna_schema_json(const UrnaCorpus *corpus);
 char *urna_content_hash(const UrnaCorpus *corpus);
 
 void urna_string_free(char *s);
+
+/* The potion embedder alone, for a caller with no corpus (the Python
+ * forge, through ctypes): model_dir holds tokenizer.json,
+ * model.safetensors and config.json. NULL on failure. An embedder may be
+ * shared by threads; urna_embedder_close must be the last call on it. */
+typedef struct UrnaEmbedder UrnaEmbedder;
+
+UrnaEmbedder *urna_embedder_open(const char *model_dir);
+
+/* NULL accepted. */
+void urna_embedder_close(UrnaEmbedder *embedder);
+
+/* The vector width; 0 for NULL. */
+size_t urna_embedder_dim(const UrnaEmbedder *embedder);
+
+/* "sha256:..." of the table, valid while the embedder is open. */
+const char *urna_embedder_model_hash(const UrnaEmbedder *embedder);
+
+/* The WordPiece ids of text, no special tokens: up to cap written to ids,
+ * the full count returned (above cap: call again with a larger buffer).
+ * SIZE_MAX on failure. */
+size_t urna_embedder_tokenize(const UrnaEmbedder *embedder, const char *text,
+                              uint32_t *ids, size_t cap);
+
+/* The unit-norm mean of the token rows of text (the unk row for an empty
+ * text) into out, urna_embedder_dim floats. 0 on success, -1 on failure. */
+int32_t urna_embedder_embed(const UrnaEmbedder *embedder, const char *text, float *out);
 
 #ifdef __cplusplus
 }

@@ -16,7 +16,7 @@ use std::fs::File;
 use std::io::BufWriter;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, bail};
+use crate::error::{Context, Result, bail};
 use urna_engine::MmapUrnaFile;
 use urna_format::layout::{SECTION_CHUNK_SCALARS, SECTION_ENCODING_RAW};
 use urna_format::manifest::schema::{DatasetSource, MediaDerivation, SchemaField};
@@ -82,7 +82,7 @@ pub fn run(
     // this tool (it refuses an `--out` that is the input, see same_file),
     // so no writer can truncate the mapping under us; the same model
     // `MmapUrnaFile` uses.
-    let src = unsafe { memmap2::Mmap::map(&src)? };
+    let src = unsafe { urna_engine::Mapping::map(&src)? };
     let dst =
         BufWriter::new(File::create(&out).with_context(|| format!("create {}", out.display()))?);
     let size = urna_format::add_sections(&src, dst, sections, |m| {

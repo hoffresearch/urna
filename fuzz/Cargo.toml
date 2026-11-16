@@ -36,11 +36,6 @@ urna-engine = { path = "../rust/engine" }
 # the reference for the zstd-decoder target: libzstd, the same crate the
 # writer encodes with.
 zstd = { version = "0.14", default-features = false }
-
-# reach the decoders with the checksum layer resealed (see fuzz_targets/
-# reseal.rs); sha2 matches the workspace pin.
-sha2 = "0.11"
-
 [[bin]]
 name = "urna-view"
 path = "fuzz_targets/urna_view.rs"

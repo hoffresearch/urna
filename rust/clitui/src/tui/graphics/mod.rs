@@ -15,6 +15,7 @@ mod kitty;
 mod png;
 pub mod probe;
 mod sixel;
+mod zlib;
 
 /// 8-bit RGBA pixels, rows top to bottom, no padding.
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -5,7 +5,7 @@
 //! lives in python where torch/ffmpeg are; migration of spec validation to
 //! rust is a registered future path, not this verb's job.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 use std::process::Command as ProcCommand;
 
@@ -32,7 +32,7 @@ pub fn run(
         // no release artifact carries the forge: the build runs from a
         // checkout of the repo (the installed payload has the query
         // embedder only).
-        anyhow::bail!(
+        crate::error::bail!(
             "specbuild.py not found ({}); `urna build` runs from a checkout of the repo: \
              git clone https://github.com/hoffresearch/urna && cd urna && urna build --spec ...",
             tool.display()
@@ -40,7 +40,7 @@ pub fn run(
     }
     let interpreter = super::super::pyenv::resolve_interpreter();
     if !super::super::pyenv::may_run(&interpreter) {
-        anyhow::bail!("{}", super::super::pyenv::stub_hint(&interpreter));
+        crate::error::bail!("{}", super::super::pyenv::stub_hint(&interpreter));
     }
     let mut cmd = ProcCommand::new(interpreter);
     cmd.arg(&tool).arg("--spec").arg(&spec);
@@ -70,7 +70,7 @@ pub fn run(
     // typed errors are the python tool's contract, not re-parsed here.
     let status = cmd
         .status()
-        .map_err(|e| anyhow::anyhow!("failed to spawn {}: {}", tool.display(), e))?;
+        .map_err(|e| crate::error::err!("failed to spawn {}: {}", tool.display(), e))?;
     if !status.success() {
         std::process::exit(status.code().unwrap_or(1));
     }

@@ -31,7 +31,6 @@ if os.environ.get("URNA_ALLOW_DOWNLOAD") != "1":
         os.environ.setdefault(_k, "1")
 
 import numpy as np
-import zstandard as zstd
 
 # run as a file (rust/bridge/python/ or the payload python/), the folder that
 # holds urna/ goes first; imported as a module, the package is already there.
@@ -48,9 +47,8 @@ from urna.model.modelhash import (
 
 def load_blocks(conn: sqlite3.Connection):
     """Yield (block_id, [text, ...]) for every text_block, in block_id order."""
-    dec = zstd.ZstdDecompressor()
     for block_id, data in conn.execute("SELECT block_id, data FROM text_blocks ORDER BY block_id"):
-        raw = dec.decompress(data)
+        raw = urna.zstd_decode(bytes(data))
         n = struct.unpack_from("<I", raw, 0)[0]
         offsets = struct.unpack_from(f"<{n}I", raw, 4)
         body = raw[4 + n * 4 :]
@@ -63,11 +61,10 @@ def load_blocks(conn: sqlite3.Connection):
 
 
 def load_embeddings(conn: sqlite3.Connection, n: int, dim: int) -> np.ndarray:
-    dec = zstd.ZstdDecompressor()
     row = conn.execute("SELECT data FROM blobs WHERE name='embeddings'").fetchone()
     if row is None:
         raise SystemExit("legacy file has no `embeddings` blob")
-    raw = dec.decompress(row[0])
+    raw = urna.zstd_decode(bytes(row[0]))
     arr = np.frombuffer(raw, dtype=np.float16).reshape(n, dim).astype(np.float32)
     # the legacy builder stored unit-normalized vectors but float16 round-trip
     # can drift the norm by ~1e-3. Re-normalize so the runtime's dot product

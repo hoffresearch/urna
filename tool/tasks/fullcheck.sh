@@ -137,6 +137,15 @@ names() {
 }
 cached names "$ALL_IN" -- names
 
+# ---- import contracts (pyproject [tool.layerscan], stdlib ast) ----
+layers() {
+  step "python tool/tasks/layerscan.py"
+  "$PY" tool/tasks/layerscan.py
+  "$PY" tool/tests/test_layerscan.py
+  ok "urna keeps its import contracts"
+}
+cached layers "$ALL_IN" -- layers
+
 # ---- cargo build (release) ----
 cargo_build() {
   step "cargo build --release --workspace"
@@ -208,17 +217,28 @@ else
   printf '\033[1;33m  SKIP:\033[0m URNA_CARDS_CORPUS unset: no cards corpus to compare on\n' >&2
 fi
 
-# ---- parity of our zstd decoder ----
-# rust/format/parity holds urna-format's own zstd decoder to libzstd byte for
-# byte (#645). a workspace of its own (libzstd stays out of the readers'
-# build); it needs no corpus, so it always runs.
-zstd_parity() {
+# ---- parity of urna-format's own f16, SHA-256 and zstd decoder ----
+# rust/format/parity holds all three to the crates they replaced (`half`,
+# `sha2` and libzstd), a workspace of its own so those stay out of the
+# readers' build; one run covers them, and it needs no corpus.
+format_parity() {
   step "cargo test --release in rust/format/parity"
   cargo test --release --manifest-path rust/format/parity/Cargo.toml 2>&1 \
     | grep -E "^test result|panicked|FAILED"
-  ok "zstd decoder parity with libzstd"
+  ok "f16, sha-256 and zstd decoder parity"
 }
-cached zstd-parity "rust/format rust/engine" -- zstd_parity
+cached format-parity "rust/format rust/engine" -- format_parity
+
+# ---- parity of the cli's color fold ----
+# rust/clitui/parity is a workspace of its own (coolor, the crate the fold
+# replaced, stays out of urna's lock); it needs no corpus.
+tone_parity() {
+  step "cargo test in rust/clitui/parity"
+  cargo test --locked --manifest-path rust/clitui/parity/Cargo.toml 2>&1 \
+    | grep -E "^test result|panicked|FAILED"
+  ok "xterm-256 fold matches coolor"
+}
+cached tone-parity "rust/clitui/src/cmd/tone.rs rust/clitui/parity" -- tone_parity
 
 # ---- cargo clippy ----
 cargo_clippy() {

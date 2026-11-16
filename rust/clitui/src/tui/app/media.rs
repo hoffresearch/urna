@@ -10,7 +10,7 @@
 use std::io::Write;
 use std::time::Instant;
 
-use anyhow::{Result, anyhow};
+use crate::error::{Result, err};
 use ratatui::buffer::{Buffer, CellDiffOption};
 use ratatui::layout::Rect;
 
@@ -106,10 +106,10 @@ impl Media {
     /// takes it from there; what the viewer does with it is the viewer's.
     pub fn open_external(&self, session: &Session) -> Result<&'static str> {
         let Some(s) = &self.shown else {
-            return Err(anyhow!("select a hit first"));
+            return Err(err!("select a hit first"));
         };
         if s.rgba.is_none() {
-            return Err(anyhow!("the selected hit has no image"));
+            return Err(err!("the selected hit has no image"));
         }
         let bytes = session.rt.blob_bytes(s.blob)?;
         let path = std::env::temp_dir().join(format!("urna-blob-{}.avif", s.blob));
@@ -131,7 +131,7 @@ impl Media {
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null())
             .spawn()
-            .map_err(|e| anyhow!("open the image: {e}"))?;
+            .map_err(|e| err!("open the image: {e}"))?;
         Ok("image opened in the system viewer")
     }
 
@@ -299,8 +299,8 @@ fn fit(area: Rect, size: (u32, u32), font: (u16, u16)) -> Rect {
 
 fn decode(session: &Session, blob: usize) -> Result<Rgba> {
     let bytes = session.rt.blob_bytes(blob)?;
-    let img = urna_images::decode(bytes).map_err(|e| anyhow!("{e}"))?;
-    Rgba::from_avif(img).ok_or_else(|| anyhow!("avif: the pixels do not match the size"))
+    let img = urna_images::decode(bytes).map_err(|e| err!("{e}"))?;
+    Rgba::from_avif(img).ok_or_else(|| err!("avif: the pixels do not match the size"))
 }
 
 #[cfg(test)]

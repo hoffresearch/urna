@@ -11,9 +11,13 @@
     reason = "a bench stops on a setup failure, like a test"
 )]
 
-use criterion::{BenchmarkId, Criterion, Throughput, black_box, criterion_group, criterion_main};
+#[allow(dead_code, reason = "each bench uses part of the harness")]
+mod harness;
+
+use harness::Group;
+use std::hint::black_box;
 use urna_engine::simd::{
-    detect_backend, dot_f32_bytes, dot_f32_f16_bytes, dot_f32_i4_blocked, dot_f32_i8,
+    detect_backend, dot_f32_bytes, dot_f32_f16_bytes, dot_f32_i4_blocked, dot_f32_i8_bytes,
     score_int8_section,
 };
 use urna_format::{
@@ -52,29 +56,29 @@ fn f32_le_bytes(row: &[f32]) -> Vec<u8> {
     row.iter().flat_map(|x| x.to_le_bytes()).collect()
 }
 
-fn bench_dot(c: &mut Criterion) {
+fn bench_dot() {
     let backend = detect_backend().name();
-    let mut g = c.benchmark_group(format!("dot/{backend}"));
+    let mut g = Group::new(format!("dot/{backend}"));
     for &dim in &DIMS {
         let data = rows(2, dim, 0x5EED);
         let (q, row) = data.split_at(dim);
-        g.throughput(Throughput::Elements(dim as u64));
+        g.throughput(dim as u64);
 
         let f32_bytes = f32_le_bytes(row);
-        g.bench_with_input(BenchmarkId::new("f32", dim), &dim, |b, _| {
-            b.iter(|| dot_f32_bytes(black_box(q), black_box(&f32_bytes)))
+        g.bench(format!("f32/{dim}"), || {
+            dot_f32_bytes(black_box(q), black_box(&f32_bytes))
         });
 
         let f16_bytes = f32_to_f16_bytes(row);
-        g.bench_with_input(BenchmarkId::new("f16", dim), &dim, |b, _| {
-            b.iter(|| dot_f32_f16_bytes(black_box(q), black_box(&f16_bytes)))
+        g.bench(format!("f16/{dim}"), || {
+            dot_f32_f16_bytes(black_box(q), black_box(&f16_bytes))
         });
 
         let i8_payload = encode_int8_embeddings(row, 1, dim).expect("int8 encode");
         let i8_view = Int8EmbeddingsView::parse(&i8_payload, 1, dim).expect("int8 parse");
-        let (i8_row, i8_scale) = (i8_view.row(0), i8_view.scale(0));
-        g.bench_with_input(BenchmarkId::new("i8", dim), &dim, |b, _| {
-            b.iter(|| dot_f32_i8(black_box(q), black_box(i8_row), i8_scale))
+        let (i8_row, i8_scale) = (i8_view.row_bytes(0), i8_view.scale(0));
+        g.bench(format!("i8/{dim}"), || {
+            dot_f32_i8_bytes(black_box(q), black_box(i8_row), i8_scale)
         });
 
         if dim % INT4_BLOCK == 0 {
@@ -84,25 +88,22 @@ fn bench_dot(c: &mut Criterion) {
             let mut scales = vec![0.0f32; dim / INT4_BLOCK];
             i4_view.row_scales_into(0, &mut scales);
             let mut scratch = vec![0.0f32; dim];
-            g.bench_with_input(BenchmarkId::new("i4", dim), &dim, |b, _| {
-                b.iter(|| {
-                    dot_f32_i4_blocked(
-                        black_box(q),
-                        black_box(codes),
-                        black_box(&scales),
-                        dim,
-                        INT4_BLOCK,
-                        &mut scratch,
-                    )
-                })
+            g.bench(format!("i4/{dim}"), || {
+                dot_f32_i4_blocked(
+                    black_box(q),
+                    black_box(codes),
+                    black_box(&scales),
+                    dim,
+                    INT4_BLOCK,
+                    &mut scratch,
+                )
             });
         }
     }
-    g.finish();
 }
 
 /// the full int8 section scan the exact path runs: 50k rows, one query.
-fn bench_section_scan(c: &mut Criterion) {
+fn bench_section_scan() {
     let backend = detect_backend().name();
     let dim = 384;
     let data = rows(SECTION_ROWS + 1, dim, 0xC0DE);
@@ -110,13 +111,14 @@ fn bench_section_scan(c: &mut Criterion) {
     let payload = encode_int8_embeddings(body, SECTION_ROWS, dim).expect("int8 encode");
     let view = Int8EmbeddingsView::parse(&payload, SECTION_ROWS, dim).expect("int8 parse");
     let mut out = vec![0.0f32; SECTION_ROWS];
-    let mut g = c.benchmark_group(format!("scan/{backend}"));
-    g.throughput(Throughput::Elements(SECTION_ROWS as u64));
-    g.bench_function(BenchmarkId::new("i8_section", SECTION_ROWS), |b| {
-        b.iter(|| score_int8_section(black_box(q), black_box(&view), &mut out))
+    let mut g = Group::new(format!("scan/{backend}"));
+    g.throughput(SECTION_ROWS as u64);
+    g.bench(format!("i8_section/{SECTION_ROWS}"), || {
+        score_int8_section(black_box(q), black_box(&view), &mut out)
     });
-    g.finish();
 }
 
-criterion_group!(benches, bench_dot, bench_section_scan);
-criterion_main!(benches);
+fn main() {
+    bench_dot();
+    bench_section_scan();
+}

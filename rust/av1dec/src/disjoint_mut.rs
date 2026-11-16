@@ -5,6 +5,8 @@
 
 use crate::src::align::AlignedByteChunk;
 use crate::src::align::AlignedVec;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
 use std::cell::UnsafeCell;
 use std::fmt;
 use std::fmt::Debug;
@@ -25,8 +27,6 @@ use std::ops::RangeToInclusive;
 use std::ptr;
 use std::ptr::addr_of_mut;
 use std::sync::Arc;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
 
 /// Wraps an indexable collection to allow unchecked concurrent mutable borrows.
 ///
@@ -775,7 +775,7 @@ mod release {
 #[cfg(debug_assertions)]
 mod debug {
     use super::*;
-    use parking_lot::Mutex;
+    use crate::src::locks::Mutex;
     use std::backtrace::Backtrace;
     use std::backtrace::BacktraceStatus;
     use std::fmt::Debug;

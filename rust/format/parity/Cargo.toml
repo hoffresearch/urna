@@ -5,18 +5,20 @@ edition = "2024"
 rust-version = "1.85"
 license = "MIT"
 publish = false
-description = "parity of urna-format's own zstd decoder against libzstd; a workspace of its own so the reference never enters the readers' build"
+description = "parity of urna-format's own f16 conversion, SHA-256 and zstd decoder against the crates they replaced; a workspace of its own so the references never enter the readers' build or urna's gates"
 
 # its own workspace, like rust/neural/parity and rust/images/parity: the
-# reference decoder (the zstd crate, libzstd) stays out of the readers'
-# build and the urna lock. run: `cargo test --release` here (CI does, in
-# gatecheck's zstd parity job).
+# references (`half`, `sha2` and the zstd crate / libzstd) live only here, out
+# of the urna workspace build, the lock and the cargo-deny gates. run:
+# `cargo test --release` here; CI does, in gatecheck's format parity job.
 [workspace]
 
 [dependencies]
-# default features: `write`, the corpora are built here with the encoder.
+# default features: `write`, the zstd corpora are built here with the encoder.
 urna-format = { path = ".." }
-# the reference: compresses every input and decodes it beside ours.
+half = "2"
+sha2 = "0.11"
+# the zstd reference: compresses every input and decodes it beside ours.
 zstd = { version = "0.14", default-features = false, features = ["zdict_builder"] }
 
 [dev-dependencies]

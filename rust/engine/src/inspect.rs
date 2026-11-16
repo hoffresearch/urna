@@ -51,7 +51,7 @@ impl MmapUrnaFile {
                     "encoding": e.encoding,
                     "offset": e.offset,
                     "size": e.size,
-                    "checksum": hex::encode(e.checksum),
+                    "checksum": urna_format::to_hex(e.checksum),
                 })
             })
             .collect();
@@ -111,7 +111,7 @@ impl MmapUrnaFile {
                 .iter()
                 .map(|r| {
                     serde_json::json!({
-                        "content_hash": format!("sha256:{}", hex::encode(r.content_hash)),
+                        "content_hash": format!("sha256:{}", urna_format::to_hex(r.content_hash)),
                         "original_uri": r.original_uri,
                         "byte_len": r.byte_len,
                         "inlined": r.inlined,

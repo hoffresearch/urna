@@ -1,7 +1,7 @@
 use crate::include::dav1d::headers::Rav1dPixelLayout;
 use crate::src::enum_map::DefaultValue;
+use crate::src::flags::bitflags;
 use crate::src::levels::BlockLevel;
-use bitflags::bitflags;
 use std::ops::Shr;
 
 bitflags! {

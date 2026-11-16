@@ -1,6 +1,10 @@
-// the format crate has no `unsafe` (its byte views go through bytemuck), so
-// it forbids it outright; the workspace cannot, the engine's SIMD needs it.
-#![forbid(unsafe_code)]
+// the format crate denies `unsafe` (its records are written and parsed field
+// by field, and int8 rows are handed out as bytes). one module is allowed
+// it: sha256::accel, the SHA-NI and ARMv8 SHA2 kernels, whose `unsafe`
+// blocks each state their invariant. deny and not forbid, since forbid
+// cannot be lifted for that module; the workspace cannot deny it at all,
+// the engine's SIMD needs it.
+#![deny(unsafe_code)]
 
 /// `Debug` that prints a type's shape, never its payload: a derive would
 /// print every byte of a corpus. Each field is named with what it shows
@@ -29,10 +33,12 @@ pub mod bytes;
 pub mod chunk;
 pub mod encoding;
 pub mod error;
+pub mod hex;
 pub mod layout;
 pub mod manifest;
 pub mod reader;
 pub mod sections;
+pub mod sha256;
 // writing a .urna needs the zstd encoder (libzstd, C): the `write` feature,
 // on by default. reading needs none of it.
 #[cfg(feature = "write")]
@@ -40,15 +46,16 @@ pub mod writer;
 
 pub use chunk::{ChunkInput, chunk_id};
 pub use encoding::{
-    DEFAULT_ZSTD_LEVEL, INT4_BLOCK, Int4EmbeddingsView, Int8EmbeddingsView, TXT_STREAMS_V1,
+    DEFAULT_ZSTD_LEVEL, F16, INT4_BLOCK, Int4EmbeddingsView, Int8EmbeddingsView, TXT_STREAMS_V1,
     TXT_STREAMS_V2, TXT_STREAMS_V3, TxtStreams, decode_payload, decode_payload_with_dict,
     encode_int4_embeddings, encode_int8_embeddings, expected_embeddings_size, f16_bytes_to_f32,
     f32_to_f16_bytes, int4_blocks_per_row, nibble_to_i4, pack_nibbles, quantize_f32_to_i4,
-    quantize_f32_to_i8, zstd_decompress, zstd_decompress_with_dict,
+    quantize_f32_to_i8, zstd_decode, zstd_decompress, zstd_decompress_with_dict,
 };
 #[cfg(feature = "write")]
 pub use encoding::{encode_txt_streams, zstd_encode};
 pub use error::{Result, UrnaError};
+pub use hex::{from_hex, to_hex};
 pub use layout::*;
 pub use manifest::{Capabilities, Manifest};
 pub use reader::UrnaView;
@@ -70,5 +77,6 @@ pub use sections::{
     decode_search_contract, decode_space_table, decode_txt_streams, encode_chunks_canonical,
     encode_space_table,
 };
+pub use sha256::Sha256;
 #[cfg(feature = "write")]
 pub use writer::{EmbeddingDType, SectionEncoding, UrnaFileBuilder, add_sections};

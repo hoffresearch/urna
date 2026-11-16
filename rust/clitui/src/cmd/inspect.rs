@@ -2,7 +2,7 @@
 //! hashes. JSON variant mirrors `MmapUrnaFile::inspect_json` for
 //! programmatic consumers.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 use super::util::encoding_name;
@@ -31,7 +31,7 @@ pub fn run(file: PathBuf, json: bool) -> Result<()> {
             enc,
             entry.offset,
             entry.size,
-            hex::encode(entry.checksum),
+            urna_format::to_hex(entry.checksum),
         );
     }
     println!(

@@ -2,6 +2,8 @@ use crate::include::common::intops::clip;
 use crate::src::align::Align16;
 use crate::src::align::Align8;
 use crate::src::align::ArrayDefault;
+use crate::src::plain::AsBytes;
+use crate::src::plain::FromBytes;
 use std::ffi::c_int;
 use std::ffi::c_uint;
 use std::ffi::c_void;
@@ -13,8 +15,6 @@ use std::ops::Div;
 use std::ops::Mul;
 use std::ops::Rem;
 use std::ops::Shr;
-use zerocopy::AsBytes;
-use zerocopy::FromBytes;
 
 pub trait FromPrimitive<T> {
     fn from_prim(t: T) -> Self;
