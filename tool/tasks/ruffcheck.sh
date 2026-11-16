@@ -58,6 +58,8 @@ tool/tasks/upstreams.py
 tool/tests/test_upstreams.py
 tool/tests/test_presetjob.py
 rust/bridge/python/urna/model/installer.py
+rust/bridge/python/urna/model/filefetch.py
+rust/bridge/python/urna/_cabi.py
 rust/bridge/python/urna/model/installed.py
 tool/tasks/presetjob.py
 rust/bridge/python/urna/entry/specbuild.py
@@ -72,6 +74,8 @@ tool/tests/test_embedpack.py
 tool/tests/test_benchmark.py
 tool/tests/test_catalogue.py
 tool/tests/test_modelpull.py
+tool/tasks/layerscan.py
+tool/tests/test_layerscan.py
 tool/tasks/embedpack.py
 tool/tasks/preflight.py
 tool/tests/test_preflight.py

@@ -5,6 +5,7 @@ use crate::src::align::AlignedVec64;
 use crate::src::const_fn::const_for;
 use crate::src::disjoint_mut::DisjointMut;
 use crate::src::env::BlockContext;
+use crate::src::flags::bitflags;
 use crate::src::intra_edge::EdgeFlags;
 use crate::src::levels::IntraPredMode;
 use crate::src::levels::DC_128_PRED;
@@ -25,7 +26,6 @@ use crate::src::levels::Z1_PRED;
 use crate::src::levels::Z2_PRED;
 use crate::src::levels::Z3_PRED;
 use crate::src::strided::Strided as _;
-use bitflags::bitflags;
 use std::cmp;
 use std::ffi::c_int;
 

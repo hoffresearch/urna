@@ -43,7 +43,7 @@ fuzz_target!(|data: &[u8]| {
             SECTION_EMBEDDINGS => {
                 if let Ok(v) = Int8EmbeddingsView::parse(p, n, dim) {
                     for i in 0..v.n {
-                        let _ = (v.row(i), v.scale(i));
+                        let _ = (v.row_bytes(i), v.scale(i));
                     }
                 }
                 if let Ok(v) = Int4EmbeddingsView::parse(p, n, dim) {

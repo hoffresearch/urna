@@ -7,7 +7,7 @@
 
 use std::path::Path;
 
-use sha2::{Digest, Sha256};
+use urna_format::Sha256;
 
 use crate::backend::Native;
 use crate::model::StaticModel;
@@ -72,6 +72,11 @@ impl Potion {
     pub fn embed(&self, text: &str) -> Result<Vec<f32>> {
         let ids = self.tok.encode(text);
         self.model.embed_ids(&ids)
+    }
+
+    /// The WordPiece ids of `text`, no special tokens: what `embed` pools.
+    pub fn token_ids(&self, text: &str) -> Vec<u32> {
+        self.tok.encode(text)
     }
 }
 

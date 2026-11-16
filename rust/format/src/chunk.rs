@@ -6,7 +6,7 @@
 //! different IDs for the same content, which breaks reproducibility.
 
 use crate::error::UrnaError;
-use sha2::{Digest, Sha256};
+use crate::sha256::Sha256;
 
 /// One chunk's worth of input that the writer needs to produce a v1 file.
 ///

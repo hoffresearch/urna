@@ -6,6 +6,7 @@ use crate::src::align::Align16;
 use crate::src::align::Align32;
 use crate::src::align::Align4;
 use crate::src::align::Align8;
+use crate::src::enums::EnumCount;
 use crate::src::error::Rav1dResult;
 use crate::src::levels::BlockLevel;
 use crate::src::levels::BlockPartition;
@@ -16,14 +17,13 @@ use crate::src::levels::TxfmSize;
 use crate::src::levels::N_COMP_INTER_PRED_MODES;
 use crate::src::levels::N_INTRA_PRED_MODES;
 use crate::src::levels::N_UV_INTRA_PRED_MODES;
+use crate::src::locks::RwLock;
+use crate::src::locks::RwLockWriteGuard;
 use crate::src::tables::dav1d_partition_type_count;
-use parking_lot::RwLock;
-use parking_lot::RwLockWriteGuard;
 use std::cmp;
 use std::ffi::c_uint;
 use std::sync::atomic::AtomicU32;
 use std::sync::Arc;
-use strum::EnumCount;
 
 #[derive(Clone, Default)]
 #[repr(C)]

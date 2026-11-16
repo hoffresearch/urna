@@ -5,7 +5,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
-use anyhow::{Result, anyhow};
+use crate::error::{Result, err};
 
 pub use urna_neural::Potion;
 
@@ -23,7 +23,7 @@ type Loaded = Option<(PathBuf, Arc<Potion>)>;
 pub fn shared(dir: &Path) -> Result<Arc<Potion>> {
     static CACHE: OnceLock<Mutex<Loaded>> = OnceLock::new();
     let cell = CACHE.get_or_init(|| Mutex::new(None));
-    let mut slot = cell.lock().map_err(|_| anyhow!("potion cache poisoned"))?;
+    let mut slot = cell.lock().map_err(|_| err!("potion cache poisoned"))?;
     if let Some((d, p)) = slot.as_ref()
         && d == dir
     {
@@ -65,7 +65,11 @@ mod tests {
     }
 
     fn reference(py: &str, text: &str) -> (String, Vec<f32>) {
+        // the numpy + tokenizers path: potiontab would otherwise embed through
+        // the urna-cbinds library a workspace build leaves in target/, and
+        // compare this crate with itself.
         let out = Command::new(py)
+            .env("URNA_POTION_REFERENCE", "1")
             .arg(root().join("rust/bridge/python/urna/embed/potionqry.py"))
             .arg("potion-base-8M")
             .arg(text)

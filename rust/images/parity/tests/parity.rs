@@ -1,8 +1,9 @@
-//! Every AVIF blob of a card corpus decoded by this crate and by
-//! `avif-decode` (the decoder the explorer used before), pixel against
-//! pixel. The corpus is the file named by `URNA_CARDS_CORPUS`; without it
-//! the test passes doing nothing and says so. `URNA_PARITY_LIMIT` caps
-//! how many blobs are compared.
+//! Every AVIF input decoded by this crate and by `avif-decode` (the
+//! decoder the explorer used before), pixel against pixel. The inputs are
+//! the `.avif` files of `URNA_AVIF_DIR` or the blobs of the card corpus
+//! named by `URNA_CARDS_CORPUS` (`urna_images_parity::avif_inputs`);
+//! without either the test passes doing nothing and says so.
+//! `URNA_PARITY_LIMIT` caps how many are compared.
 
 #![allow(
     clippy::expect_used,
@@ -64,37 +65,23 @@ fn reference(bytes: &[u8]) -> (u32, u32, Vec<u8>) {
 
 #[test]
 fn every_blob_of_the_corpus_decodes_like_avif_decode() {
-    let Some(path) = std::env::var_os("URNA_CARDS_CORPUS") else {
-        eprintln!("URNA_CARDS_CORPUS unset: parity skipped");
+    let Some(inputs) = urna_images_parity::avif_inputs() else {
+        eprintln!("URNA_AVIF_DIR and URNA_CARDS_CORPUS unset: parity skipped");
         return;
     };
-    let limit: usize = std::env::var("URNA_PARITY_LIMIT")
-        .ok()
-        .and_then(|v| v.parse().ok())
-        .unwrap_or(usize::MAX);
-    let rt = urna_engine::MmapUrnaFile::open(std::path::Path::new(&path)).expect("corpus opens");
-    let refs = rt.blob_refs().expect("the corpus has blobs");
-    let avif: Vec<usize> = refs
-        .iter()
-        .enumerate()
-        .filter(|(_, r)| r.inlined && r.original_uri.ends_with(".avif"))
-        .map(|(i, _)| i)
-        .take(limit)
-        .collect();
     let (mut equal, mut off_by_one, mut worse) = (0usize, 0usize, 0usize);
     let (mut ours_ms, mut theirs_ms) = (0f64, 0f64);
     let mut max_diff = 0u8;
-    let mut first_diff: Option<(usize, usize, u8)> = None;
-    for &i in &avif {
-        let bytes = rt.blob_bytes(i).expect("blob bytes");
+    let mut first_diff: Option<(String, usize, u8)> = None;
+    for (label, bytes) in &inputs {
         let t = Instant::now();
-        let ours = urna_images::decode(bytes).unwrap_or_else(|e| panic!("blob {i}: {e}"));
+        let ours = urna_images::decode(bytes).unwrap_or_else(|e| panic!("{label}: {e}"));
         ours_ms += t.elapsed().as_secs_f64() * 1e3;
         let t = Instant::now();
         let (w, h, theirs) = reference(bytes);
         theirs_ms += t.elapsed().as_secs_f64() * 1e3;
-        assert_eq!((ours.width, ours.height), (w, h), "blob {i}: size");
-        assert_eq!(ours.rgba.len(), theirs.len(), "blob {i}: pixel count");
+        assert_eq!((ours.width, ours.height), (w, h), "{label}: size");
+        assert_eq!(ours.rgba.len(), theirs.len(), "{label}: pixel count");
         let d = ours
             .rgba
             .iter()
@@ -115,16 +102,16 @@ fn every_blob_of_the_corpus_decodes_like_avif_decode() {
                         .zip(&theirs)
                         .position(|(a, b)| a.abs_diff(*b) == d)
                         .unwrap_or(0);
-                    first_diff = Some((i, px, d));
+                    first_diff = Some((label.clone(), px, d));
                 }
             }
         }
     }
-    let n = avif.len().max(1) as f64;
+    let n = inputs.len().max(1) as f64;
     eprintln!(
-        "parity over {} blobs: {equal} identical, {off_by_one} within 1, {worse} further (max diff {max_diff}); \
+        "parity over {} inputs: {equal} identical, {off_by_one} within 1, {worse} further (max diff {max_diff}); \
          ours {:.2} ms/image, avif-decode {:.2} ms/image; first larger diff {first_diff:?}",
-        avif.len(),
+        inputs.len(),
         ours_ms / n,
         theirs_ms / n
     );

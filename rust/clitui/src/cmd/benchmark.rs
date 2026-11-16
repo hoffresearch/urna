@@ -2,7 +2,7 @@
 //! latency stats over random queries, with optional ANN comparison +
 //! recall@k vs exact, plus an opt-in madvise-cold pass.
 
-use anyhow::Result;
+use crate::error::Result;
 use std::path::PathBuf;
 
 pub fn run(
@@ -23,7 +23,7 @@ pub fn run(
         let entry = urna_format::sections::decode_space_table(&payload)?
             .into_iter()
             .find(|s| s.name == name)
-            .ok_or_else(|| anyhow::anyhow!("space '{}' not found in the space_table", name))?;
+            .ok_or_else(|| crate::error::err!("space '{}' not found in the space_table", name))?;
         let queries = random_unit_queries(n_queries, entry.dim as usize);
         let times = run_bench(&runtime, &queries, false, |rt, q| {
             rt.search_space(&name, q, k, None)

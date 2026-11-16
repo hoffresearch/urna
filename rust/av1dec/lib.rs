@@ -45,14 +45,18 @@ pub mod src {
     mod dequant_tables;
     pub(crate) mod disjoint_mut;
     pub(crate) mod enum_map;
+    pub(crate) mod enums;
     mod env;
     pub(crate) mod error;
     mod ffi_safe;
     mod fg_apply;
     mod filmgrain;
+    pub(crate) mod flags;
     mod getbits;
+    pub(crate) mod locks;
     pub(crate) mod pic_or_buf;
     pub(crate) mod pixels;
+    pub(crate) mod plain;
     pub(crate) mod relaxed_atomic;
     pub mod send_sync_non_null;
     pub(crate) mod strided;

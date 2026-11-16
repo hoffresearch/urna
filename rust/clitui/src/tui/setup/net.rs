@@ -10,8 +10,8 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use anyhow::{Context, Result, bail};
-use sha2::{Digest, Sha256};
+use crate::error::{Context, Result, bail};
+use urna_format::Sha256;
 
 pub const PAYLOAD: &str = "urna-embedder-payload.tar.gz";
 const REPO: &str = "hoffresearch/urna";

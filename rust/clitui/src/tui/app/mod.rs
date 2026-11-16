@@ -278,7 +278,7 @@ impl App {
         }
     }
 
-    fn run(mut self, terminal: &mut DefaultTerminal) -> anyhow::Result<Exit> {
+    fn run(mut self, terminal: &mut DefaultTerminal) -> crate::error::Result<Exit> {
         loop {
             self.pump();
             let dt = self.clock.tick();
@@ -301,7 +301,7 @@ impl App {
 }
 
 /// Runs the explorer; returns the exit code.
-pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> anyhow::Result<i32> {
+pub fn run(file: Option<PathBuf>, mut ask: Option<String>) -> crate::error::Result<i32> {
     pyenv::set_quiet(true);
     let home = crate::cmd::paths::urna_home();
     let sample = || home.as_deref().and_then(setup::sample::installed);
