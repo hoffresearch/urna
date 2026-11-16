@@ -65,7 +65,11 @@ mod tests {
     }
 
     fn reference(py: &str, text: &str) -> (String, Vec<f32>) {
+        // the numpy + tokenizers path: potiontab would otherwise embed through
+        // the urna-cbinds library a workspace build leaves in target/, and
+        // compare this crate with itself.
         let out = Command::new(py)
+            .env("URNA_POTION_REFERENCE", "1")
             .arg(root().join("rust/bridge/python/urna/embed/potionqry.py"))
             .arg("potion-base-8M")
             .arg(text)

@@ -37,12 +37,16 @@ ROOT = Path(__file__).resolve().parents[2]
 PKG = ROOT / "rust" / "bridge" / "python" / "urna"
 STAGING = ROOT / "pkgs" / "stage"
 
-# the offline potion embedder is self-contained (stdlib + numpy + tokenizers)
+# the offline potion embedder is self-contained (stdlib + numpy + tokenizers,
+# or the urna-cbinds library through _cabi.py)
 # and resolves its table relative to __file__ (../model/potionb8m), so the
 # package keeps the repo's layout. embed/__init__.py re-exports it with the
 # lexical floor.
 MODULES = [
     "__init__.py",
+    # potiontab embeds through it when the urna-cbinds library is beside it
+    # (not shipped in the wheel yet, #643), numpy + tokenizers otherwise.
+    "_cabi.py",
     "entry/__init__.py",
     "entry/clidriver.py",
     "embed/__init__.py",

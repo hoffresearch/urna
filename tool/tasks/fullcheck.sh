@@ -137,6 +137,15 @@ names() {
 }
 cached names "$ALL_IN" -- names
 
+# ---- import contracts (pyproject [tool.layerscan], stdlib ast) ----
+layers() {
+  step "python tool/tasks/layerscan.py"
+  "$PY" tool/tasks/layerscan.py
+  "$PY" tool/tests/test_layerscan.py
+  ok "urna keeps its import contracts"
+}
+cached layers "$ALL_IN" -- layers
+
 # ---- cargo build (release) ----
 cargo_build() {
   step "cargo build --release --workspace"

@@ -7,9 +7,14 @@ table (minishlab/potion-base-8M, mit, dim 256) whose token rows ALREADY carry
 meaning distilled from a teacher model, so synonyms land close (car ~ automobile
 >> car ~ banana) with no torch, no model download, and no network at runtime.
 
-inference is the model2vec recipe, reproduced with numpy + tokenizers only:
-tokenize (add_special_tokens=False) -> gather the token rows from the vendored
-embeddings table -> mean pool -> l2 normalize. it reproduces the published model
+inference is the model2vec recipe: tokenize (add_special_tokens=False) -> gather
+the token rows from the vendored embeddings table -> mean pool -> l2 normalize.
+by default it runs in Rust (#643): urna-neural's WordPiece tokenizer and kernels,
+the same code the `urna` binary embeds queries with, through the C ABI of
+urna-cbinds (urna/_cabi.py, ctypes). the reference path reproduces it with numpy +
+tokenizers and stays for three cases: the library is not built or shipped,
+URNA_POTION_REFERENCE=1 asks for it (the parity test), or normalize=False (the
+C ABI returns unit vectors only). it reproduces the published model
 vector-for-vector (verified against the model2vec reference), but ships none of
 its torch-adjacent dependency surface.
 
@@ -59,6 +64,17 @@ def _read_safetensors_f32(path: Path, name: str = "embeddings"):
     start, end = meta["data_offsets"]
     payload = raw[8 + hlen + start : 8 + hlen + end]
     return np.frombuffer(payload, dtype="<f4").reshape(meta["shape"]).copy()
+
+
+@lru_cache(maxsize=4)
+def _native_embedder(model_dir: str):
+    """The Rust embedder of `model_dir`, or None when the urna-cbinds library
+    is not there (the reference path then runs)."""
+    from urna import _cabi
+
+    if _cabi.library() is None:
+        return None
+    return _cabi.Embedder(model_dir)
 
 
 @lru_cache(maxsize=4)
@@ -120,6 +136,17 @@ class PotionEmbedder:
         self._dim = None
         self._hash: str | None = None
 
+    def _native(self):
+        """The Rust embedder, or None for the reference path."""
+        if not self.normalize or os.environ.get("URNA_POTION_REFERENCE") == "1":
+            return None
+        return _native_embedder(str(self.model_dir))
+
+    @property
+    def backend(self) -> str:
+        """`native` (urna-neural through the C ABI) or `reference` (numpy + tokenizers)."""
+        return "reference" if self._native() is None else "native"
+
     def _ensure(self) -> None:
         if self._tok is None:
             self._tok, self._emb, self._dim = _load_table(str(self.model_dir))
@@ -130,6 +157,9 @@ class PotionEmbedder:
 
     @property
     def embedding_dim(self) -> int:
+        native = self._native()
+        if native is not None:
+            return native.dim
         self._ensure()
         return int(self._dim)
 
@@ -138,13 +168,13 @@ class PotionEmbedder:
         + tokenizer_hash pin the exact vendored table, so a different table (or a
         truncated lfs pull) produces a different hash and fails the manifest gate
         loudly instead of returning cosine-valid garbage."""
-        self._ensure()
+        dim = self.embedding_dim
         return {
             "embedder": MODEL_ID,
             "version": POTION_VERSION,
             "files_hash": _files_hash(self.model_dir),
             "tokenizer_hash": _tokenizer_hash(self.model_dir),
-            "embedding_dim": int(self._dim),
+            "embedding_dim": dim,
             "tokenizer": "bert-wordpiece-lower",
             "add_special_tokens": False,
             "pooling": "mean",
@@ -161,6 +191,9 @@ class PotionEmbedder:
         return self._hash
 
     def embed_texts(self, texts: Sequence[str]) -> list[list[float]]:
+        native = self._native()
+        if native is not None:
+            return [native.embed(t) for t in texts]
         import numpy as np
 
         self._ensure()

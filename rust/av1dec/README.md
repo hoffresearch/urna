@@ -14,8 +14,16 @@ expanded by hand in `src/wedge.rs` (the remaining `paste!` sites in
 is the ten-line trait in `src/to.rs`. Both bit depths exist; the default
 feature is `bitdepth_8`, what urna's AVIF corpora use.
 
+The helper crates rav1d depends on are gone too (#643): `parking_lot`,
+`atomig`, `strum`, `bitflags`, `raw-cpuid` and `zerocopy` became four small
+modules (`src/locks.rs`, `src/enums.rs`, `src/flags.rs`, `src/plain.rs`) with
+the names upstream calls, so its call sites barely move. `UPSTREAM` lists
+every deviation, file by file, and the `av1-parity` job of `gatecheck.yml`
+compares every decoded plane with the crates.io rav1d.
+
 Updating: diff this tree against the upstream tag it names, apply what
-matters, and record the new version and hash in `UPSTREAM`.
+matters, re-apply the deviations `UPSTREAM` lists, and record the new
+version and hash there.
 
 The files keep upstream's layout and length, out of the 639-line limit the
 rest of the tree follows, until a module is rewritten here.

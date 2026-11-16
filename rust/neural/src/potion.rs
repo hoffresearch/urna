@@ -73,6 +73,11 @@ impl Potion {
         let ids = self.tok.encode(text);
         self.model.embed_ids(&ids)
     }
+
+    /// The WordPiece ids of `text`, no special tokens: what `embed` pools.
+    pub fn token_ids(&self, text: &str) -> Vec<u32> {
+        self.tok.encode(text)
+    }
 }
 
 fn sha256_file(path: &Path) -> Result<String> {
