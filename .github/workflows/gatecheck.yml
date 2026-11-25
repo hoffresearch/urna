@@ -138,8 +138,31 @@ jobs:
             echo "PIN_HNSW_DIGESTS is set: graph_bytes_are_pinned would check nothing" >&2
             exit 1
           fi
+      # cargo-nextest runs each test in a process of its own and every test
+      # binary in parallel (.config/nextest.toml). nextest runs no doctest,
+      # so `cargo test --doc` follows it.
+      - name: install cargo-nextest (pinned release, checksum verified)
+        env:
+          NEXTEST_VERSION: "0.9.148"
+          NEXTEST_SHA256_LINUX: 223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc
+          NEXTEST_SHA256_MACOS: 6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b
+        run: |
+          set -eu
+          case "$RUNNER_OS" in
+            Linux) asset=x86_64-unknown-linux-gnu; sum="$NEXTEST_SHA256_LINUX" ;;
+            macOS) asset=universal-apple-darwin; sum="$NEXTEST_SHA256_MACOS" ;;
+            *) echo "no cargo-nextest pinned for $RUNNER_OS" >&2; exit 1 ;;
+          esac
+          tarball="cargo-nextest-${NEXTEST_VERSION}-$asset.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${NEXTEST_VERSION}/$tarball"
+          echo "$sum  $RUNNER_TEMP/$tarball" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$HOME/.cargo/bin"
+          cargo nextest --version
       - name: test
-        run: cargo test --workspace
+        run: |
+          cargo nextest run --workspace --profile ci
+          cargo test --workspace --doc
       # rust/clitui/parity is a workspace of its own: coolor, the crate the
       # cli's xterm-256 fold replaced, never enters the urna build or lock.
       - name: color fold parity against coolor (rust/clitui/parity)
