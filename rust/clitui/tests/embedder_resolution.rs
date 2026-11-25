@@ -16,6 +16,8 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+mod common;
+
 fn scratch(tag: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("urna_resolve_{tag}_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
@@ -168,40 +170,10 @@ fn a_checkout_in_the_cwd_wins_over_the_data_root() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// The files of a complete payload (mirrors `cmd::payload::REQUIRED`, which
-/// this binary-crate test cannot import; the payload test pins that list to
-/// what `tool/tasks/embedpack.py` ships).
-const REQUIRED: [&str; 24] = [
-    "VERSION",
-    "python/urna/__init__.py",
-    "python/urna/embed/__init__.py",
-    "python/urna/embed/lexifloor.py",
-    "python/urna/embed/potionqry.py",
-    "python/urna/embed/potiontab.py",
-    "python/urna/embed/presetqry.py",
-    "python/urna/embed/searchtxt.py",
-    "python/urna/embed/stbackend.py",
-    "python/urna/embed/stprocess.py",
-    "python/urna/embed/visionemb.py",
-    "python/urna/model/__init__.py",
-    "python/urna/model/catalogue.json",
-    "python/urna/model/embedders.py",
-    "python/urna/model/installer.py",
-    "python/urna/model/modelhash.py",
-    "python/urna/model/presetmap.py",
-    "python/urna/model/potionb8m/README.md",
-    "python/urna/model/potionb8m/config.json",
-    "python/urna/model/potionb8m/model.safetensors",
-    "python/urna/model/potionb8m/modules.json",
-    "python/urna/model/potionb8m/special_tokens_map.json",
-    "python/urna/model/potionb8m/tokenizer.json",
-    "python/urna/model/potionb8m/tokenizer_config.json",
-];
-
 /// A complete payload under `home`, built from the checkout's own files
 /// (the table hard-linked, not copied), minus `drop`.
 fn lay_down_payload(home: &Path, drop: &str) {
-    for rel in REQUIRED.iter().filter(|r| **r != drop) {
+    for rel in common::payload_required().iter().filter(|r| **r != drop) {
         let dst = home.join(rel);
         std::fs::create_dir_all(dst.parent().unwrap()).unwrap();
         if *rel == "VERSION" {

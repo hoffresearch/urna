@@ -15,6 +15,8 @@ use std::process::{Command, Output};
 
 use urna_format::Sha256;
 
+mod common;
+
 const PAYLOAD: &str = "urna-embedder-payload.tar.gz";
 
 /// `file://` url for a local dir (`file:///C:/...` on windows).
@@ -41,37 +43,6 @@ fn scratch(tag: &str) -> PathBuf {
 /// This binary's version, the payload version `setup` asks for by default.
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// The files a complete payload holds besides the stamp (mirrors
-/// `unpack::REQUIRED`, which this binary-crate test cannot import; a drift
-/// fails the install below).
-const REQUIRED: [&str; 25] = [
-    "python/urna/__init__.py",
-    "python/urna/embed/__init__.py",
-    "python/urna/embed/lexifloor.py",
-    "python/urna/embed/potionqry.py",
-    "python/urna/embed/potiontab.py",
-    "python/urna/embed/presetqry.py",
-    "python/urna/embed/searchtxt.py",
-    "python/urna/embed/stbackend.py",
-    "python/urna/embed/stprocess.py",
-    "python/urna/embed/visionemb.py",
-    "python/urna/model/__init__.py",
-    "python/urna/model/catalogue.json",
-    "python/urna/model/embedders.py",
-    "python/urna/model/installed.py",
-    "python/urna/model/installer.py",
-    "python/urna/model/modelhash.py",
-    "python/urna/model/modellock.txt",
-    "python/urna/model/presetmap.py",
-    "python/urna/model/potionb8m/README.md",
-    "python/urna/model/potionb8m/config.json",
-    "python/urna/model/potionb8m/model.safetensors",
-    "python/urna/model/potionb8m/modules.json",
-    "python/urna/model/potionb8m/special_tokens_map.json",
-    "python/urna/model/potionb8m/tokenizer.json",
-    "python/urna/model/potionb8m/tokenizer_config.json",
-];
-
 /// A release dir with a complete payload stamped with this binary's
 /// version; `sha` overrides the published digest (a tampered release).
 fn release(dir: &Path, sha: Option<&str>) -> PathBuf {
@@ -91,9 +62,9 @@ fn release_at(
     std::fs::create_dir_all(&rel).unwrap();
     std::fs::copy(golden(), rel.join(SAMPLE)).unwrap();
     let tgz = rel.join(PAYLOAD);
-    let mut entries: Vec<(String, Vec<u8>)> = REQUIRED
+    let mut entries: Vec<(String, Vec<u8>)> = common::payload_required()
         .iter()
-        .filter(|f| Some(**f) != drop)
+        .filter(|f| *f != "VERSION" && Some(f.as_str()) != drop)
         .map(|f| (format!("urna/{f}"), body(f, version, &rel)))
         .collect();
     entries.push(("urna/VERSION".into(), format!("{version}\n").into_bytes()));
