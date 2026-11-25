@@ -30,6 +30,10 @@ DIST = (
     + "    with:\n"
     + dp.EDITS[2][0]
     + "    with:\n"
+    + "  build-local-artifacts:\n"
+    + dp.EDITS[3][0].format(sha=SHA)
+    + "  build-global-artifacts:\n    needs:\n"
+    + dp.EDITS[4][0].format(sha=SHA)
 )
 
 
@@ -46,7 +50,8 @@ def test_each_edit_lands_once():
     assert out.count("package-manager-cache: false") == 1, out
     assert out.count("      - build-global-artifacts\n") == 2, out
     assert out.count("      - custom-linuxpack\n") == 1, out
-    assert out.endswith("linuxpack.yml\n    with:\n"), out
+    assert out.count("    timeout-minutes: 60\n") == 2, out
+    assert out.endswith("global-dist-manifest.json\n"), out
 
 
 def test_moved_doubled_or_applied_text_is_refused():

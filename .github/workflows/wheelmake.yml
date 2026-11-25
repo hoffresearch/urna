@@ -37,6 +37,9 @@ jobs:
     name: wheel ${{ matrix.target }}
     needs: [tagverify]
     runs-on: ${{ matrix.os }}
+    # a wheel builds in about 3 minutes; a hung build fails at an hour, not
+    # at GitHub's 6-hour default.
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
