@@ -77,11 +77,12 @@ gatecheck.yml	fuzz-soak	seed corpus if empty	-	-	none	reason: the soak's corpus;
 gatecheck.yml	fuzz-soak	soak	-	-	none	reason: the schedule only (30 min per target); mitigation: sh tool/tasks/fuzzsweep.sh, by hand
 gatecheck.yml	fuzz-soak	minimize corpus	-	-	none	reason: the schedule only; mitigation: fuzzsweep.sh minimizes after each target
 gatecheck.yml	miri	nightly toolchain with miri (NIGHTLY)	-	-	setup	the schedule's
+gatecheck.yml	miri	install cargo-nextest (pinned release, checksum verified)	-	-	setup	the schedule's; cargo-nextest on PATH here
 gatecheck.yml	miri	miri setup	-	-	setup	the schedule's
-gatecheck.yml	miri	urna-format under miri	-	-	none	reason: the schedule only and advisory (about 90 min); mitigation: cargo +<NIGHTLY> miri test -p urna-format, by hand
+gatecheck.yml	miri	urna-format under miri	-	-	none	reason: the schedule and the dispatch only, an interpreter run of the suite that no push waits for (the sum of its tests is over an hour of one core); mitigation: by hand, with the nightly NIGHTLY names and its miri component: MIRIFLAGS='-Zmiri-disable-isolation -Zmiri-tree-borrows' cargo +<NIGHTLY> miri nextest run -p urna-format --profile miri
 gatecheck.yml	python	the skip log	-	-	setup	every tier sets URNA_SKIP_LOG
 gatecheck.yml	python	the gate's python tooling (pyproject.toml's gate group)	-	-	setup	the repo .venv holds the gate group (uv sync --group forge --group gate); test_gatematch, test_rehearsal and test_pkgrender name it in one line when pyyaml is missing
-gatecheck.yml	python	ruff (same file list as fullcheck.sh)	quick push full	ruff	exact	ruff from $PY (the ruff need, required in push), the gate group's on both sides; each resolves the newest ruff >= 0.17 when installed, so the versions can differ
+gatecheck.yml	python	ruff (same file list as fullcheck.sh)	quick push full	ruff	exact	ruff from $PY (the ruff need, required in push), the gate group's on both sides, which pins ruff exactly (pyproject.toml), so both run one version
 gatecheck.yml	python	names follow the length table and the lexicon	quick push full	names	exact	
 gatecheck.yml	python	urna keeps its import contracts	quick push full	layers	exact	
 gatecheck.yml	python	the atlas summary is the current state, not history	push full	python-job	exact	

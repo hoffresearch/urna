@@ -190,6 +190,10 @@ mod tests {
     use super::*;
 
     #[test]
+    // rayon does not run under miri: its crossbeam-epoch is undefined
+    // behaviour to stacked borrows, and under tree borrows the pool never
+    // finishes (20 minutes on 24 chunks, with one thread or four).
+    #[cfg_attr(miri, ignore)]
     fn parallel_encode_equals_sequential() {
         let t: Vec<String> = (0..2_000)
             .map(|i| format!("coração {} do acervo {}", i, "ção ".repeat(i % 31)))

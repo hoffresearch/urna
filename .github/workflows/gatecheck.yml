@@ -145,29 +145,7 @@ jobs:
       # the same profile. nextest runs no doctest, so `cargo test --doc`
       # follows it.
       - name: install cargo-nextest (pinned release, checksum verified)
-        env:
-          NEXTEST_VERSION: "0.9.148"
-          NEXTEST_SHA256_LINUX: 223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc
-          NEXTEST_SHA256_MACOS: 6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b
-        run: |
-          set -eu
-          case "$RUNNER_OS" in
-            Linux) asset=x86_64-unknown-linux-gnu; sum="$NEXTEST_SHA256_LINUX" ;;
-            macOS) asset=universal-apple-darwin; sum="$NEXTEST_SHA256_MACOS" ;;
-            *) echo "no cargo-nextest pinned for $RUNNER_OS" >&2; exit 1 ;;
-          esac
-          tarball="cargo-nextest-${NEXTEST_VERSION}-$asset.tar.gz"
-          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
-            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${NEXTEST_VERSION}/$tarball"
-          echo "$sum  $RUNNER_TEMP/$tarball" | shasum -a 256 -c -
-          # the macOS image has rustup but no ~/.cargo/bin until something is
-          # installed there: make it, and put it on PATH for the later steps.
-          bindir="${CARGO_HOME:-$HOME/.cargo}/bin"
-          mkdir -p "$bindir"
-          tar -xzf "$RUNNER_TEMP/$tarball" -C "$bindir"
-          echo "$bindir" >> "$GITHUB_PATH"
-          export PATH="$bindir:$PATH"
-          cargo nextest --version
+        uses: ./.github/actions/testsetup
       - name: test
         run: |
           cargo nextest run --workspace --profile ci
@@ -553,19 +531,41 @@ jobs:
           rustup toolchain install "$NIGHTLY" --profile minimal --component miri
           echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: install cargo-nextest (pinned release, checksum verified)
+        uses: ./.github/actions/testsetup
       - name: miri setup
         run: cargo miri setup
       # urna-format's only `unsafe` is the SHA instruction kernels, which
       # miri never runs (cfg(miri) takes the portable rounds); this turns
       # "no undefined behaviour" from a claim into a run over its parsers
-      # and codecs. tests that call zstd (c code miri cannot run) and the
-      # fsst table build (too slow under an interpreter) are marked in the
-      # source with the reason; the mutation and property harnesses run
-      # natively in the rust job instead.
+      # and codecs.
+      #
+      # through nextest (the `miri` profile of .config/nextest.toml): one
+      # `cargo miri test` interpreted the suite on one core and was
+      # cancelled at this job's limit every night, stuck in the first test
+      # that reaches rayon, so it never gave a verdict. each test is a process now, the
+      # runner's cores share them, a test that does not end is ended and
+      # reported, and the run fails on any of them.
+      #
+      # what does not run under miri, each marked in the source with its
+      # reason (`cfg_attr(miri, ignore)`, or `cfg(not(miri))` on a file):
+      # - the tests that call zstd, whose encoder is C code miri cannot
+      #   call; that is every test that writes a compressed section, and
+      #   the round trip, mutation and property harnesses built on them;
+      # - the tests that build an fsst table or encode with it, which go
+      #   through rayon: its crossbeam-epoch is undefined behaviour to
+      #   stacked borrows (why MIRIFLAGS asks for tree borrows), and under
+      #   tree borrows the pool never finishes, on 24 chunks as on 2,000,
+      #   with one thread as with four. the two unit tests of fsst.rs and
+      #   fsst_table.rs were the ones every night stopped in;
+      # - the SHA-256 of a million bytes and the exhaustive f16 sweep, for
+      #   their time.
+      # all of them run natively in the rust job. nextest runs no doctest;
+      # urna-format has none.
       - name: urna-format under miri
         env:
           MIRIFLAGS: -Zmiri-disable-isolation -Zmiri-tree-borrows
-        run: cargo miri test -p urna-format
+        run: cargo miri nextest run -p urna-format --profile miri
 
   python:
     name: python

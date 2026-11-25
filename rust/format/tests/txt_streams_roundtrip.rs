@@ -42,6 +42,7 @@ fn assert_decodes_byte_identical(items: &[&str]) {
 }
 
 #[test]
+#[cfg_attr(miri, ignore)] // zstd is c code, miri cannot call it
 fn empty_corpus_decodes_byte_identical() {
     assert_decodes_byte_identical(&[]);
 }

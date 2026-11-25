@@ -12,7 +12,21 @@ slow-timeout = { period = "60s" }
 [profile.ci]
 fail-fast = false
 
-# the fast local loop: the tests that need a built binary, the forge's
-# python or the potion table (the end-to-end harnesses) are the push tier's.
+# the fast local loop: the end-to-end harnesses (the four test binaries
+# below, which need a built binary, the forge's python or the potion table)
+# are the push tier's. a unit test that needs one of those still runs here
+# and logs its skip when it lacks it.
 [profile.quick]
 default-filter = "not (binary(cli_e2e) | binary(setup_e2e) | binary(embedder_resolution) | binary(c_roundtrip))"
+
+# urna-format under miri: gatecheck.yml's miri job runs `cargo miri nextest
+# run -p urna-format --profile miri`. each test is a miri process of its
+# own, so the runner's cores share them (one `cargo miri test` interprets
+# them one after the other on one core), every failure is reported, and a
+# test that does not end is ended after 20 minutes and reported as timed
+# out, with the results of the others: the job gives a verdict where it
+# used to be cancelled at its own limit without one. the slowest test
+# took 332 s on an m-series mac.
+[profile.miri]
+fail-fast = false
+slow-timeout = { period = "5m", terminate-after = 4 }
