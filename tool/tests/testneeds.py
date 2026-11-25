@@ -11,6 +11,9 @@ the needs and how to provide each live in testneeds.tsv beside this file;
 rust/clitui/tests/common/needs.rs holds the Rust tests to the same table
 and the same contract.
 
+    python tool/tests/testneeds.py skip NEED TEST REASON
+        `skip` for a shell gate (fullcheck.sh's own steps); exit 1 when
+        the need is required
     python tool/tests/testneeds.py report LOG
         print the needs LOG records, one line each; exit 1 when one of
         them is required by the environment or is not in the table
@@ -105,10 +108,17 @@ def report(log: Path, env: Mapping[str, str] | None = None) -> int:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2 or argv[0] != "report":
-        print(__doc__.rsplit("\n\n", 1)[1], file=sys.stderr)
-        return 2
-    return report(Path(argv[1]))
+    if argv[:1] == ["skip"] and len(argv) == 4:
+        try:
+            skip(*argv[1:])
+        except (NeedMissing, KeyError) as e:
+            print(f"FAIL: {e}", file=sys.stderr)
+            return 1
+        return 0
+    if argv[:1] == ["report"] and len(argv) == 2:
+        return report(Path(argv[1]))
+    print(__doc__.rsplit("\n\n", 1)[1], file=sys.stderr)
+    return 2
 
 
 if __name__ == "__main__":

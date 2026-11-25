@@ -94,7 +94,15 @@ def test_the_report_fails_on_a_required_or_unknown_need(tmp: Path) -> None:
         [sys.executable, script, "report", log], capture_output=True, text=True, env=env
     )
     assert p.returncode == 1 and "FAIL: forge skipped: potion" in p.stderr, (p.returncode, p.stderr)
-    print("error (the report exits 1 on a required or an unknown need): OK")
+    # `skip` for a shell gate: 0 and a log line, or 1 when required.
+    log.write_text("")
+    env["URNA_SKIP_LOG"] = str(log)
+    run = [sys.executable, script, "skip", "cards", "parity step", "unset"]
+    p = subprocess.run(run, capture_output=True, text=True, env=env)
+    assert p.returncode == 0 and log.read_text() == "cards\tparity step\tunset\n", p
+    p = subprocess.run(run, capture_output=True, text=True, env=dict(env, URNA_REQUIRE_CARDS="1"))
+    assert p.returncode == 1 and "FAIL: cards is required" in p.stderr, (p.returncode, p.stderr)
+    print("error (the report and the shell `skip` exit 1 on a required need): OK")
 
 
 def test_no_log_reports_nothing(tmp: Path) -> None:
