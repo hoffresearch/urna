@@ -161,7 +161,7 @@ TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
   "$PY" -c 'import importlib.metadata as m
 print("\n".join(sorted(d.metadata["Name"] + "==" + d.version for d in m.distributions())))'
   printf 'queries=%s k=%s corpus=%s RUSTFLAGS=%s\n' "$QUERIES" "$K" "$CORPUS" "${RUSTFLAGS:-}"
-  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' -e '^URNA_SKIP_LOG=' | sort || true)"
+  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' -e '^URNA_SKIP_LOG=' -e '^URNA_GATE_REV=' -e '^URNA_PUSHGUARD=' | sort || true)"
 STAMPS="$ROOT/target/fullcheck"
 mkdir -p "$STAMPS"
 
