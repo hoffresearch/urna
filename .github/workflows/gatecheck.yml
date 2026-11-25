@@ -147,8 +147,31 @@ jobs:
       # binary in parallel (.config/nextest.toml); the local push tier runs
       # the same profile. nextest runs no doctest, so `cargo test --doc`
       # follows it.
-      - name: install cargo-nextest (pinned release, checksum verified)
-        uses: ./.github/actions/testsetup
+      - &nextest
+        name: install cargo-nextest (pinned release, checksum verified)
+        env:
+          NEXTEST_VERSION: "0.9.148"
+          NEXTEST_SHA256_LINUX: 223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc
+          NEXTEST_SHA256_MACOS: 6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b
+        run: |
+          set -eu
+          case "$RUNNER_OS" in
+            Linux) asset=x86_64-unknown-linux-gnu; sum="$NEXTEST_SHA256_LINUX" ;;
+            macOS) asset=universal-apple-darwin; sum="$NEXTEST_SHA256_MACOS" ;;
+            *) echo "no cargo-nextest pinned for $RUNNER_OS" >&2; exit 1 ;;
+          esac
+          tarball="cargo-nextest-${NEXTEST_VERSION}-$asset.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${NEXTEST_VERSION}/$tarball"
+          echo "$sum  $RUNNER_TEMP/$tarball" | shasum -a 256 -c -
+          # the macOS image has rustup but no ~/.cargo/bin until something is
+          # installed there: make it, and put it on PATH for the later steps.
+          bindir="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$bindir"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$bindir"
+          echo "$bindir" >> "$GITHUB_PATH"
+          export PATH="$bindir:$PATH"
+          cargo nextest --version
       - name: test
         run: |
           cargo nextest run --workspace --profile ci
@@ -534,8 +557,8 @@ jobs:
           rustup toolchain install "$NIGHTLY" --profile minimal --component miri
           echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - name: install cargo-nextest (pinned release, checksum verified)
-        uses: ./.github/actions/testsetup
+      # the rust job's step, by its anchor: one pinned version, one pair of sums.
+      - *nextest
       - name: miri setup
         run: cargo miri setup
       # urna-format's only `unsafe` is the SHA instruction kernels, which
