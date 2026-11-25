@@ -38,6 +38,12 @@ on:
 permissions:
   contents: read
 
+# a newer push to the same pull request supersedes its run in progress;
+# every other run is a group of its own.
+concurrency:
+  group: cleanhost-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   linux:
     name: linux container, nothing installed
@@ -62,8 +68,10 @@ jobs:
         with:
           python-version: "3.15"
           allow-prereleases: true
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+      # the channel and components of rust-toolchain.toml, which outranks
+      # any `rustup default`.
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: build urna and stage its payload as a release
         run: |

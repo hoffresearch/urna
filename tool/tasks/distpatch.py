@@ -20,6 +20,10 @@ Edits:
 - the global-artifacts job ``custom-stampwork`` also waits for
   ``build-global-artifacts`` and ``custom-linuxpack``: the stamp covers the
   ``sha256.sum`` of the one and the ``packages.sha256.sum`` of the other.
+- the build jobs ``build-local-artifacts`` and ``build-global-artifacts``
+  stop after 60 minutes (a build takes about 5): a hung build fails then
+  instead of at GitHub's 6-hour default. the rehearsal copies both jobs, so
+  it carries the limit too.
 
 Subcommands:
 
@@ -88,6 +92,24 @@ EDITS = [
         "      - custom-wheelmake\n"
         "      - build-global-artifacts\n"
         "    uses: ./.github/workflows/linuxpack.yml\n",
+    ),
+    (
+        "    runs-on: ${{{{ matrix.runner }}}}\n"
+        "    container: ${{{{ matrix.container && matrix.container.image || null }}}}\n",
+        "    runs-on: ${{{{ matrix.runner }}}}\n"
+        "    container: ${{{{ matrix.container && matrix.container.image || null }}}}\n"
+        "    timeout-minutes: 60\n",
+    ),
+    (
+        '      - custom-wheelmake\n    runs-on: "ubuntu-22.04"\n'
+        "    env:\n"
+        "      GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}\n"
+        "      BUILD_MANIFEST_NAME: target/distrib/global-dist-manifest.json\n",
+        '      - custom-wheelmake\n    runs-on: "ubuntu-22.04"\n'
+        "    timeout-minutes: 60\n"
+        "    env:\n"
+        "      GH_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}\n"
+        "      BUILD_MANIFEST_NAME: target/distrib/global-dist-manifest.json\n",
     ),
 ]
 

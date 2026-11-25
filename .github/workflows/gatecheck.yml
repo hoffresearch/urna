@@ -1,8 +1,10 @@
 # continuous integration for the rust workspace and the python surface.
 #
-# the release workflows run on tags; this is the pull-request gate, the
-# one `tool/tasks/fullcheck.sh` runs locally, minus the LFS corpus
-# measurement (no LFS budget in CI): fmt, clippy with the
+# the release workflows run on tags; this is the pull-request gate. the
+# push tier of `tool/tasks/fullcheck.sh` runs its commands locally, and
+# tool/tasks/gatesteps.tsv maps each step to its local one or says why it
+# has none (tool/tests/test_gatematch.py, below, fails a step without a
+# line). CI runs no LFS corpus measurement (no LFS budget): fmt, clippy with the
 # workspace deny lints (`unwrap_used`, `undocumented_unsafe_blocks`), the
 # whole test suite on linux + macos (the aarch64 macos runner exercises the
 # NEON kernels, the x86_64 linux runner the AVX2 ones), the 639-line guard,
@@ -34,9 +36,23 @@ on:
 permissions:
   contents: read
 
+# a newer push to the same pull request supersedes its run in progress;
+# every other run (a push to main, the schedule) is a group of its own, so
+# none is cancelled or queued behind another.
+concurrency:
+  group: gatecheck-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+# the stable jobs install the toolchain rust-toolchain.toml pins (`rustup
+# toolchain install` with no name), which outranks any `rustup default`.
+# the nightly jobs (fuzz, fuzz-soak, miri) need a nightly the file cannot
+# name: NIGHTLY pins it, and each of them sets RUSTUP_TOOLCHAIN to it, the
+# one setting that outranks the file. bumped with the stable pin
+# (docs/CONTRIBUTING.md, "The toolchain").
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: -D warnings
+  NIGHTLY: nightly-2026-11-24
 
 jobs:
   rust:
@@ -65,8 +81,8 @@ jobs:
       - name: the skip log
         shell: bash
         run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: fmt
         run: cargo fmt --all --check
@@ -124,8 +140,32 @@ jobs:
             echo "PIN_HNSW_DIGESTS is set: graph_bytes_are_pinned would check nothing" >&2
             exit 1
           fi
+      # cargo-nextest runs each test in a process of its own and every test
+      # binary in parallel (.config/nextest.toml); the local push tier runs
+      # the same profile. nextest runs no doctest, so `cargo test --doc`
+      # follows it.
+      - name: install cargo-nextest (pinned release, checksum verified)
+        env:
+          NEXTEST_VERSION: "0.9.148"
+          NEXTEST_SHA256_LINUX: 223ba936714cc861a9cdedad5a8eb664dfdd69d6fbdf6cea6aa8184f523290dc
+          NEXTEST_SHA256_MACOS: 6c23b7fb4ca82c571fc8dfedbab45bfa773d45918f933170c85d21cd7f4b852b
+        run: |
+          set -eu
+          case "$RUNNER_OS" in
+            Linux) asset=x86_64-unknown-linux-gnu; sum="$NEXTEST_SHA256_LINUX" ;;
+            macOS) asset=universal-apple-darwin; sum="$NEXTEST_SHA256_MACOS" ;;
+            *) echo "no cargo-nextest pinned for $RUNNER_OS" >&2; exit 1 ;;
+          esac
+          tarball="cargo-nextest-${NEXTEST_VERSION}-$asset.tar.gz"
+          curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${NEXTEST_VERSION}/$tarball"
+          echo "$sum  $RUNNER_TEMP/$tarball" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$HOME/.cargo/bin"
+          cargo nextest --version
       - name: test
-        run: cargo test --workspace
+        run: |
+          cargo nextest run --workspace --profile ci
+          cargo test --workspace --doc
       # rust/clitui/parity is a workspace of its own: coolor, the crate the
       # cli's xterm-256 fold replaced, never enters the urna build or lock.
       - name: color fold parity against coolor (rust/clitui/parity)
@@ -141,7 +181,7 @@ jobs:
       - name: 639-line guard (rust/**/src)
         run: |
           # rust/av1dec is the rav1d fork vendored whole; its files keep upstream's shape
-          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path 'rust/av1dec/*' \
+          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path '*/target/*' -not -path 'rust/av1dec/*' \
             -exec wc -l {} + | awk '$1 > 639 {print}' | grep -v 'total$' || true)"
           if [ -n "$overlong" ]; then echo "$overlong"; exit 1; fi
       - name: rust/ingest (separate workspace)
@@ -178,8 +218,8 @@ jobs:
       - name: the skip log
         shell: bash
         run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: clippy
         run: cargo clippy -p urna --all-targets -- -D warnings
@@ -211,8 +251,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: fetch the potion table, verified against its lfs pointer
         run: sh tool/tasks/getpotion.sh
@@ -245,8 +285,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust/images/parity
@@ -318,8 +358,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust/format/parity
@@ -345,8 +385,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: nightly toolchain
-        run: rustup toolchain install nightly --profile minimal && rustup default nightly
+      - name: nightly toolchain (NIGHTLY)
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: fuzz
@@ -409,8 +451,8 @@ jobs:
         with:
           fetch-depth: 0 # the baseline is a rev, not a published crate
           persist-credentials: false
-      - name: toolchain
-        run: rustup toolchain install stable --profile minimal && rustup default stable
+      - name: toolchain (rust-toolchain.toml)
+        run: rustup toolchain install
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       # a base commit without the urna-format package has nothing to compare
       # against; skip instead of failing. found by package name, not by path:
@@ -450,8 +492,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: nightly toolchain
-        run: rustup toolchain install nightly --profile minimal && rustup default nightly
+      - name: nightly toolchain (NIGHTLY)
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: fuzz
@@ -498,8 +542,10 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
-      - name: nightly toolchain with miri
-        run: rustup toolchain install nightly --profile minimal --component miri && rustup default nightly
+      - name: nightly toolchain with miri (NIGHTLY)
+        run: |
+          rustup toolchain install "$NIGHTLY" --profile minimal --component miri
+          echo "RUSTUP_TOOLCHAIN=$NIGHTLY" >> "$GITHUB_ENV"
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: miri setup
         run: cargo miri setup
@@ -532,10 +578,14 @@ jobs:
       - name: the skip log
         shell: bash
         run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
-      - name: ruff (same file list as fullcheck.sh)
+      # pyproject.toml's gate group: pyyaml (the workflow readers) and ruff,
+      # what the local gate's .venv holds too. pip reads --group from 25.1.
+      - name: the gate's python tooling (pyproject.toml's gate group)
         run: |
-          python -m pip install ruff
-          URNA_PYTHON=python sh tool/tasks/ruffcheck.sh
+          python -m pip install --upgrade "pip>=25.1"
+          python -m pip install --group gate
+      - name: ruff (same file list as fullcheck.sh)
+        run: URNA_PYTHON=python sh tool/tasks/ruffcheck.sh
       - name: names follow the length table and the lexicon
         # the naming rule of docs/CONTRIBUTING.md: siblings of the same kind have the same
         # length, the exceptions are listed, docs/TERMS.md holds every
@@ -605,9 +655,12 @@ jobs:
         # rehearsal.yml is generated from release.yml; a dist upgrade
         # or a hand edit that drifts fails here.
         run: |
-          python -m pip install pyyaml
           python tool/tasks/rehearsal.py generate --check
           python tool/tests/test_rehearsal.py
+      - name: every check CI runs has its local step or the reason it has none
+        # tool/tasks/gatesteps.tsv against this workflow, lintworks.yml and
+        # the tiers of tool/tasks/fullcheck.sh (pyyaml: the gate group).
+        run: python tool/tests/test_gatematch.py
       - name: the release waits for and reports the exact version
         # against a local http server: the registry waits, the crates
         # publisher's outage handling, the report of a failed release.

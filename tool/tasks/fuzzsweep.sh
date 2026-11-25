@@ -10,13 +10,20 @@
 #   sh tool/tasks/fuzzsweep.sh 600        # 10 minutes per target
 #   URNA_FUZZ_TARGETS="section-decoders" sh tool/tasks/fuzzsweep.sh 300
 #
-# needs the nightly toolchain and cargo-fuzz (`cargo install cargo-fuzz`).
+# needs cargo-fuzz (`cargo install cargo-fuzz`) and the nightly CI pins
+# (NIGHTLY in .github/workflows/gatecheck.yml, read from there;
+# `rustup toolchain install <it>`); NIGHTLY=<toolchain> overrides it.
 
 set -eu
 
 SECONDS_PER_TARGET="${1:-3600}"
-TARGETS="${URNA_FUZZ_TARGETS:-urna-view section-decoders runtime-indexes mmap-open-search}"
+TARGETS="${URNA_FUZZ_TARGETS:-urna-view section-decoders runtime-indexes mmap-open-search zstd-decoder}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+NIGHTLY="${NIGHTLY:-$(sed -n 's/^  NIGHTLY: //p' "$ROOT/.github/workflows/gatecheck.yml")}"
+if [ -z "$NIGHTLY" ]; then
+    echo "fuzzsweep: no NIGHTLY in .github/workflows/gatecheck.yml" >&2
+    exit 2
+fi
 cd "$ROOT/fuzz"
 
 for t in $TARGETS; do
@@ -25,8 +32,8 @@ for t in $TARGETS; do
         cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna "corpus/$t/"
     fi
     echo "fuzzsweep: $t for ${SECONDS_PER_TARGET}s"
-    cargo +nightly fuzz run "$t" -- \
+    cargo +"$NIGHTLY" fuzz run "$t" -- \
         -max_total_time="$SECONDS_PER_TARGET" -max_len=65536 -rss_limit_mb=4096
-    cargo +nightly fuzz cmin "$t" >/dev/null 2>&1 || true
+    cargo +"$NIGHTLY" fuzz cmin "$t" >/dev/null 2>&1 || true
 done
 echo "fuzzsweep: clean ($TARGETS)"

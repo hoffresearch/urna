@@ -10,6 +10,12 @@
 //!   when search is given a candidate budget commensurate with the
 //!   corpus (`ef_search ≥ 4*k`).
 //!
+//! `URNA_TEST_REDUCED=1` (the local push tier of tool/tasks/fullcheck.sh)
+//! runs the two 10k-vector builds below, the slowest tests of the suite,
+//! smaller: the realistic recall on 2,000 vectors of the same dim against
+//! the same threshold, the pinned digests on the 2,000-vector case only.
+//! CI and the full tier run them whole.
+//!
 //! Recall here is set overlap between approximate and exact top-k.
 //! Queries are sampled from a different seed than the corpus so they
 //! are out-of-distribution (not chunks-of-corpus). This is the strict
@@ -68,6 +74,11 @@ fn random_l2(n: usize, dim: usize, seed: u64) -> Vec<f32> {
         }
     }
     v
+}
+
+/// the push tier's fast run (`URNA_TEST_REDUCED=1`), see the module doc.
+fn reduced() -> bool {
+    std::env::var("URNA_TEST_REDUCED").is_ok_and(|v| v == "1")
 }
 
 fn exact_topk(corpus: &[f32], n: usize, dim: usize, q: &[f32], k: usize) -> Vec<usize> {
@@ -162,7 +173,7 @@ fn hnsw_recall_at_1_synthetic() {
 /// run via `cargo test --release` in CI.
 #[test]
 fn hnsw_recall_realistic_size() {
-    let n = 10_000;
+    let n = if reduced() { 2_000 } else { 10_000 };
     let dim = 384;
     let corpus = random_l2(n, dim, 0xCAFE_BABE);
     let mut idx = HnswIndex::build(
@@ -181,7 +192,7 @@ fn hnsw_recall_realistic_size() {
     let recall = measure_recall(&idx, &corpus, n, dim, &queries, n_queries, 10, 400);
     assert!(
         recall >= 0.94,
-        "mean recall@10 at realistic scale too low: {:.4} (expected >= 0.94)",
+        "mean recall@10 at realistic scale (n={n}) too low: {:.4} (expected >= 0.94)",
         recall
     );
 }
@@ -231,7 +242,13 @@ fn graph_bytes_are_pinned() {
         ),
     ];
     let print = std::env::var("PIN_HNSW_DIGESTS").is_ok();
-    for (n, dim, corpus_seed, build_seed, m, ef, want) in CASES {
+    // the first case alone in the reduced run; a re-pin prints them all.
+    let cases = if reduced() && !print {
+        &CASES[..1]
+    } else {
+        &CASES[..]
+    };
+    for &(n, dim, corpus_seed, build_seed, m, ef, want) in cases {
         let corpus = random_l2(n, dim, corpus_seed);
         let idx = HnswIndex::build(corpus, n, dim, m, ef, build_seed);
         let got = graph_digest(&idx);

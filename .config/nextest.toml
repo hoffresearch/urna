@@ -1,0 +1,18 @@
+# cargo-nextest, the runner of the workspace tests in the gates: each test
+# in a process of its own, all binaries in parallel. gatecheck.yml's rust
+# job and the push tier of tool/tasks/fullcheck.sh run the `ci` profile,
+# the quick tier the `quick` one. nextest runs no doctest: both gates run
+# them with `cargo test --workspace --doc` after it.
+
+[profile.default]
+slow-timeout = { period = "60s" }
+
+# every failure of the run is reported, not the first one, as cargo test
+# reported every failing binary of a run.
+[profile.ci]
+fail-fast = false
+
+# the fast local loop: the tests that need a built binary, the forge's
+# python or the potion table (the end-to-end harnesses) are the push tier's.
+[profile.quick]
+default-filter = "not (binary(cli_e2e) | binary(setup_e2e) | binary(embedder_resolution) | binary(c_roundtrip))"
