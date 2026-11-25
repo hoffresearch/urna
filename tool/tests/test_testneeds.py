@@ -135,6 +135,40 @@ def test_every_required_variable_names_a_need() -> None:
     print(f"edge (the {len(named)} URNA_REQUIRE_* the tree names are needs of the table): OK")
 
 
+def tier_needs(fullcheck: str) -> dict[str, list[str]]:
+    """tier -> the needs fullcheck.sh requires in it. the script never
+    writes their URNA_REQUIRE_* names: it builds each from this list."""
+    return {
+        tier: needs.split()
+        for tier, needs in re.findall(
+            r'^\s*([a-z]+)\) REQUIRED_NEEDS="([^"]*)" ;;$', fullcheck, re.M
+        )
+    }
+
+
+def unknown_tier_needs(fullcheck: str) -> list[str]:
+    table = testneeds.needs()
+    return sorted(
+        f"{tier}: {need}"
+        for tier, needs in tier_needs(fullcheck).items()
+        for need in needs
+        if need not in table
+    )
+
+
+def test_every_need_a_tier_requires_is_in_the_table() -> None:
+    fullcheck = (REPO / "tool" / "tasks" / "fullcheck.sh").read_text(encoding="utf-8")
+    tiers = tier_needs(fullcheck)
+    assert set(tiers) == {"quick", "push", "full"} and tiers["push"] and tiers["full"], tiers
+    assert not unknown_tier_needs(fullcheck), unknown_tier_needs(fullcheck)
+    # a mistyped need would export a variable no test reads, and the need
+    # would go back to optional without a word.
+    typo = fullcheck.replace('NEEDS="forge lfs native ruff', 'NEEDS="forg lfs native ruff')
+    assert typo != fullcheck, "the push tier's list moved"
+    assert unknown_tier_needs(typo) == ["push: forg"], unknown_tier_needs(typo)
+    print("edge (the needs each tier of fullcheck.sh requires are needs of the table): OK")
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="urna-testneeds-") as d:
         tmp = Path(d)
@@ -143,7 +177,8 @@ def main() -> None:
         test_the_report_fails_on_a_required_or_unknown_need(tmp)
         test_no_log_reports_nothing(tmp)
     test_every_required_variable_names_a_need()
-    print("testneeds: 5 cases passed")
+    test_every_need_a_tier_requires_is_in_the_table()
+    print("testneeds: 6 cases passed")
 
 
 if __name__ == "__main__":
