@@ -1,0 +1,13 @@
+# the rust toolchain of every build of this tree: the local gate
+# (tool/tasks/fullcheck.sh), every CI job and the release's own builds read
+# it, so local and CI compile, lint and format with the same rustc. rustup
+# resolves it from the directory cargo runs in, so the separate workspaces
+# below the root (rust/ingest, fuzz/, the parity crates) use it too; it
+# outranks `rustup default`, and only RUSTUP_TOOLCHAIN or `cargo +<name>`
+# outrank it (the nightly jobs: fuzz, miri). a bump is its own pull request
+# (docs/CONTRIBUTING.md, "The toolchain"); rustdrift.yml builds on the
+# newest stable every week, so a bump's findings show up before it.
+[toolchain]
+channel = "1.100.0"
+components = ["clippy", "rustfmt"]
+profile = "minimal"

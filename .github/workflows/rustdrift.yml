@@ -1,0 +1,81 @@
+# the toolchain canary: every week, the newest stable builds, lints and
+# tests the tree, and the newest nightly builds the cargo-fuzz targets. the
+# gates build on the toolchains the tree pins (rust-toolchain.toml, and
+# NIGHTLY in gatecheck.yml), so a new rustc never fails a pull request by
+# surprise; this run shows what the next bump will meet (a new lint, a
+# changed build layout) while it is still a bump's work. it is not a gate:
+# nothing requires it, and a red run is an issue for the bump, not for the
+# pull requests in flight (docs/CONTRIBUTING.md, "The toolchain").
+
+name: rustdrift
+
+on:
+  schedule:
+    - cron: "41 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  stable:
+    name: newest stable
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    # what the gate's rust job provides: the potion table and the forge's
+    # python; RUSTUP_TOOLCHAIN outranks rust-toolchain.toml.
+    env:
+      RUSTUP_TOOLCHAIN: stable
+      URNA_REQUIRE_LFS: "1"
+      URNA_REQUIRE_FORGE: "1"
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - name: the newest stable
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustc -vV
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: |
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo clippy -p urna --no-default-features --all-targets -- -D warnings
+          cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+      - name: build
+        run: cargo build --workspace --all-targets
+      - name: the potion table and the forge's python
+        run: |
+          sh tool/tasks/getpotion.sh
+          python -m pip install "numpy>=1.26" "tokenizers>=0.20"
+          PYO3_PYTHON="$(command -v python)" cargo build -p urna-bridge --features pyo3/extension-module
+          cp target/debug/lib_urna.so rust/bridge/python/urna/_urna.so
+      - name: test
+        run: cargo test --workspace
+
+  nightly:
+    name: newest nightly (cargo-fuzz build)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      RUSTUP_TOOLCHAIN: nightly
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: the newest nightly
+        run: |
+          rustup toolchain install nightly --profile minimal
+          rustc -vV
+      - name: cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+      - name: every fuzz target builds
+        run: cd fuzz && cargo fuzz build

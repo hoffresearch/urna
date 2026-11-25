@@ -43,6 +43,12 @@ pip install ruff pyyaml numpy tokenizers pillow sentence-transformers pandas pya
 
 `numpy` and `tokenizers` are the forge deps the potion embedder needs; `pyyaml` is for the release rehearsal generator and its tests; `pillow` is for the image tests; `sentence-transformers` only for the pt-BR corpus and `search-text`.
 
+### The toolchain
+
+`rust-toolchain.toml` pins the Rust every build of the tree uses: the local gate, every CI job and the release builds (cargo-dist and maturin read it too). rustup installs it on the first `cargo` in the checkout, and it outranks `rustup default`, so a newer stable on your machine or on a runner never changes what the gate compiles. The nightly jobs (the cargo-fuzz smoke and soak, miri) take the nightly in `NIGHTLY` at the top of `.github/workflows/gatecheck.yml` through `RUSTUP_TOOLCHAIN`, and `tool/tasks/fuzzsweep.sh` reads the same line.
+
+A bump is a pull request of its own: change `channel` in `rust-toolchain.toml` (and `NIGHTLY`, to a nightly of the same week), run `rustup toolchain install` and `./tool/tasks/fullcheck.sh --tier push`, and fix what the new rustc and clippy report in the same pull request. `rustdrift.yml` builds, lints and tests on the newest stable and builds the fuzz targets on the newest nightly every Monday, so its last run shows what a bump will meet; it is not a gate.
+
 ### Local gate
 
 Run `./tool/tasks/fullcheck.sh` before every push and push only when it exits 0. Each check it skips prints `SKIP` with the reason; CI then runs that check first, so install what it names instead. Besides the setup above it needs:
