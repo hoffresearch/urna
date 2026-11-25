@@ -189,15 +189,16 @@ fn lay_down_payload(home: &Path, drop: &str) {
 
 #[test]
 fn a_payload_missing_a_module_names_the_files_and_setup_not_pip() {
-    let Some(python) = ["python3", "python"].into_iter().find(|p| {
-        Command::new(p)
-            .arg("--version")
-            .output()
-            .is_ok_and(|o| o.status.success())
-    }) else {
-        eprintln!("skip: no python on PATH to run the embedder");
-        return;
-    };
+    // every dev machine and ci runner has a python: no skip without it.
+    let python = ["python3", "python"]
+        .into_iter()
+        .find(|p| {
+            Command::new(p)
+                .arg("--version")
+                .output()
+                .is_ok_and(|o| o.status.success())
+        })
+        .expect("python3 or python on PATH to run the embedder");
     let dir = scratch("broken_payload");
     let bin = detached_binary(&dir);
     let home = dir.join("data").join("urna");

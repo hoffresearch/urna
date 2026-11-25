@@ -190,9 +190,8 @@ mod tests {
 
     #[test]
     fn download_streams_a_file_url_and_hashes_it() {
-        let Some(curl_bin) = super::super::scan::which("curl") else {
-            return;
-        };
+        // curl is on every dev machine and ci runner: no skip without it.
+        let curl_bin = super::super::scan::which("curl").expect("curl on PATH");
         let dir = std::env::temp_dir().join(format!("urna_net_{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let src = dir.join("src.bin");
