@@ -67,3 +67,9 @@ files = ["lib.rs"]
 replaces = ""
 change = "declares the modules added here: src/locks.rs, src/enums.rs, src/flags.rs, src/plain.rs"
 why = "the four modules above"
+
+[[deviation]]
+files = ["src/lib.rs", "src/tables.rs", "src/cpu.rs"]
+replaces = ""
+change = "no #[no_mangle]: the 19 dav1d_* entry points, the 9 tables and the cpu flags keep upstream's names as Rust items and are no longer exported as C symbols (only the asm, which this tree does not build, linked them by name)"
+why = "with the C names exported, rust/images/parity's crates.io rav1d resolved to the fork's definitions, one symbol per name, so the plane parity compared the fork with itself; liburna_cbinds also exported them, a clash with any libdav1d an app links beside it. tests/planes.rs the_reference_is_not_the_embedded_fork holds it"

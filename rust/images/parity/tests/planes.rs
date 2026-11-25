@@ -119,3 +119,20 @@ fn the_embedded_decoder_produces_the_upstream_planes() {
         inputs.len()
     );
 }
+
+/// The reference has to be the crates.io rav1d, not the fork: both are the
+/// same decoder, and while the fork exported rav1d's `#[no_mangle]` C names
+/// (`dav1d_open`, `dav1d_get_picture`, its tables) the linker bound every
+/// reference call to the fork's definition, so the test above compared the
+/// fork with itself and passed on a fork that corrupted its output. Two
+/// distinct definitions have distinct addresses; one merged symbol has one.
+#[test]
+fn the_reference_is_not_the_embedded_fork() {
+    let reference = rav1d::src::lib::dav1d_open as *const () as usize;
+    let fork = urna_av1dec::src::lib::dav1d_open as *const () as usize;
+    assert_ne!(
+        reference, fork,
+        "dav1d_open of crates.io rav1d and of urna-av1dec are one symbol: \
+         the fork exports a C name again (#[no_mangle] in rust/av1dec/src)"
+    );
+}

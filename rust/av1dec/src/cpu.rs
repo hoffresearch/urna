@@ -264,7 +264,6 @@ pub fn rav1d_set_cpu_flags_mask(mask: c_uint) {
     rav1d_cpu_flags_mask.store(mask, Ordering::SeqCst);
 }
 
-#[no_mangle]
 #[cold]
 pub extern "C" fn dav1d_set_cpu_flags_mask(mask: c_uint) {
     rav1d_set_cpu_flags_mask(mask)
