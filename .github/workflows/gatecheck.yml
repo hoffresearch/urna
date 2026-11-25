@@ -160,7 +160,13 @@ jobs:
           curl -fsSL --retry 3 -o "$RUNNER_TEMP/$tarball" \
             "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-${NEXTEST_VERSION}/$tarball"
           echo "$sum  $RUNNER_TEMP/$tarball" | shasum -a 256 -c -
-          tar -xzf "$RUNNER_TEMP/$tarball" -C "$HOME/.cargo/bin"
+          # the macOS image has rustup but no ~/.cargo/bin until something is
+          # installed there: make it, and put it on PATH for the later steps.
+          bindir="${CARGO_HOME:-$HOME/.cargo}/bin"
+          mkdir -p "$bindir"
+          tar -xzf "$RUNNER_TEMP/$tarball" -C "$bindir"
+          echo "$bindir" >> "$GITHUB_PATH"
+          export PATH="$bindir:$PATH"
           cargo nextest --version
       - name: test
         run: |
