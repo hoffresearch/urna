@@ -1,12 +1,14 @@
-# every check CI runs on a pull request or a push to main, and the local
-# tier of tool/tasks/fullcheck.sh that runs the same command, or why none
-# can. read by tool/tests/test_gatematch.py, which fails when a step of
-# gatecheck.yml or lintworks.yml has no line here, a line names a CI step
-# that is gone, a local step is not a step of a tier it names, or a command
-# of an `exact` line is not in the tier's source (tool/tasks/tiersteps.sh,
-# tool/tasks/fullcheck.sh; `python X` there is `"$PY" X`, and a pip install
-# is the environment, not the check). rehearsal.yml and cleanhost.yml are
-# listed where a local equivalent or a mitigation exists.
+# every step of gatecheck.yml and lintworks.yml, and the local tier of
+# tool/tasks/fullcheck.sh that runs the same command, or why none can.
+# read by tool/tests/test_gatematch.py, which fails when a step of those
+# two workflows has no line here, a line names a CI step that is gone, a
+# local step is not a step of a tier it names, or a command of an `exact`
+# line is not a command of the function that step runs in each tier it
+# names (tool/tasks/tiersteps.sh, tool/tasks/fullcheck.sh; `python X`
+# there is `"$PY" X`, and a pip install is the environment, not the
+# check). rehearsal.yml and cleanhost.yml are listed where a local
+# equivalent or a mitigation exists; the other workflows a pull request
+# can start (presetjob.yml, release.yml's plan) are not in this map.
 #
 # columns: workflow, job, step (its name, else its id or action, else its
 # first command), tiers (quick, push, full, space-separated, or -), local

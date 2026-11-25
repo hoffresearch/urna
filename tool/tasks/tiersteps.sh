@@ -8,16 +8,19 @@
 #   tier_quick - the fast loop on the working tree: names, fmt, clippy,
 #                the 639-line guard, ruff, the gate map and the tests that
 #                need no end-to-end setup (the nextest `quick` profile).
-#   tier_push  - what CI runs on a pull request that can run on macOS
-#                arm64, with CI's flags: the debug profile, RUSTFLAGS=-D
-#                warnings, every clippy variant, the read path without
-#                zstd, rust/ingest, fuzz/, the cross-target checks, cargo
-#                deny, cargo-semver-checks, the python job and the workflow
-#                linters. fullcheck.sh runs it in a clean worktree of the
-#                commit (target/gate/tree), never on the working tree.
+#   tier_push  - the checks CI runs on a pull request that
+#                tool/tasks/gatesteps.tsv gives this tier (the format and
+#                av1 parity workspaces are the full tier's; what only CI
+#                can run has its reason there), with CI's flags: the
+#                debug profile, RUSTFLAGS=-D warnings, every clippy
+#                variant, the read path without zstd, rust/ingest, fuzz/,
+#                the cross-target checks, cargo deny, cargo-semver-checks,
+#                the python job and the workflow linters. fullcheck.sh
+#                runs it in a clean worktree of the commit
+#                (target/gate/tree), never on the working tree.
 #
 # a command copied from a workflow is copied verbatim: the gate map checks
-# every line of an `exact` entry against this file.
+# every line of an `exact` entry against the function its step runs here.
 
 # shellcheck shell=bash
 

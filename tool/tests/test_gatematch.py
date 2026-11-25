@@ -8,12 +8,18 @@ workflows (pyyaml), the map and the tiers' source, and fails when:
   other workflows it lists, rehearsal.yml and cleanhost.yml, are partial);
 - a line names a workflow, job or step that no longer exists;
 - a line's local step is not a step of a tier it names;
-- a command of an `exact` line is not in the tiers' source;
+- a command of an `exact` line is not a command of the function that step
+  runs, in every tier the line names: the line itself, which may carry
+  environment assignments before it and a redirection after it, and
+  nothing else. a `step "..."` label, a comment or the same command in
+  another step or tier does not count;
 - a value is outside the map's vocabulary, or a `none` line gives no
   reason and mitigation.
 
 the cases after the tree's own prove the red side on copies: a CI step
-dropped, a CI step added, a local step dropped, a flag changed.
+dropped, a CI step added, a local step dropped, a flag changed on either
+side, a command left only in another tier, a command left only in its
+label.
 
     python tool/tests/test_gatematch.py
 """
@@ -75,43 +81,86 @@ def ci_steps(texts: dict[str, str]) -> dict[tuple[str, str, str], dict]:
     return out
 
 
-def tier_steps(fullcheck: str, tiersteps: str) -> dict[str, set[str]]:
-    """tier -> the step names it runs (`cached NAME` and `uncached NAME`)."""
+def functions(text: str) -> dict[str, str]:
+    """shell function -> its body, for the `name() {` ... `}` definitions."""
+    return dict(re.findall(r"^([a-z_0-9]+)\(\) \{\n(.*?)^\}", text, re.M | re.S))
 
-    def names(text: str) -> set[str]:
-        return set(re.findall(r"^\s*(?:cached|uncached)\s+([a-z0-9-]+)", text, re.M))
 
-    def body(fn: str) -> str:
-        m = re.search(rf"^{fn}\(\) \{{\n(.*?)^\}}", tiersteps, re.M | re.S)
-        return m.group(1) if m else ""
+def step_calls(text: str) -> dict[str, set[str]]:
+    """step name -> the functions it runs, from `cached NAME ... -- FUNCTION`
+    and `uncached NAME -- FUNCTION` (a `cached` call may continue a line)."""
+    out: dict[str, set[str]] = {}
+    call = r"^\s*(?:cached|uncached)\s+([a-z0-9-]+)\b(?:\\\n|[^\n])*?--\s+([a-z_0-9]+)\s*$"
+    for name, fn in re.findall(call, text, re.M):
+        out.setdefault(name, set()).add(fn)
+    return out
 
-    builtin = {n for n, text in BUILTIN.items() if text in fullcheck}
+
+def tier_steps(fullcheck: str, tiersteps: str) -> dict[str, dict[str, set[str]]]:
+    """tier -> its steps, each with the functions it runs. a full run is
+    the push tier and then fullcheck.sh's own steps, so a step both name
+    runs both functions there."""
+    fns = functions(tiersteps)
+    builtin: dict[str, set[str]] = {n: set() for n, text in BUILTIN.items() if text in fullcheck}
     own = fullcheck.split(FULL_MARK, 1)[1] if FULL_MARK in fullcheck else ""
-    quick, push = names(body("tier_quick")), names(body("tier_push"))
-    return {
-        "quick": quick | builtin,
-        "push": push | builtin,
-        "full": push | names(own) | builtin,
-    }
+    quick = step_calls(fns.get("tier_quick", ""))
+    push = step_calls(fns.get("tier_push", ""))
+    full = {name: set(called) for name, called in push.items()}
+    for name, called in step_calls(own).items():
+        full.setdefault(name, set()).update(called)
+    return {"quick": quick | builtin, "push": push | builtin, "full": full | builtin}
+
+
+def step_lines(
+    fns: dict[str, str], names: set[str], seen: frozenset[str] = frozenset()
+) -> list[str]:
+    """the command lines of the functions a step runs, and of the functions
+    those call by name: no blank line, no comment, no `step`/`ok` label."""
+    out = []
+    for fn in sorted(names - seen):
+        for line in fns.get(fn, "").splitlines():
+            line = line.strip()
+            if not line or line.startswith(("#", "step ", "ok ")):
+                continue
+            out.append(line)
+            word = line.split()[0]
+            if word in fns:
+                out += step_lines(fns, {word}, seen | names)
+    return out
 
 
 def commands(run: str) -> list[str]:
     """the command lines of a run script: no blank line, no comment, no
-    expression (CI's context) and no pip install (the environment)."""
+    expression (CI's context), no pip install (the environment) and no
+    shell option (the tiers run under fullcheck.sh's `set -euo pipefail`)."""
     out = []
     for line in run.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or "${{" in line or "pip install" in line:
             continue
+        if re.fullmatch(r"set -[a-z]+", line):
+            continue
         out.append(line)
     return out
 
 
-def found(line: str, source: str) -> bool:
-    """the CI command in the tiers' source, where `python X` is `"$PY" X`
-    (and `URNA_PYTHON=python` is `URNA_PYTHON="$PY"`)."""
-    local = re.sub(r"(^|=)python3?(?= )", r'\1"$PY"', line)
-    return line in source or local in source
+def found(line: str, lines: list[str]) -> bool:
+    """the CI command among a step's lines, where `python X` is `"$PY" X`
+    (and `URNA_PYTHON=python` is `URNA_PYTHON="$PY"`). the local line is
+    the command, after environment assignments (`NAME=value `) and before
+    a redirection or a line continuation (` 2>&1 \\`), if it has them: a
+    local flag CI does not pass is a difference, as CI's is."""
+    wanted = {line, re.sub(r"(^|=)python3?(?= )", r'\1"$PY"', line)}
+    for have in lines:
+        for want in wanted:
+            if have == want:
+                return True
+            have = re.sub(r"(?: 2>&1)?(?: \\)?$", "", have)
+            if have == want:
+                return True
+            if have.endswith(" " + want) and re.match(r"[A-Za-z_][A-Za-z0-9_]*=", have):
+                return True
+    return False
 
 
 def parse_map(text: str) -> list[tuple[int, list[str]]]:
@@ -126,7 +175,7 @@ def check(workflows: dict[str, str], table: str, fullcheck: str, tiersteps: str)
     problems = []
     steps = ci_steps(workflows)
     tiers = tier_steps(fullcheck, tiersteps)
-    source = fullcheck + "\n" + tiersteps
+    fns = {**functions(tiersteps), **functions(fullcheck)}
     seen = set()
     for n, (wf, job, name, tier_col, local, match, note) in parse_map(table):
         where = f"gatesteps.tsv:{n} ({wf} {job} '{name}')"
@@ -161,9 +210,11 @@ def check(workflows: dict[str, str], table: str, fullcheck: str, tiersteps: str)
             if run is None:
                 problems.append(f"{where}: an exact line needs a run step")
                 continue
-            missing = [c for c in commands(run) if not found(c, source)]
-            if missing:
-                problems.append(f"{where}: not in the tiers' source: {missing}")
+            for t in named:
+                lines = step_lines(fns, tiers.get(t, {}).get(local, set()))
+                missing = [c for c in commands(run) if not found(c, lines)]
+                if missing:
+                    problems.append(f"{where}: not a command of {local} in the {t} tier: {missing}")
     for key in sorted(steps):
         if key[0] in COMPLETE and key not in seen:
             wf, job, name = key
@@ -239,10 +290,45 @@ def test_a_changed_flag_fails() -> None:
     assert run in texts["gatecheck.yml"]
     texts["gatecheck.yml"] = texts["gatecheck.yml"].replace(run, run + " --all-features")
     problems = check(texts, table, fullcheck, tiersteps)
-    assert any("not in the tiers' source" in p and "--all-features" in p for p in problems), (
+    assert any("not a command of benches" in p and "--all-features" in p for p in problems), (
         problems
     )
     print("red (a CI command whose flags the local step does not carry): OK")
+
+
+def test_a_local_flag_fails() -> None:
+    texts, table, fullcheck, tiersteps = tree()
+    line = "  cargo bench -p urna-engine --no-run\n"
+    assert line in tiersteps
+    edited = tiersteps.replace(line, line.rstrip() + " --all-features\n")
+    problems = check(texts, table, fullcheck, edited)
+    assert any("not a command of benches in the push tier" in p for p in problems), problems
+    print("red (a local command with a flag CI does not pass): OK")
+
+
+def test_a_command_left_in_another_tier_fails() -> None:
+    # the full tier's python_tests runs test_chanprobe.py too: its copy
+    # there does not stand in for the push tier's python job.
+    texts, table, fullcheck, tiersteps = tree()
+    line = '  "$PY" tool/tests/test_chanprobe.py\n'
+    assert tiersteps.count(line) == 1
+    problems = check(texts, table, fullcheck, tiersteps.replace(line, ""))
+    assert any(
+        "not a command of python-job in the push tier" in p and "test_chanprobe.py" in p
+        for p in problems
+    ), problems
+    print("red (a command dropped from the push tier and kept elsewhere): OK")
+
+
+def test_a_command_left_in_its_label_fails() -> None:
+    texts, table, fullcheck, tiersteps = tree()
+    line = "  cargo build --workspace --all-targets\n"
+    assert tiersteps.count(line) == 1
+    assert 'step "cargo build --workspace --all-targets"' in tiersteps
+    edited = tiersteps.replace(line, "  cargo build --workspace\n")
+    problems = check(texts, table, fullcheck, edited)
+    assert any("not a command of ci-build in the push tier" in p for p in problems), problems
+    print("red (a command changed under a label that still names it): OK")
 
 
 def test_a_bare_none_fails() -> None:
@@ -261,6 +347,9 @@ def main() -> int:
     test_a_local_step_dropped_fails()
     test_a_full_step_dropped_fails()
     test_a_changed_flag_fails()
+    test_a_local_flag_fails()
+    test_a_command_left_in_another_tier_fails()
+    test_a_command_left_in_its_label_fails()
     test_a_bare_none_fails()
     return 0
 
