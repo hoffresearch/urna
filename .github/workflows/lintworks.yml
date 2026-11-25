@@ -35,6 +35,12 @@ on:
 
 permissions: {}
 
+# a newer push to the same pull request supersedes its run in progress;
+# every other run is a group of its own.
+concurrency:
+  group: lintworks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   actionlint:
     name: actionlint

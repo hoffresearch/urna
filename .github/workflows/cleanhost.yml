@@ -38,6 +38,12 @@ on:
 permissions:
   contents: read
 
+# a newer push to the same pull request supersedes its run in progress;
+# every other run is a group of its own.
+concurrency:
+  group: cleanhost-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   linux:
     name: linux container, nothing installed
