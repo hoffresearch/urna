@@ -36,9 +36,11 @@ pub fn shared(dir: &Path) -> Result<Arc<Potion>> {
 
 #[cfg(test)]
 mod tests {
-    //! parity against the reference embedder script, run when a python with
-    //! numpy and tokenizers is around (the repo venv, then `python3`), and
-    //! skipped with a note otherwise, unless `URNA_REQUIRE_PARITY` is set.
+    //! parity against the reference embedder script, run when the potion
+    //! table and a python with numpy and tokenizers are around
+    //! (`URNA_PYTHON`, the repo venv, then `python3`); without them it is a
+    //! skip of the `lfs` or `forge` need (tests/common/needs.rs), a failure
+    //! when the run requires it.
 
     use super::*;
     use std::process::Command;
@@ -55,8 +57,11 @@ mod tests {
 
     fn python() -> Option<String> {
         let venv = root().join(".venv/bin/python");
-        let candidates = [venv.to_string_lossy().into_owned(), "python3".into()];
-        candidates.into_iter().find(|py| {
+        let mut candidates = std::env::var("URNA_PYTHON")
+            .ok()
+            .into_iter()
+            .chain([venv.to_string_lossy().into_owned(), "python3".into()]);
+        candidates.find(|py| {
             Command::new(py)
                 .args(["-c", "import numpy, tokenizers"])
                 .output()
@@ -93,14 +98,14 @@ mod tests {
 
     #[test]
     fn vectors_and_model_hash_match_the_reference_script() {
-        let (Some(dir), Some(py)) = (table(), python()) else {
-            // the release gate (tool/tasks/fullcheck.sh) sets this: there a
-            // skip would pass #205 unchecked.
-            assert!(
-                std::env::var_os("URNA_REQUIRE_PARITY").is_none(),
-                "potion parity required: no table (an lfs pointer?) or no python with numpy+tokenizers"
-            );
-            eprintln!("skip potion parity: no table or no python with numpy+tokenizers");
+        // the release gate (tool/tasks/fullcheck.sh) and ci require both
+        // needs: there a skip would pass #205 unchecked.
+        let Some(dir) = table() else {
+            crate::needs::lack("lfs", "the potion table is missing or a git-lfs pointer");
+            return;
+        };
+        let Some(py) = python() else {
+            crate::needs::lack("forge", "no python with numpy and tokenizers");
             return;
         };
         let potion = Potion::open(&dir).expect("potion opens");

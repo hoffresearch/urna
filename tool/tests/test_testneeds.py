@@ -11,7 +11,8 @@ same for the Rust tests):
   into a failure naming the need and how to provide it, and logs nothing;
   the report of a required or unknown need exits 1; a need the table does
   not list is refused;
-- edge case: no log, or an empty one, reports nothing skipped.
+- edge case: no log, or an empty one, reports nothing skipped; every
+  URNA_REQUIRE_* the tree names is a need of the table (or ALL).
 
 Run: python tool/tests/test_testneeds.py
 """
@@ -102,6 +103,24 @@ def test_no_log_reports_nothing(tmp: Path) -> None:
     print("edge (no log or an empty one: nothing skipped): OK")
 
 
+def test_every_required_variable_names_a_need() -> None:
+    table = testneeds.needs()
+    assert all(table.values()), "a need without how to provide it"
+    files = subprocess.run(
+        ["git", "ls-files", "-z"], cwd=REPO, capture_output=True, text=True, check=True
+    ).stdout.split("\0")
+    named = set()
+    for rel in filter(None, files):
+        path = REPO / rel
+        if rel.startswith(("docs/CHANGELOG", "docs/news/")):
+            continue  # history may name a variable that is gone
+        if path.suffix in {".py", ".rs", ".sh", ".yml", ".md", ".toml"} and path.is_file():
+            named |= set(re.findall(r"URNA_REQUIRE_([A-Z0-9_]+[A-Z0-9])", path.read_text(errors="replace")))
+    stale = sorted(n for n in named - {"ALL"} if n.lower() not in table)
+    assert not stale, f"URNA_REQUIRE_* naming no need of testneeds.tsv: {stale}"
+    print(f"edge (the {len(named)} URNA_REQUIRE_* the tree names are needs of the table): OK")
+
+
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="urna-testneeds-") as d:
         tmp = Path(d)
@@ -109,7 +128,8 @@ def main() -> None:
         test_a_required_need_fails(tmp)
         test_the_report_fails_on_a_required_or_unknown_need(tmp)
         test_no_log_reports_nothing(tmp)
-    print("testneeds: 4 cases passed")
+    test_every_required_variable_names_a_need()
+    print("testneeds: 5 cases passed")
 
 
 if __name__ == "__main__":

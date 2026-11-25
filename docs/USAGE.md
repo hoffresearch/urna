@@ -663,7 +663,9 @@ Every `URNA_*` variable read anywhere in the codebase (installers, CLI, forge, d
 | `URNA_FRESH` | Dev | `0` | `1` makes `fullcheck.sh` run every step, ignoring the steps that already passed with the same inputs |
 | `URNA_CARDS_CORPUS` | Dev | Unset | The card corpus the tokenizer and AV1 parity (`rust/neural/parity`, `rust/images/parity`) compare on; `fullcheck.sh` runs that step only with it set and reports it skipped otherwise |
 | `URNA_PARITY_LIMIT` | Dev | `2000` in `fullcheck.sh` | How many chunks of `URNA_CARDS_CORPUS` the parity tests compare |
-| `URNA_REQUIRE_PARITY` | Dev | Unset; `1` in `fullcheck.sh` | Turns the potion parity's skip (no table, no python with numpy + tokenizers) into a failure |
+| `URNA_REQUIRE_<NEED>` | Dev | Unset; `fullcheck.sh` and `gatecheck.yml` set the needs they provide | `1` turns the skip of a test that lacks the need into a failure. A need is an external resource a test can lack, listed with how to provide it in `tool/tests/testneeds.tsv`: `forge` (a python with numpy + tokenizers), `lfs` (the git-lfs files, the potion table among them), `native`, `binary`, `release`, `cards`, `avif`, `media`, `network`, `stmodel`, `clip`, `cleanhost`, `ruff` |
+| `URNA_REQUIRE_ALL` | Dev | Unset | `1` requires every need |
+| `URNA_SKIP_LOG` | Dev | Unset; set by `fullcheck.sh` and `gatecheck.yml` | A file each skipped test appends `<need>\t<test>\t<reason>` to; `python tool/tests/testneeds.py report <file>` lists it |
 
 <details>
 <summary>One-liner (Linux, macOS)</summary>

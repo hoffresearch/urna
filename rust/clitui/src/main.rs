@@ -7,6 +7,9 @@ use clap::Parser;
 mod cli;
 mod cmd;
 mod error;
+#[cfg(test)]
+#[path = "../tests/common/needs.rs"]
+mod needs;
 #[cfg(feature = "tui")]
 mod tui;
 

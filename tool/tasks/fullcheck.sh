@@ -187,7 +187,7 @@ cached bridge-so "$RUST_IN" --output rust/bridge/python/urna/_urna.so -- bridge_
 # ---- cargo test (release) ----
 cargo_test() {
   step "cargo test --release --workspace"
-  URNA_REQUIRE_PARITY=1 cargo test --release --workspace 2>&1 \
+  URNA_REQUIRE_FORGE=1 URNA_REQUIRE_LFS=1 cargo test --release --workspace 2>&1 \
     | grep -E "^(test result|running [0-9]+ tests)" \
     | awk '/^test result/ { passed += $4; failed += $6; ignored += $8 } END { printf "  passed=%d failed=%d ignored=%d\n", passed, failed, ignored; if (failed > 0) exit 1 }'
   ok "all tests"
