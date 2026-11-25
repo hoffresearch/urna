@@ -64,6 +64,14 @@ OUT="${URNA_OUT:-/tmp/fullcheck_post.json}"
 CORPUS="${URNA_CORPUS:-}"
 FRESH="${URNA_FRESH:-0}"
 
+# hnsw_recall's graph_bytes_are_pinned prints the digests and asserts
+# nothing while PIN_HNSW_DIGESTS is set: a mode for re-pinning them, which
+# a gate must not pass on.
+if [[ -n "${PIN_HNSW_DIGESTS+set}" ]]; then
+  printf 'fullcheck: PIN_HNSW_DIGESTS is set (the hnsw digest re-pin mode); unset it to run the gate\n' >&2
+  exit 2
+fi
+
 if [[ -n "${URNA_PYTHON:-}" ]]; then
   PY="$URNA_PYTHON"
 elif [[ -x "$ROOT/.venv/bin/python" ]]; then

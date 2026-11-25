@@ -92,6 +92,14 @@ jobs:
       - name: fetch the potion table (embedder payload), verified against its lfs pointer
         run: sh tool/tasks/getpotion.sh
         shell: bash
+      # hnsw_recall's graph_bytes_are_pinned prints the digests and asserts
+      # nothing while PIN_HNSW_DIGESTS is set (the re-pin mode).
+      - name: the hnsw digest re-pin mode is off
+        run: |
+          if [ -n "${PIN_HNSW_DIGESTS+set}" ]; then
+            echo "PIN_HNSW_DIGESTS is set: graph_bytes_are_pinned would check nothing" >&2
+            exit 1
+          fi
       - name: test
         run: cargo test --workspace
       # rust/clitui/parity is a workspace of its own: coolor, the crate the
