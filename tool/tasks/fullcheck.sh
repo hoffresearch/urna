@@ -280,7 +280,7 @@ python_tests() {
   # an ignored file, and a hit needs the outputs it recorded.
   step "python tool/tests/test_stepcache.py"
   "$PY" tool/tests/test_stepcache.py
-  ok "stepcache (8 cases)"
+  ok "stepcache (10 cases)"
 
   # the corpus of step 4: fetched only with consent, measured only if pinned.
   step "python tool/tests/test_benchdata.py"

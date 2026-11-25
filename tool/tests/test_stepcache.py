@@ -11,7 +11,11 @@ this suite runs it against throwaway git repos:
   miss; a corrupt stamp is a miss; an output kept beside the stamp (named
   like it) is never overwritten by it;
 - edge case: an ignored file and a file outside the input paths leave the
-  key alone; no input paths hash no files (git would list the whole tree).
+  key alone; no input paths hash no files (git would list the whole tree);
+- false skips: an input path under which git sees no file is an error
+  (the cli exits 2 naming it), never a key that cannot move; a step whose
+  run grew the skip log past --skip-from is not marked, and its older
+  stamp goes, while lines from before the step leave the mark alone.
 
 Run: python tool/tests/test_stepcache.py
 """
@@ -100,6 +104,57 @@ def test_no_paths_hash_no_files():
     root = tree()
     assert stepcache.tree_files([], root) == []
     assert stepcache.tree_files(["rust/format"], root) == ["rust/format/src/lib.rs"]
+
+
+def test_an_input_path_with_no_file_is_an_error():
+    root = tree()
+    for paths in (["rust/clitui"], ["rust", "rust/format/src/gone.rs"]):
+        try:
+            stepcache.tree_files(paths, root)
+        except stepcache.MissingInput as e:
+            assert str(e) == paths[-1], e
+        else:
+            raise AssertionError(f"{paths}: an input path with no file hashed nothing")
+    # a tracked file deleted in the working tree is still an input (its
+    # absence is the change), and an untracked one not ignored is one too.
+    (root / "rust/engine/src/lib.rs").unlink()
+    assert stepcache.tree_files(["rust/engine/src/lib.rs"], root) == ["rust/engine/src/lib.rs"]
+    (root / "tool").mkdir()
+    (root / "tool/new.py").write_text("")
+    assert stepcache.tree_files(["tool"], root) == ["tool/new.py"]
+    (root / "only.so").write_text("ignored")
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT), "key", "rust", "only.so"], capture_output=True, text=True
+    )
+    assert p.returncode == 2 and "no file under the input path only.so" in p.stderr, p
+
+
+def test_a_step_that_skipped_is_not_marked():
+    root = tree()
+    stamps = root / "target/fullcheck"
+    log = root / "target/skips.log"
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text("cards\tearlier step\tunset\n")
+    since = log.stat().st_size
+    # lines from before the step are another step's: this one is marked.
+    assert stepcache.mark("parity", "k1", [], stamps, stepcache.skipped(log, since))
+    assert stepcache.hit("parity", "k1", [], stamps)
+    with log.open("a") as f:
+        f.write("forge\tcli_ask\tno numpy\n")
+    skips = stepcache.skipped(log, since)
+    assert skips == ["forge\tcli_ask\tno numpy"], skips
+    assert not stepcache.mark("parity", "k1", [], stamps, skips)
+    assert not stepcache.hit("parity", "k1", [], stamps), "the older stamp outlived a skip"
+    assert stepcache.skipped(root / "absent.log") == [] and stepcache.skipped(None) == []
+    # the cli: exit 0 (a skip of an optional need is no failure), no stamp.
+    p = subprocess.run(
+        [sys.executable, str(SCRIPT), "mark", "zz-test-skip", "k"]
+        + ["--skip-log", str(log), "--skip-from", str(since)],
+        capture_output=True,
+        text=True,
+    )
+    assert p.returncode == 0 and "NOT CACHED: zz-test-skip skipped tests for forge" in p.stderr, p
+    assert not stepcache.stamp_path("zz-test-skip", stepcache.STAMPS).exists()
 
 
 def test_hit_needs_the_key_and_the_outputs():
