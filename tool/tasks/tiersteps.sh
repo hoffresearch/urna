@@ -143,7 +143,8 @@ ci_clippy() {
   cargo clippy -p urna --no-default-features --all-targets -- -D warnings
   cargo clippy -p urna-format --no-default-features -- -D warnings
   cargo clippy -p urna-engine -p urna-cbinds -- -D warnings
-  if cargo tree -p urna-engine -p urna-cbinds -e normal,build | grep zstd; then
+  readers="$(cargo tree -p urna-engine -p urna-cbinds -e normal,build)"
+  if printf '%s\n' "$readers" | grep zstd; then
     echo "a reader depends on the zstd crate" >&2
     exit 1
   fi
