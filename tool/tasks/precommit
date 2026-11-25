@@ -20,7 +20,7 @@ set -eu
 # any cohort_*, any sidecar, anything under pairs/) is blocked.
 ALLOW='^(rust/format/tests/fixtures/golden_v1_minimal\.urna)$'
 
-staged=$(git diff --cached --name-only --diff-filter=ACM)
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
 [ -n "$staged" ] || exit 0
 
 violations=$(printf '%s\n' "$staged" | grep -E \
