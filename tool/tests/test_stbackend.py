@@ -23,6 +23,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rust", "bridge", "python"))
 
 import numpy as np
+import testneeds
 
 from urna.model import presetmap as mr
 
@@ -105,7 +106,11 @@ def test_worker_survives_multi_model(name: str) -> None:
         )
         j.embed_texts(["warm"])
     except mr.RegistryError:
-        print("test_worker_survives_multi_model: SKIP (jina snapshot not cached)")
+        testneeds.skip(
+            "stmodel",
+            "test_stbackend: test_worker_survives_multi_model",
+            "jina snapshot not cached",
+        )
         return
     w = mr.create_embedder("wemm-2b", allow_remote_code={"wemm-2b"}, batch_size=2)
     iv = w.embed_arrays([np.zeros((64, 64, 3), dtype=np.uint8)])
@@ -215,7 +220,7 @@ def main() -> None:
     for name in picked:
         preset = mr.PRESETS[name]
         if where(preset) in ("deps missing", "snapshot missing"):
-            print(f"{name}: SKIP ({where(preset)})")
+            testneeds.skip("stmodel", f"test_stbackend: {name}", where(preset))
             continue
         for fn in (test_hash_without_load, test_embed_contracts, test_worker_survives_multi_model):
             fn(name)
