@@ -37,7 +37,10 @@ forge = [
 ]
 gate = [
     "pyyaml>=6",
-    "ruff>=0.17",
+    # pinned exactly: the lint and the format are the same on every machine
+    # and in CI only at one version (a ruff minor can move a rule or the
+    # formatter); bump it in its own commit with the tree reformatted.
+    "ruff==0.17.6",
 ]
 
 [tool.ruff]
