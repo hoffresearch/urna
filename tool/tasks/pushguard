@@ -1,6 +1,7 @@
 #!/bin/sh
 # tool/tasks/pushguard - the pre-push hook: the push tier of the local gate
-# on each commit the push sends, then git-lfs's own pre-push.
+# on the tip of each ref the push sends (the commits under a tip are not
+# checked one by one), then git-lfs's own pre-push.
 #
 # git-lfs installs a pre-push hook of its own (it uploads the lfs objects a
 # push references), and this one replaces it in .git/hooks, so it calls
@@ -16,7 +17,8 @@ refs=$(cat)
 
 if [ "${URNA_PUSHGUARD:-1}" != 0 ]; then
     root=$(git rev-parse --show-toplevel)
-    # each commit pushed once: a branch deletion (an all-zero sha) sends none.
+    # the tip of each pushed ref, once: a branch deletion (an all-zero sha)
+    # sends none.
     shas=$(printf '%s\n' "$refs" | awk 'NF == 4 && $2 !~ /^0+$/ { print $2 }' | sort -u)
     for sha in $shas; do
         printf 'pushguard: fullcheck --tier push on %s\n' "$sha" >&2

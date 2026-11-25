@@ -57,7 +57,7 @@ gatecheck.yml	potion-native	the reference side	-	-	setup	$PY has numpy and token
 gatecheck.yml	potion-native	native and reference agree	push full	potion-native	equiv	the same suite with both needs required, against target/release/liburna_cbinds.dylib (CI's .so on linux)
 gatecheck.yml	av1-parity	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
 gatecheck.yml	av1-parity	avifenc and nasm	-	-	setup	avifenc from Homebrew; nasm only builds the reference's x86 asm, which an arm64 mac does not use
-gatecheck.yml	av1-parity	encode the AVIF inputs	full	parity	none	reason: CI encodes a synthetic set with an inline generator; mitigation: the full tier's parity step runs the same planes test on the cards corpus (URNA_CARDS_CORPUS, or URNA_AVIF_DIR), and is a logged skip of the cards need without it
+gatecheck.yml	av1-parity	encode the AVIF inputs	full	parity	none	reason: CI encodes a synthetic set with an inline generator; mitigation: with URNA_CARDS_CORPUS set, the full tier's parity step runs the same planes test on the corpus blobs (on the files of URNA_AVIF_DIR when that is set too); without the corpus the step is a logged skip of the cards need, whatever URNA_AVIF_DIR says
 gatecheck.yml	av1-parity	every plane of every input matches the crates.io rav1d	full	parity	equiv	rust/images/parity on URNA_CARDS_CORPUS in the full tier (skipped, and listed, without it)
 gatecheck.yml	format-parity	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
 gatecheck.yml	format-parity	the skip log	-	-	setup	the full tier's skip log

@@ -9,11 +9,12 @@
 # quick and push are tool/tasks/tiersteps.sh: quick runs names, fmt,
 # clippy, the 639-line guard, ruff, the gate map and the tests that need no
 # end-to-end setup; push runs, in a clean worktree of HEAD (URNA_GATE_REV
-# names another commit) at target/gate/tree, every check of gatecheck.yml
-# and lintworks.yml that can run on macOS arm64, with CI's flags (debug,
-# RUSTFLAGS=-D warnings) and URNA_TEST_REDUCED=1 (the three slowest tests
-# on fewer cases; CI runs them whole). tool/tasks/gatesteps.tsv lists every
-# CI check with the tier that runs it, or why none can.
+# names another commit) at target/gate/tree, the checks of gatecheck.yml
+# and lintworks.yml that tool/tasks/gatesteps.tsv gives it, with CI's
+# flags (debug, RUSTFLAGS=-D warnings) and URNA_TEST_REDUCED=1 (the three
+# slowest tests on fewer cases; CI runs them whole). the map lists every
+# check of those two workflows with the tier that runs it, or why none
+# can: the format and av1 parity workspaces are the full tier's.
 #
 # full runs push, then the release gate on the working tree (what it skips:
 # docs/USAGE.md section 10):
@@ -27,10 +28,11 @@
 # Exits non-zero on the first failure. A step that already passed with the
 # same inputs is skipped (tool/tasks/stepcache.py): its key hashes the files
 # it reads, the toolchain and the step's own text, so a run with nothing
-# changed takes seconds. A cold run takes about 5 min on an m-series mac
-# with a warm cargo cache: steps 1 to 3 about 3 min, and step 4 builds the
-# twelve presets and mrl variants of the 23,335-chunk corpus, which share
-# one text-codec choice (the first build makes it, about 40 s). System tools
+# changed takes seconds. A run with nothing remembered starts with the push
+# tier (its measured times: docs/CONTRIBUTING.md, "Local gate"), and its
+# step 4 builds the twelve presets and mrl variants of the 23,335-chunk
+# corpus, which share one text-codec choice (the first build makes it,
+# about 40 s). System tools
 # (ffmpeg, cjxl, ssimulacra2) and the network are not in the key: after
 # changing any of them, run with URNA_FRESH=1.
 #
@@ -314,6 +316,8 @@ cached cargo-test "$ALL_IN" -- cargo_test
 # reference crates stay out of urna's lock and cargo-deny), so the workspace
 # test above never runs them. their corpus pass reads the cards corpus named
 # by URNA_CARDS_CORPUS; without it the step is a skip of the cards need.
+# with URNA_AVIF_DIR set too, the av1 tests read that directory's .avif
+# files in place of the corpus blobs, so each of them is in the key.
 parity() {
   step "cargo test --release in rust/neural/parity and rust/images/parity"
   URNA_PARITY_LIMIT="${URNA_PARITY_LIMIT:-2000}" cargo test --release \
@@ -325,8 +329,12 @@ parity() {
   ok "tokenizer and av1 parity on $URNA_CARDS_CORPUS"
 }
 if [[ -n "${URNA_CARDS_CORPUS:-}" ]]; then
+  PARITY_FILES=(--file "$URNA_CARDS_CORPUS")
+  if [[ -n "${URNA_AVIF_DIR:-}" ]]; then
+    for avif in "$URNA_AVIF_DIR"/*.avif; do PARITY_FILES+=(--file "$avif"); done
+  fi
   cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format Cargo.toml $NEEDS_IN" \
-    --file "$URNA_CARDS_CORPUS" -- parity
+    "${PARITY_FILES[@]}" -- parity
 else
   step "parity"
   skip cards "fullcheck: tokenizer and av1 parity" "URNA_CARDS_CORPUS unset"
