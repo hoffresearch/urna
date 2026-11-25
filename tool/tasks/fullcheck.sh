@@ -93,11 +93,14 @@ ok() {
 # ---- step cache ----
 # the inputs of each step, as paths git sees. the rust steps read the
 # workspace; presetrun reads the crates that build and search a file, the
-# python package that calls them, the bench and the corpus (#489); the test
-# steps read the whole tree.
+# python package that calls them, the bench, benchdata.py (which presetrun
+# imports) and the corpus (#489); the test steps read the whole tree. the
+# parity workspaces build their path dependencies against the root
+# Cargo.toml (`workspace = true`) and include the needs helper and table.
 RUST_IN="rust Cargo.toml Cargo.lock clippy.toml rustfmt.toml"
-BENCH_IN="rust/format rust/engine rust/bridge tool/bench Cargo.toml Cargo.lock"
+BENCH_IN="rust/format rust/engine rust/bridge tool/bench tool/tasks/benchdata.py Cargo.toml Cargo.lock"
 ALL_IN="."
+NEEDS_IN="rust/clitui/tests/common/needs.rs tool/tests/testneeds.tsv"
 # the toolchain also lists the packages of the $PY environment, read with
 # importlib.metadata, not pip (a uv venv has no pip).
 TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
@@ -129,7 +132,7 @@ export URNA_SKIP_LOG="$STAMPS/skips.log"
 skip() { "$PY" tool/tests/testneeds.py skip "$@"; }
 skipped_bytes() { wc -c < "$URNA_SKIP_LOG" | tr -d ' '; }
 
-# cached NAME INPUTS [--file PATH]... [--output PATH]... -- FUNCTION
+# cached NAME INPUTS [--file PATH]... [--extra TEXT]... [--output PATH]... -- FUNCTION
 # runs FUNCTION unless NAME passed before with the same key and outputs.
 cached() {
   local name="$1" inputs="$2" keyargs=() outs=()
@@ -137,6 +140,7 @@ cached() {
   while [[ "$1" != -- ]]; do
     case "$1" in
       --file) keyargs+=(--file "$2") ;;
+      --extra) keyargs+=(--extra "$2") ;;
       --output) outs+=(--output "$2") ;;
       *) printf 'cached: unknown flag %s\n' "$1" >&2; exit 2 ;;
     esac
@@ -241,7 +245,7 @@ parity() {
   ok "tokenizer and av1 parity on $URNA_CARDS_CORPUS"
 }
 if [[ -n "${URNA_CARDS_CORPUS:-}" ]]; then
-  cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format" \
+  cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format Cargo.toml $NEEDS_IN" \
     --file "$URNA_CARDS_CORPUS" -- parity
 else
   step "parity"
@@ -258,7 +262,7 @@ format_parity() {
     | grep -E "^test result|panicked|FAILED"
   ok "f16, sha-256 and zstd decoder parity"
 }
-cached format-parity "rust/format rust/engine" -- format_parity
+cached format-parity "rust/format rust/engine Cargo.toml $NEEDS_IN" -- format_parity
 
 # ---- parity of the cli's color fold ----
 # rust/clitui/parity is a workspace of its own (coolor, the crate the fold
@@ -535,6 +539,11 @@ cached ruff "$ALL_IN" -- ruff
 # docker or podman linux container. without either it says so and runs
 # nothing, as URNA_CLEANHOST=0 does; neither marks the step passed.
 CLEANHOST_IN="$(sed -n 's/^      - "\(.*\)"$/\1/p' .github/workflows/cleanhost.yml | tr '\n' ' ')"
+# an empty list would key no file, and the step would skip forever.
+if [[ -z "${CLEANHOST_IN// /}" ]]; then
+  printf 'fullcheck: read no path filter from .github/workflows/cleanhost.yml (its format changed?)\n' >&2
+  exit 2
+fi
 CLEANHOST_MODE=""
 if command -v "${TART:-tart}" >/dev/null 2>&1 && [[ "$(uname -sm)" == "Darwin arm64" ]]; then
   CLEANHOST_MODE=macos
@@ -554,7 +563,8 @@ if [[ -n "$CLEANHOST_SKIP" ]]; then
   skip cleanhost "fullcheck: cleanhost (CI runs it when these change: $CLEANHOST_IN)" \
     "$CLEANHOST_SKIP"
 else
-  cached cleanhost "$CLEANHOST_IN" -- cleanhost
+  # the mode is in the key: a pass in a linux container is not the macOS VM's.
+  cached cleanhost "$CLEANHOST_IN" --extra "cleanhost mode: $CLEANHOST_MODE" -- cleanhost
 fi
 
 # ---- presetrun + compare ----
