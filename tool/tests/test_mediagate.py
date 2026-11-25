@@ -21,6 +21,8 @@ import tempfile
 from dataclasses import replace
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "rust" / "bridge" / "python"))
 
@@ -321,7 +323,10 @@ def main() -> None:
     test_cluster_order_deterministic()
     test_gate_labels_fall_back_to_canonical_text()
     if not HAVE:
-        print("SKIP: ffmpeg/ssimulacra2/cjxl/djxl not all present (brew install jpeg-xl)")
+        missing = [t for t in ("ffmpeg", "ssimulacra2", "cjxl", "djxl") if not shutil.which(t)]
+        testneeds.skip(
+            "media", "test_mediagate: 7 gate and jxl cases", f"no {', '.join(missing)} on PATH"
+        )
         return
     with tempfile.TemporaryDirectory(prefix="urna-qgate-") as tmp:
         base = Path(tmp)

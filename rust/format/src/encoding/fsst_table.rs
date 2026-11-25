@@ -210,6 +210,10 @@ mod tests {
     }
 
     #[test]
+    // rayon does not run under miri: its crossbeam-epoch is undefined
+    // behaviour to stacked borrows, and under tree borrows the pool never
+    // finishes (see fsst.rs, parallel_encode_equals_sequential).
+    #[cfg_attr(miri, ignore)]
     fn table_equals_the_full_ranking() {
         // pt-br text, zero bytes next to their prefixes (the padding case),
         // few distinct bytes (ties everywhere) and inputs shorter than 8.

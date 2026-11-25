@@ -1,0 +1,19 @@
+# the needs of the tests: an external resource a test can lack, and how to
+# provide it. URNA_REQUIRE_<NEED>=1 (or URNA_REQUIRE_ALL=1) turns its skip
+# into a failure. read by tool/tests/testneeds.py and, through include_str!,
+# by rust/clitui/tests/common/needs.rs; docs/USAGE.md explains the contract.
+# need	how to provide it
+forge	a python with numpy and tokenizers: URNA_PYTHON, or the repo .venv (uv sync --group forge --group gate)
+lfs	the git-lfs files, not their pointers: git lfs pull (the potion table alone: sh tool/tasks/getpotion.sh)
+native	the urna-cbinds library: cargo build --release -p urna-cbinds (or URNA_CBINDS naming it)
+binary	the release binary: cargo build --release (target/release/urna)
+release	cargo-release and towncrier at the versions tool/tasks/releasepr.sh pins, on PATH
+cards	URNA_CARDS_CORPUS naming the cards corpus
+avif	URNA_AVIF_DIR naming a directory of .avif files, or URNA_CARDS_CORPUS
+media	ffmpeg with libsvtav1, ffprobe, avifenc, avifdec, cjxl, djxl, ssimulacra2, Pillow and PyMuPDF
+network	huggingface.co reachable
+stmodel	a python with sentence-transformers (test_askrouter takes the one URNA_ST_PYTHON names) and the model's snapshot in the hugging face cache
+clip	the siglip2 preset's packages (torch, open_clip) and its pinned snapshot in the hugging face cache
+cleanhost	a tart macOS VM (TART=<path>) or docker or podman; URNA_CLEANHOST=0 skips on purpose
+ruff	ruff importable from the python fullcheck runs (URNA_PYTHON): uv sync --group forge --group gate
+targets	the x86_64 linux and windows standard libraries the push tier checks against: rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-msvc

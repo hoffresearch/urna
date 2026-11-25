@@ -22,6 +22,8 @@ import socket
 import struct
 import sys
 
+import testneeds
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rust", "bridge", "python"))
 
 from urna.embed.lexifloor import default_embedder as lexical_embedder
@@ -170,18 +172,19 @@ PARITY_TEXTS = [
 
 def test_native_matches_the_reference() -> None:
     """the Rust path (urna-neural through the C ABI) against numpy + tokenizers:
-    the same token ids, vectors within 1e-6, the same model_hash. skipped when
-    either side is missing, unless URNA_REQUIRE_NATIVE=1 (the CI job)."""
+    the same token ids, vectors within 1e-6, the same model_hash. without the
+    library it is the `native` need, without numpy + tokenizers the `forge`
+    need (testneeds.py): a skip, or a failure where the run requires it."""
     import importlib.util
 
     from urna import _cabi
 
     have_ref = all(importlib.util.find_spec(m) for m in ("numpy", "tokenizers"))
-    if _cabi.library() is None or not have_ref:
-        assert os.environ.get("URNA_REQUIRE_NATIVE") != "1", (
-            "native parity required: no urna-cbinds library or no numpy + tokenizers"
-        )
-        print("\n[parity] skipped: no urna-cbinds library or no numpy + tokenizers")
+    if _cabi.library() is None:
+        testneeds.skip("native", "test_native_matches_the_reference", "no urna-cbinds library")
+        return
+    if not have_ref:
+        testneeds.skip("forge", "test_native_matches_the_reference", "no numpy + tokenizers")
         return
     from tokenizers import Tokenizer
 

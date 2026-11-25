@@ -103,6 +103,9 @@ tool/tests/test_atlasdocs.py
 tool/tests/test_lintmatch.py
 tool/tests/test_stepcache.py
 tool/tests/test_namecheck.py
+tool/tests/testneeds.py
+tool/tests/test_testneeds.py
+tool/tests/test_gatematch.py
 "
 # shellcheck disable=SC2086
 "$PY" -m ruff check $TARGETS

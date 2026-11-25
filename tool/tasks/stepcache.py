@@ -6,16 +6,23 @@ modification time. the key of a step is the sha-256 of:
 
 - every file under its input paths that git sees (tracked, plus untracked
   ones not ignored), each by path and content, so an edit not yet
-  committed counts and a generated file under target/ does not;
+  committed counts and a generated file under target/ does not. an input
+  path under which git sees no file is an error, never an empty hash: a
+  renamed or mistyped path would give a key that never moves;
 - any file outside the tree it names with --file (the bench corpus);
 - the --extra strings: the toolchain versions and the step's own text.
 
 a stamp records the key and the sha-256 of each --output, so a step whose
-product was deleted or rebuilt by something else runs again.
+product was deleted or rebuilt by something else runs again. a step whose
+run skipped a test for a missing need (tool/tests/testneeds.py: the lines
+the skip log gained past --skip-from) is not recorded, and an older stamp
+of it is dropped: a pass that left something unchecked is not a pass to
+remember.
 
     key  [--file PATH]... [--extra TEXT]... [PATH...]   print the key
     hit  NAME KEY [--output PATH]...   exit 0 if NAME passed with KEY
-    mark NAME KEY [--output PATH]...   record that NAME passed with KEY
+    mark NAME KEY [--output PATH]... [--skip-log PATH --skip-from BYTES]
+         record that NAME passed with KEY, unless the skip log grew
 
 stamps live in target/fullcheck/ (ignored; `cargo clean` drops them).
 """
@@ -46,18 +53,27 @@ def file_digest(path: Path) -> str:
     return h.hexdigest()
 
 
+class MissingInput(ValueError):
+    """an input path under which git sees no file."""
+
+
 def tree_files(paths: list[str], root: Path = ROOT) -> list[str]:
     """the files under `paths` that git sees: tracked and untracked, minus
-    ignored ones, sorted. no paths means no files (git would list all)."""
-    if not paths:
-        return []
-    out = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths],
-        cwd=root,
-        capture_output=True,
-        check=True,
-    ).stdout
-    return sorted({p for p in out.decode().split("\0") if p})
+    ignored ones, sorted. no paths means no files (git would list all); a
+    path under which git sees none raises MissingInput."""
+    files: set[str] = set()
+    for path in paths:
+        out = subprocess.run(
+            ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", path],
+            cwd=root,
+            capture_output=True,
+            check=True,
+        ).stdout
+        found = {p for p in out.decode().split("\0") if p}
+        if not found:
+            raise MissingInput(path)
+        files |= found
+    return sorted(files)
 
 
 def key(paths: list[str], files: list[str], extras: list[str], root: Path = ROOT) -> str:
@@ -93,11 +109,31 @@ def hit(name: str, k: str, outputs: list[str], stamps: Path = STAMPS) -> bool:
     return stamp.get("key") == k and stamp.get("outputs") == now
 
 
-def mark(name: str, k: str, outputs: list[str], stamps: Path = STAMPS) -> None:
+def skipped(log: Path | None, since: int = 0) -> list[str]:
+    """the lines the skip log gained past byte `since`: the tests the step
+    skipped, as `need\ttest\treason`."""
+    if log is None:
+        return []
+    try:
+        data = log.read_bytes()[since:]
+    except FileNotFoundError:
+        return []
+    return [line for line in data.decode(errors="replace").splitlines() if line]
+
+
+def mark(
+    name: str, k: str, outputs: list[str], stamps: Path = STAMPS, skips: list[str] | None = None
+) -> bool:
+    """record that `name` passed with `k`; with `skips`, drop its stamp
+    instead and return False."""
+    if skips:
+        stamp_path(name, stamps).unlink(missing_ok=True)
+        return False
     stamps.mkdir(parents=True, exist_ok=True)
     tmp = stamp_path(name, stamps).with_suffix(".tmp")
     tmp.write_text(json.dumps({"key": k, "outputs": outputs_of(outputs)}, indent=2) + "\n")
     tmp.replace(stamp_path(name, stamps))
+    return True
 
 
 def main(argv: list[str]) -> int:
@@ -112,13 +148,26 @@ def main(argv: list[str]) -> int:
         s.add_argument("name")
         s.add_argument("key")
         s.add_argument("--output", action="append", default=[])
+        if cmd == "mark":
+            s.add_argument("--skip-log", type=Path)
+            s.add_argument("--skip-from", type=int, default=0)
     args = ap.parse_args(argv)
     if args.cmd == "key":
-        print(key(args.paths, args.file, args.extra))
+        try:
+            print(key(args.paths, args.file, args.extra))
+        except MissingInput as e:
+            print(f"stepcache: no file under the input path {e}", file=sys.stderr)
+            return 2
         return 0
     if args.cmd == "hit":
         return 0 if hit(args.name, args.key, args.output) else 1
-    mark(args.name, args.key, args.output)
+    skips = skipped(args.skip_log, args.skip_from)
+    if not mark(args.name, args.key, args.output, skips=skips):
+        needs = sorted({line.split("\t", 1)[0] for line in skips})
+        print(
+            f"  NOT CACHED: {args.name} skipped tests for {', '.join(needs)}; it runs again",
+            file=sys.stderr,
+        )
     return 0
 
 

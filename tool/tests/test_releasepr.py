@@ -32,6 +32,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = "tool/tasks/releasepr.sh"
 PINNED = re.search(r"^CARGO_RELEASE_VERSION=(\S+)$", (REPO / SCRIPT).read_text(), re.M).group(1)
@@ -41,8 +43,17 @@ FILES = ["CITATION.cff", "Cargo.lock", "Cargo.toml", "docs/CHANGELOG"]
 CITED = ("version:", "date-released:", "repository-artifact:", "    value:", "    description:")
 
 
+def hermetic(env=None) -> dict:
+    """The environment without the caller's GIT_* variables: GIT_CONFIG_COUNT,
+    GIT_CONFIG_KEY_n and GIT_AUTHOR_* outrank the scratch repository's own
+    config, so a caller that sets them (an agent session signing with its own
+    key) would sign the release commit with a key the test does not trust."""
+    source = os.environ if env is None else env
+    return {k: v for k, v in source.items() if not k.startswith("GIT_")}
+
+
 def run(args, cwd, env=None, check=True):
-    proc = subprocess.run(args, cwd=cwd, env=env, capture_output=True, text=True)
+    proc = subprocess.run(args, cwd=cwd, env=hermetic(env), capture_output=True, text=True)
     if check and proc.returncode != 0:
         raise AssertionError(f"{args} failed ({proc.returncode}):\n{proc.stdout}\n{proc.stderr}")
     return proc
@@ -115,8 +126,15 @@ def case_happy(repo: Path, signers: Path, tmp: Path):
 
     assert workspace_version(wt) == new
     manifest = (wt / "Cargo.toml").read_text()
+    before = (repo / "Cargo.toml").read_text()
     for pin, path in (("urna-format", "rust/format"), ("urna-engine", "rust/engine")):
-        assert f'{pin} = {{ path = "{path}", version = "{new}" }}' in manifest, pin
+        # the pin keeps every other key it had (urna-format carries
+        # default-features = false since #653); only the version moves.
+        head = f'{pin} = {{ path = "{path}"'
+        line = next(ln for ln in before.splitlines() if ln.startswith(head))
+        assert f'version = "{old}"' in line, (pin, line)
+        bumped = line.replace(f'version = "{old}"', f'version = "{new}"')
+        assert bumped in manifest.splitlines(), pin
     lock = (wt / "Cargo.lock").read_text()
     for name in ("urna", "urna-format", "urna-engine", "urna-bridge"):
         assert f'name = "{name}"\nversion = "{new}"' in lock, f"Cargo.lock {name}"
@@ -206,13 +224,13 @@ def case_no_news(repo: Path, tmp: Path):
 def main():
     found = run(["cargo", "release", "--version"], REPO, check=False).stdout.split()
     if found[1:2] != [PINNED]:
-        print(f"releasepr: skipped, cargo-release {PINNED} is not installed")
+        testneeds.skip("release", "test_releasepr", f"cargo-release {PINNED} is not installed")
         return
     found = []
     if shutil.which("towncrier"):
         found = run(["towncrier", "--version"], REPO, check=False).stdout.split()
     if found[2:3] != [TOWNCRIER]:
-        print(f"releasepr: skipped, towncrier {TOWNCRIER} is not installed")
+        testneeds.skip("release", "test_releasepr", f"towncrier {TOWNCRIER} is not installed")
         return
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)

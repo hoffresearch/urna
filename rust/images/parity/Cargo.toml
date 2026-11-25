@@ -20,8 +20,13 @@ urna-images = { path = ".." }
 urna-engine = { path = "../../engine" }
 # the rgba parity: the decoder the explorer used before urna-images.
 avif-decode = { version = "3", default-features = false }
-# the plane parity: the same decoder from crates.io, no asm.
+# the plane parity: the same decoder from crates.io. asked for without asm
+# here; on x86_64 avif-decode's own dependency asks for rav1d's default
+# features, and the two unify, so the reference there is built with its
+# asm (gatecheck.yml installs nasm for it). on arm64 it has none.
 rav1d = { version = "1.1", default-features = false, features = ["bitdepth_8"] }
+# the fork itself, named only so tests/planes.rs can tell it from the reference.
+urna-av1dec = { path = "../../av1dec" }
 
 [lib]
 path = "lib.rs"

@@ -11,7 +11,9 @@
 //! the inputs come from a seeded splitmix64 (`Gen`), so every run draws
 //! the same cases: 256 per property, `URNA_PROP_CASES=5000` for a local
 //! soak. a failing case names its seed; `URNA_PROP_SEED=<seed>` reruns that
-//! one case alone.
+//! one case alone. `URNA_TEST_REDUCED=1` (the local push tier of
+//! tool/tasks/fullcheck.sh) runs the txt_streams property, the slowest of
+//! the suite, on the first 32 of its cases; CI runs all of them.
 
 // not under miri: property volume is not what miri is for: hundreds of cases per property, each a full encode + decode; the fixed-input codec tests cover the same paths under miri.
 #![cfg(not(miri))]
@@ -82,13 +84,21 @@ impl Gen {
 /// `body` over the property's cases, each from its own seed; a failure
 /// names the seed that reproduces it.
 fn property(name: &str, body: impl Fn(&mut Gen)) {
+    property_reduced(name, 256, body);
+}
+
+/// `property` for a property whose 256 cases set the floor of the suite's
+/// time: under `URNA_TEST_REDUCED=1` it runs the first `reduced` of them
+/// (the same seeds, fewer), unless `URNA_PROP_CASES` names a count.
+fn property_reduced(name: &str, reduced: u64, body: impl Fn(&mut Gen)) {
     let one = std::env::var("URNA_PROP_SEED")
         .ok()
         .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok());
+    let fewer = std::env::var("URNA_TEST_REDUCED").is_ok_and(|v| v == "1");
     let cases: u64 = std::env::var("URNA_PROP_CASES")
         .ok()
         .and_then(|s| s.parse().ok())
-        .unwrap_or(256);
+        .unwrap_or(if fewer { reduced } else { 256 });
     let base = name.bytes().fold(0xCBF2_9CE4_8422_2325u64, |h, b| {
         (h ^ b as u64).wrapping_mul(0x100_0000_01B3)
     });
@@ -241,7 +251,7 @@ fn intpack_roundtrips_and_is_byte_stable() {
 
 #[test]
 fn txt_streams_roundtrips_and_is_byte_stable() {
-    property("txt_streams_roundtrips_and_is_byte_stable", |g| {
+    property_reduced("txt_streams_roundtrips_and_is_byte_stable", 32, |g| {
         let texts = texts(g);
         let raw = raw_canonical(&texts);
         let enc = encode_txt_streams(&texts).expect("encode");

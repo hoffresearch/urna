@@ -90,16 +90,11 @@ mod tests {
         );
     }
 
-    /// the system's own reader (`sips` on macOS) decodes it: skipped where
-    /// there is none.
+    /// the system's own reader (`sips`, every macOS has it) decodes it:
+    /// ignored elsewhere, never a pass that ran nothing.
     #[test]
+    #[cfg_attr(not(target_os = "macos"), ignore = "sips is macOS only")]
     fn the_system_reader_decodes_it() {
-        let Ok(sips) = std::process::Command::new("which").arg("sips").output() else {
-            return;
-        };
-        if !sips.status.success() {
-            return;
-        }
         let img = Rgba::new(3, 2, vec![200; 24]).expect("3x2");
         let path = std::env::temp_dir().join(format!("urna-png-{}.png", std::process::id()));
         std::fs::write(&path, encode(&img)).expect("write");
@@ -107,7 +102,7 @@ mod tests {
             .args(["-g", "pixelWidth", "-g", "pixelHeight"])
             .arg(&path)
             .output()
-            .expect("sips runs");
+            .expect("sips runs (/usr/bin/sips on macOS)");
         let _ = std::fs::remove_file(&path);
         let text = String::from_utf8_lossy(&out.stdout);
         assert!(

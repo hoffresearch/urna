@@ -33,7 +33,15 @@ import tarfile
 import tempfile
 from pathlib import Path
 
-import yaml
+import testneeds
+
+try:
+    import yaml
+except ImportError:
+    sys.exit(
+        "test_rehearsal: needs pyyaml, in pyproject.toml's gate group: "
+        "uv sync --group forge --group gate (pip install --group gate)"
+    )
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("rehearsal", REPO / "tool" / "tasks" / "rehearsal.py")
@@ -271,7 +279,9 @@ def test_the_artifacts_a_release_uploads() -> None:
 def test_a_real_binary_against_the_golden_fixture() -> None:
     binary = REPO / "target" / "release" / "urna"
     if not binary.is_file():
-        print("binary case skipped: no target/release/urna (cargo build --release)")
+        testneeds.skip(
+            "binary", "test_a_real_binary_against_the_golden_fixture", "no target/release/urna"
+        )
         return
     golden = REPO / "rust/format/tests/fixtures/golden_v1_minimal.urna"
     with tempfile.TemporaryDirectory() as tmp:

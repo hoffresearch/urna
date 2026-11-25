@@ -566,6 +566,7 @@ version = "0.1.0"
 dependencies = [
  "avif-decode",
  "rav1d",
+ "urna-av1dec",
  "urna-engine",
  "urna-images",
 ]

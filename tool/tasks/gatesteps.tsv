@@ -1,0 +1,113 @@
+# every step of gatecheck.yml and lintworks.yml, and the local tier of
+# tool/tasks/fullcheck.sh that runs the same command, or why none can.
+# read by tool/tests/test_gatematch.py, which fails when a step of those
+# two workflows has no line here, a line names a CI step that is gone, a
+# local step is not a step of a tier it names, or a command of an `exact`
+# line is not a command of the function that step runs in each tier it
+# names (tool/tasks/tiersteps.sh, tool/tasks/fullcheck.sh; `python X`
+# there is `"$PY" X`, and a pip install is the environment, not the
+# check). rehearsal.yml and cleanhost.yml are listed where a local
+# equivalent or a mitigation exists; the other workflows a pull request
+# can start (presetjob.yml, release.yml's plan) are not in this map.
+#
+# columns: workflow, job, step (its name, else its id or action, else its
+# first command), tiers (quick, push, full, space-separated, or -), local
+# (the step name in those tiers; `report` is the skip table every tier ends
+# with, `pinmode` fullcheck's refusal of PIN_HNSW_DIGESTS), match, note.
+# match: exact (the same commands), equiv (the same check in another form,
+# the note says how), setup (the job's environment, the note says where the
+# local one comes from), none (no local run: the note gives the reason and
+# the mitigation; local and tiers then name the step that mitigates, if any).
+#
+# the one intentional difference: the push tier sets URNA_TEST_REDUCED=1,
+# so the two 10k-vector hnsw builds and the txt_streams property run on
+# fewer cases there; CI and the full tier's release test run them whole.
+#
+# workflow	job	step	tiers	local	match	note
+gatecheck.yml	rust	the skip log	-	-	setup	every tier sets URNA_SKIP_LOG to target/fullcheck/skips.log
+gatecheck.yml	rust	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml, which rustup reads in both
+gatecheck.yml	rust	fmt	quick push full	cargo-fmt	exact	
+gatecheck.yml	rust	clippy (workspace deny lints)	quick push full	cargo-clippy	exact	
+gatecheck.yml	rust	clippy (engine-only cli, no terminal ui)	quick push full	cargo-clippy	exact	
+gatecheck.yml	rust	the read path links no C (urna-format without write, engine, cbinds)	push full	cargo-clippy	exact	the push tier's cargo-clippy step (tiersteps.sh ci_clippy)
+gatecheck.yml	rust	build	push full	ci-build	exact	
+gatecheck.yml	rust	a ci build is a development build	push full	ci-build	exact	
+gatecheck.yml	rust	fetch the potion table (embedder payload), verified against its lfs pointer	push full	forge-so	exact	the tree's git-lfs checkout holds the table (fullcheck checks git lfs fsck and that no file is a pointer), so getpotion.sh only confirms it; its download path from a pointer runs in CI alone
+gatecheck.yml	rust	the forge's python and the _urna extension	push full	forge-so	equiv	the same debug build and copy against $PY (the repo .venv with numpy and tokenizers, the forge need, required) instead of a pip install into setup-python's python
+gatecheck.yml	rust	the hnsw digest re-pin mode is off	quick push full	pinmode	equiv	fullcheck.sh refuses to run with PIN_HNSW_DIGESTS set, before any step
+gatecheck.yml	rust	install cargo-nextest (pinned release, checksum verified)	-	-	setup	cargo-nextest on PATH (0.9.148 here, the version CI pins)
+gatecheck.yml	rust	test	push full	ci-test	exact	the one intentional difference: the push tier sets URNA_TEST_REDUCED=1 (the hnsw 10k builds and the txt_streams property on fewer cases); the full tier's cargo-test runs them whole, in release. macOS arm64 runs the NEON kernels; the x86_64 AVX2 ones (ubuntu leg) run in CI alone
+gatecheck.yml	rust	color fold parity against coolor (rust/clitui/parity)	push full	tone-parity	exact	
+gatecheck.yml	rust	benches compile (numbers are not a gate on shared runners)	push full	benches	exact	
+gatecheck.yml	rust	mutation fuzz (deterministic, higher count)	push full	mutation	exact	URNA_MUTATION_ITERS=6000 is the step's env in CI, the command's prefix here
+gatecheck.yml	rust	639-line guard (rust/**/src)	quick push full	guard639	exact	
+gatecheck.yml	rust	rust/ingest (separate workspace)	push full	ingest	exact	
+gatecheck.yml	rust	fuzz/ lints (separate workspace; the targets run on nightly below)	push full	fuzz-lints	exact	
+gatecheck.yml	rust	what did not run (tool/tests/testneeds.py report)	quick push full	report	equiv	the skip table each tier ends with; the needs a tier provides are REQUIRED_NEEDS in fullcheck.sh
+gatecheck.yml	cli-windows	the skip log	-	-	setup	the windows job's; see its clippy and test lines
+gatecheck.yml	cli-windows	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
+gatecheck.yml	cli-windows	clippy	push full	cross-check	none	reason: the cli's windows code (crossterm's console path, %LOCALAPPDATA%, Scripts\python.exe) compiles only for a windows target, and the cli links zstd-sys, whose C build needs the MSVC toolchain this mac lacks; mitigation: cross-check type-checks the crates that link no C (urna-format without write, urna-engine, urna-cbinds) for x86_64-pc-windows-msvc; cargo-xwin would check the cli itself, but it downloads the MSVC CRT and SDK under Microsoft's licence (the owner's decision)
+gatecheck.yml	cli-windows	fetch the potion table (embedder payload), verified against its lfs pointer	-	-	setup	the windows job's environment
+gatecheck.yml	cli-windows	test (unit + setup end to end)	push full	ci-test	none	reason: a windows runner; mitigation: the same unit tests and setup_e2e run on macOS in ci-test
+gatecheck.yml	cli-windows	what did not run (tool/tests/testneeds.py report)	-	-	setup	the windows job's skip table
+gatecheck.yml	potion-native	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
+gatecheck.yml	potion-native	fetch the potion table, verified against its lfs pointer	push full	potion-native	equiv	the tree's git-lfs checkout holds the table (see the rust job's line)
+gatecheck.yml	potion-native	build the C ABI library	push full	potion-native	exact	
+gatecheck.yml	potion-native	the reference side	-	-	setup	$PY has numpy and tokenizers (the forge need, required in push)
+gatecheck.yml	potion-native	native and reference agree	push full	potion-native	equiv	the same suite with both needs required, against target/release/liburna_cbinds.dylib (CI's .so on linux)
+gatecheck.yml	av1-parity	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
+gatecheck.yml	av1-parity	avifenc and nasm	-	-	setup	avifenc from Homebrew; nasm only builds the reference's x86 asm, which an arm64 mac does not use
+gatecheck.yml	av1-parity	encode the AVIF inputs	full	parity	none	reason: CI encodes a synthetic set with an inline generator; mitigation: with URNA_CARDS_CORPUS set, the full tier's parity step runs the same planes test on the corpus blobs (on the files of URNA_AVIF_DIR when that is set too); without the corpus the step is a logged skip of the cards need, whatever URNA_AVIF_DIR says
+gatecheck.yml	av1-parity	every plane of every input matches the crates.io rav1d	full	parity	equiv	rust/images/parity on URNA_CARDS_CORPUS in the full tier (skipped, and listed, without it)
+gatecheck.yml	format-parity	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
+gatecheck.yml	format-parity	the skip log	-	-	setup	the full tier's skip log
+gatecheck.yml	format-parity	f16, sha-256 and the zstd decoder against the crates they replaced	full	format-parity	exact	the macOS arm64 leg; the x86_64 leg's SHA-NI and F16C paths run in CI alone
+gatecheck.yml	format-parity	what did not run (tool/tests/testneeds.py report)	full	report	equiv	the full tier's skip table
+gatecheck.yml	fuzz	nightly toolchain (NIGHTLY)	-	-	setup	fuzzsweep.sh reads NIGHTLY from gatecheck.yml
+gatecheck.yml	fuzz	cargo-fuzz	-	-	setup	cargo install cargo-fuzz --locked
+gatecheck.yml	fuzz	seed corpora	-	-	none	reason: the corpus of the fuzz run below; mitigation: fuzzsweep.sh seeds the same way
+gatecheck.yml	fuzz	run every target (bounded)	-	-	none	reason: five targets for 90 s each on the nightly, beyond a pre-push budget; mitigation: sh tool/tasks/fuzzsweep.sh 90 runs the same targets on the same pinned nightly, by hand after a decoder change; fuzz-lints keeps the targets compiling on stable in push
+gatecheck.yml	deny	workspace (advisories, licenses, bans, sources)	push full	deny	equiv	cargo deny with cargo-deny-action's arguments (--log-level warn --all-features); the action bundles its own cargo-deny (0.20.2 here); the advisory database is fetched every run, so an advisory published after the push shows up in CI (and on the nightly) alone
+gatecheck.yml	deny	rust/ingest (separate workspace)	push full	deny	equiv	as the workspace line, with -A unmatched-skip
+gatecheck.yml	deny	fuzz (separate workspace)	push full	deny	equiv	as the workspace line, with -A unmatched-skip
+gatecheck.yml	semver	toolchain (rust-toolchain.toml)	-	-	setup	rust-toolchain.toml
+gatecheck.yml	semver	baseline has urna-format	push full	semver	equiv	the same git grep against the baseline
+gatecheck.yml	semver	obi1kenobi/cargo-semver-checks-action	push full	semver	equiv	cargo semver-checks -p urna-format against where HEAD left origin/main (URNA_SEMVER_BASE), where CI takes the pull request's base commit; a break fails both until the version declares it
+gatecheck.yml	fuzz-soak	nightly toolchain (NIGHTLY)	-	-	setup	the schedule's
+gatecheck.yml	fuzz-soak	cargo-fuzz	-	-	setup	the schedule's
+gatecheck.yml	fuzz-soak	seed corpus if empty	-	-	none	reason: the soak's corpus; mitigation: fuzzsweep.sh keeps its own under fuzz/corpus
+gatecheck.yml	fuzz-soak	soak	-	-	none	reason: the schedule only (30 min per target); mitigation: sh tool/tasks/fuzzsweep.sh, by hand
+gatecheck.yml	fuzz-soak	minimize corpus	-	-	none	reason: the schedule only; mitigation: fuzzsweep.sh minimizes after each target
+gatecheck.yml	miri	nightly toolchain with miri (NIGHTLY)	-	-	setup	the schedule's
+gatecheck.yml	miri	install cargo-nextest (pinned release, checksum verified)	-	-	setup	the schedule's; cargo-nextest on PATH here
+gatecheck.yml	miri	miri setup	-	-	setup	the schedule's
+gatecheck.yml	miri	urna-format under miri	-	-	none	reason: the schedule and the dispatch only, an interpreter run of the suite that no push waits for (the sum of its tests is over an hour of one core); mitigation: by hand, with the nightly NIGHTLY names and its miri component: MIRIFLAGS='-Zmiri-disable-isolation -Zmiri-tree-borrows' cargo +<NIGHTLY> miri nextest run -p urna-format --profile miri
+gatecheck.yml	python	the skip log	-	-	setup	every tier sets URNA_SKIP_LOG
+gatecheck.yml	python	the gate's python tooling (pyproject.toml's gate group)	-	-	setup	the repo .venv holds the gate group (uv sync --group forge --group gate); test_gatematch, test_rehearsal and test_pkgrender name it in one line when pyyaml is missing
+gatecheck.yml	python	ruff (same file list as fullcheck.sh)	quick push full	ruff	exact	ruff from $PY (the ruff need, required in push), the gate group's on both sides, which pins ruff exactly (pyproject.toml), so both run one version
+gatecheck.yml	python	names follow the length table and the lexicon	quick push full	names	exact	
+gatecheck.yml	python	urna keeps its import contracts	quick push full	layers	exact	
+gatecheck.yml	python	the atlas summary is the current state, not history	push full	python-job	exact	
+gatecheck.yml	python	a test that lacks a need fails where it is required, else logs the skip	push full	python-job	exact	
+gatecheck.yml	python	rust/ingest keeps the root's lints and rust-version	push full	python-job	exact	
+gatecheck.yml	python	the registry imports and the model catalog is current	push full	python-job	exact	
+gatecheck.yml	python	the model_hash and offline guarantees	push full	python-job	exact	$PY is the repo .venv, richer than CI's bare python with numpy: an import CI lacks passes here
+gatecheck.yml	python	the release version agrees everywhere a release names it	push full	python-job	exact	
+gatecheck.yml	python	release.yml is dist's output with distpatch.py's edits	push full	python-job	equiv	the dist on PATH (DIST), whose version distpatch.py holds to Cargo.toml's cargo-dist-version, where CI downloads the pinned linux tarball by its sha-256
+gatecheck.yml	python	the release rehearsal is what release.yml builds	push full	python-job	exact	
+gatecheck.yml	python	every check CI runs has its local step or the reason it has none	quick push full	gatematch	exact	
+gatecheck.yml	python	the release waits for and reports the exact version	push full	python-job	exact	
+gatecheck.yml	python	each channel's manifest comes from the release	push full	python-job	exact	
+gatecheck.yml	python	the PPA's source package comes from the tag	push full	python-job	exact	
+gatecheck.yml	python	urna.dev/apt's Cloudflare setup stays inside its route	push full	python-job	exact	
+gatecheck.yml	python	what did not run (tool/tests/testneeds.py report)	quick push full	report	equiv	the skip table each tier ends with
+gatecheck.yml	payload-py310	stage and pack the payload, check its VERSION	full	python-tests	none	reason: python 3.10 (the release's global job's), which no tier provides; mitigation: the full tier's test_embedpack stages the payload under $PY, and uv run --python 3.10 --no-project tool/tasks/embedpack.py <dir> --tar <tgz> reproduces the job by hand
+lintworks.yml	actionlint	install actionlint (pinned release, checksum verified)	-	-	setup	actionlint on PATH (1.7.12 here, the version CI pins)
+lintworks.yml	actionlint	actionlint	push full	workflows	equiv	the same flags and ignore, from PATH
+lintworks.yml	actionlint	shellcheck the composite actions	push full	workflows	exact	
+lintworks.yml	zizmor	zizmorcore/zizmor-action	push full	workflows	equiv	zizmor --offline, or its online audits (known-vulnerable actions) with GH_TOKEN exported; CI pins 1.30.1, Homebrew's may be newer
+rehearsal.yml	plan	plan	push full	python-job	none	reason: dist plan reads the release's GitHub context; mitigation: distpatch.py and rehearsal.py generate --check keep both workflows dist's own output
+rehearsal.yml	build-local-artifacts	Build artifacts	full	cargo-build	none	reason: five targets on four runner kinds (linux musl x86_64 and aarch64, macOS x86_64 and aarch64, windows msvc), profile dist with cargo-auditable; mitigation: the full tier's release build is aarch64-apple-darwin's, and cross-check type-checks the read path for linux and windows x86_64. runner capacity and upload failures (a job not acquired, ENOTFOUND) are infrastructure no local run can see: the build jobs carry timeout-minutes, and such a run is re-run
+rehearsal.yml	rehearsal	python3 tool/tasks/rehearsal.py verdict	-	-	none	reason: the required check reads the build jobs' results; mitigation: a run that a newer push cancels still reports failure here (if: always()), which the newer run's verdict replaces; `!cancelled()` would let a cancelled newest run skip a required check, which GitHub counts as passed, so the condition stays (the owner's decision)
+cleanhost.yml	linux	install and set up urna in a clean container	full	cleanhost	equiv	the same cleanhost.sh, when the paths cleanhost.yml filters on changed; a tart macOS VM when tart is installed, else this linux container (docker or podman)
+cleanhost.yml	python315	setup builds its env inside the range, not on 3.15	-	-	none	reason: a runner whose newest python is 3.15 and that has no uv; mitigation: none local, CI alone

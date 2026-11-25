@@ -2,7 +2,7 @@
 project: urna
 audience: contributors
 status: active
-last-updated: 2026-09-22
+last-updated: 2026-11-25
 domain: fuzzing
 ---
 
@@ -36,19 +36,20 @@ integrity layer itself.
 
 ## Run
 
+The fuzz jobs run on the nightly that `NIGHTLY` pins at the top of
+`.github/workflows/gatecheck.yml`; `tool/tasks/fuzzsweep.sh` reads it from
+there, seeds each corpus and runs the five targets one after the other:
+
 ```sh
-cargo install cargo-fuzz          # needs a nightly toolchain
-cd fuzz
-mkdir -p corpus/urna-view && cp seeds/*.bin ../rust/format/tests/fixtures/golden_v1_minimal.urna corpus/urna-view/
-cargo +nightly fuzz run urna-view -- -max_total_time=600
-cargo +nightly fuzz run section-decoders -- -max_total_time=600
-cargo +nightly fuzz run runtime-indexes -- -max_total_time=600
-cargo +nightly fuzz run mmap-open-search -- -max_total_time=600 -rss_limit_mb=4096
+cargo install cargo-fuzz
+rustup toolchain install <NIGHTLY>          # the value in gatecheck.yml
+sh tool/tasks/fuzzsweep.sh 600              # 10 minutes per target
+URNA_FUZZ_TARGETS="zstd-decoder" sh tool/tasks/fuzzsweep.sh 600   # one target
 ```
 
-A finding lands in `artifacts/<target>/`; reproduce with `cargo +nightly fuzz
-run <target> artifacts/<target>/<file>` and turn it into a negative test
-under `rust/*/tests/` before fixing.
+A finding lands in `artifacts/<target>/`; reproduce it from `fuzz/` with
+`cargo +<NIGHTLY> fuzz run <target> artifacts/<target>/<file>` and turn it
+into a negative test under `rust/*/tests/` before fixing.
 
 ## Seeds
 

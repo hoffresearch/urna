@@ -1,7 +1,8 @@
 //! The AV1 planes this crate's embedded decoder produces against the same
 //! decoder from crates.io, sample by sample, on every `.avif` of
 //! `URNA_AVIF_DIR` (CI encodes a set) or every AVIF blob of the corpus
-//! named by `URNA_CARDS_CORPUS` (skipped without either). The decode is
+//! named by `URNA_CARDS_CORPUS` (the `avif` need without either,
+//! rust/clitui/tests/common/needs.rs). The decode is
 //! defined bit-exactly by the AV1 specification, so any difference is a
 //! bug in the fork.
 
@@ -12,6 +13,9 @@
 )]
 
 use std::ptr::NonNull;
+
+#[path = "../../../clitui/tests/common/needs.rs"]
+mod needs;
 
 use rav1d::include::dav1d::data::Dav1dData;
 use rav1d::include::dav1d::dav1d::Dav1dSettings;
@@ -87,7 +91,7 @@ fn upstream_planes(av1: &[u8]) -> (usize, usize, [Vec<u16>; 3]) {
 #[test]
 fn the_embedded_decoder_produces_the_upstream_planes() {
     let Some(inputs) = urna_images_parity::avif_inputs() else {
-        eprintln!("URNA_AVIF_DIR and URNA_CARDS_CORPUS unset: plane parity skipped");
+        needs::lack("avif", "URNA_AVIF_DIR and URNA_CARDS_CORPUS unset");
         return;
     };
     let mut dec = urna_images::Decoder::open().expect("decoder");
@@ -113,5 +117,22 @@ fn the_embedded_decoder_produces_the_upstream_planes() {
     eprintln!(
         "plane parity over {} inputs: {equal} identical",
         inputs.len()
+    );
+}
+
+/// The reference has to be the crates.io rav1d, not the fork: both are the
+/// same decoder, and while the fork exported rav1d's `#[no_mangle]` C names
+/// (`dav1d_open`, `dav1d_get_picture`, its tables) the linker bound every
+/// reference call to the fork's definition, so the test above compared the
+/// fork with itself and passed on a fork that corrupted its output. Two
+/// distinct definitions have distinct addresses; one merged symbol has one.
+#[test]
+fn the_reference_is_not_the_embedded_fork() {
+    let reference = rav1d::src::lib::dav1d_open as *const () as usize;
+    let fork = urna_av1dec::src::lib::dav1d_open as *const () as usize;
+    assert_ne!(
+        reference, fork,
+        "dav1d_open of crates.io rav1d and of urna-av1dec are one symbol: \
+         the fork exports a C name again (#[no_mangle] in rust/av1dec/src)"
     );
 }

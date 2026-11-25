@@ -1,0 +1,38 @@
+#!/bin/sh
+# tool/tasks/pushguard - the pre-push hook: the push tier of the local gate
+# on the tip of each ref the push sends (the commits under a tip are not
+# checked one by one), then git-lfs's own pre-push.
+#
+# git-lfs installs a pre-push hook of its own (it uploads the lfs objects a
+# push references), and this one replaces it in .git/hooks, so it calls
+# `git lfs pre-push` itself, with the same arguments and the same refs on
+# stdin. install once per clone, as tool/tasks/precommit is:
+#   cp tool/tasks/pushguard .git/hooks/pre-push && chmod +x .git/hooks/pre-push
+#
+# a push the gate refuses sends nothing. URNA_PUSHGUARD=0 skips the gate
+# for one push (git push --no-verify skips git-lfs's upload too).
+set -eu
+
+refs=$(cat)
+
+if [ "${URNA_PUSHGUARD:-1}" != 0 ]; then
+    root=$(git rev-parse --show-toplevel)
+    # the tip of each pushed ref, once: a branch deletion (an all-zero sha)
+    # sends none.
+    shas=$(printf '%s\n' "$refs" | awk 'NF == 4 && $2 !~ /^0+$/ { print $2 }' | sort -u)
+    for sha in $shas; do
+        printf 'pushguard: fullcheck --tier push on %s\n' "$sha" >&2
+        # git may hand a hook GIT_DIR and friends; the gate's own git calls
+        # (its worktree) must find their repository by their directory.
+        (
+            unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_COMMON_DIR GIT_PREFIX
+            URNA_GATE_REV="$sha" "$root/tool/tasks/fullcheck.sh" --tier push
+        )
+    done
+fi
+
+command -v git-lfs >/dev/null 2>&1 || {
+    printf >&2 '\npushguard: this repository uses git-lfs, which is not on PATH\n\n'
+    exit 2
+}
+if [ -n "$refs" ]; then printf '%s\n' "$refs"; fi | git lfs pre-push "$@"

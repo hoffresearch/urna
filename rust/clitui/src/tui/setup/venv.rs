@@ -364,10 +364,8 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg_attr(not(unix), ignore = "unix paths and sh")]
     fn usr_bin_is_left_out_of_uvs_path_and_nothing_else() {
-        if !cfg!(unix) {
-            return;
-        }
         let got = without_usr_bin(std::ffi::OsStr::new(
             "/opt/homebrew/bin:/usr/bin:/bin:/usr/bin/extra",
         ))
@@ -449,10 +447,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(unix), ignore = "unix paths and sh")]
     fn stream_forwards_both_pipes_and_reports_failure() {
-        if !cfg!(unix) {
-            return;
-        }
         let mut lines = Vec::new();
         let mut cmd = Command::new("sh");
         cmd.args(["-c", "echo out; echo err 1>&2"]);
@@ -469,10 +465,8 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(not(unix), ignore = "unix paths and sh")]
     fn a_redrawn_progress_bar_logs_each_state_once() {
-        if !cfg!(unix) {
-            return;
-        }
         let mut lines = Vec::new();
         let mut cmd = Command::new("sh");
         cmd.args(["-c", "printf '10%%\\r50%%\\r100%%\\ndone\\n'"]);

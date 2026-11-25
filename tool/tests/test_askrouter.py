@@ -20,6 +20,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 SEARCHTXT = REPO / "rust" / "bridge" / "python" / "urna" / "embed" / "searchtxt.py"
 sys.path.insert(0, str(REPO / "rust" / "bridge" / "python"))
@@ -185,7 +187,9 @@ def _st_fallback_cases(tmp: str) -> None:
         print("case 6 (no sentence-transformers: exit 4 naming the package): OK")
     st_py = _st_python()
     if st_py is None:
-        print("cases 7-10 skipped: no interpreter with sentence-transformers (URNA_ST_PYTHON)")
+        testneeds.skip(
+            "stmodel", "test_askrouter: cases 7-10", "no interpreter with sentence-transformers"
+        )
         return
     probe = subprocess.run(
         [st_py, str(MODEL_SCRIPT), ST_MODEL, "probe"],
@@ -195,7 +199,7 @@ def _st_fallback_cases(tmp: str) -> None:
         env=_offline_env(),
     )
     if probe.returncode == 3 and f"urna-fetch: {ST_MODEL}" in probe.stderr:
-        print(f"cases 7-10 skipped: {ST_MODEL} is not in the local cache")
+        testneeds.skip("stmodel", "test_askrouter: cases 7-10", f"{ST_MODEL} is not cached")
         return
     assert probe.returncode == 0, f"the MiniLM probe failed for a real reason: {probe.stderr}"
 
