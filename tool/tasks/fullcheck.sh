@@ -379,8 +379,11 @@ cached ruff "$ALL_IN" -- ruff
 # the install on a machine with nothing on it, which cleanhost.yml runs in CI
 # on the paths of its own filter, read from it here: a tart macOS VM, else a
 # docker or podman linux container. without either it says so and runs
-# nothing, as URNA_CLEANHOST=0 does; neither marks the step passed.
-CLEANHOST_IN="$(sed -n 's/^      - "\(.*\)"$/\1/p' .github/workflows/cleanhost.yml | tr '\n' ' ')"
+# nothing, as URNA_CLEANHOST=0 does; neither marks the step passed. a
+# filter ending in /** is keyed as its directory: left as a glob, the shell
+# expanded it to every entry there, an ignored __pycache__ among them,
+# which the key refuses as a path git sees no file under.
+CLEANHOST_IN="$(sed -n 's/^      - "\(.*\)"$/\1/p' .github/workflows/cleanhost.yml | sed 's|/\*\*$||' | tr '\n' ' ')"
 # an empty list would key no file, and the step would skip forever.
 if [[ -z "${CLEANHOST_IN// /}" ]]; then
   printf 'fullcheck: read no path filter from .github/workflows/cleanhost.yml (its format changed?)\n' >&2
