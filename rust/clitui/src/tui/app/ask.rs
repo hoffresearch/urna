@@ -514,8 +514,14 @@ mod tests {
         ask.input.set_value("anything".into());
         let session = Arc::new(Session::open(&golden).expect("golden opens"));
         ask.submit(session);
+        // the golden fixture names a placeholder model, not a potion one, so
+        // the query starts the python embedder (cmd::embed_gate's
+        // spawn_embedder): about 3 s on an idle machine, past the old 10 s
+        // on a loaded one (11.75 s in a quick tier on 2026-11-25). the limit
+        // only stops a hang; what the test holds is that the tab gets a
+        // message and no panic.
         let mut got = None;
-        for _ in 0..500 {
+        for _ in 0..3000 {
             if let Some(r) = ask.poll() {
                 got = Some(r);
                 break;
