@@ -1,7 +1,22 @@
 #!/usr/bin/env bash
-# fullcheck.sh - full release verification pipeline.
+# fullcheck.sh - the local gate, in three tiers.
 #
-# Runs the local release gate end-to-end (what it skips: docs/USAGE.md section 10):
+#   tool/tasks/fullcheck.sh --tier quick   the fast loop on the working tree
+#   tool/tasks/fullcheck.sh --tier push    what CI runs on a pull request, on
+#                                          the commit (the pre-push hook)
+#   tool/tasks/fullcheck.sh [--tier full]  push, then the release gate below
+#
+# quick and push are tool/tasks/tiersteps.sh: quick runs names, fmt,
+# clippy, the 639-line guard, ruff, the gate map and the tests that need no
+# end-to-end setup; push runs, in a clean worktree of HEAD (URNA_GATE_REV
+# names another commit) at target/gate/tree, every check of gatecheck.yml
+# and lintworks.yml that can run on macOS arm64, with CI's flags (debug,
+# RUSTFLAGS=-D warnings) and URNA_TEST_REDUCED=1 (the three slowest tests
+# on fewer cases; CI runs them whole). tool/tasks/gatesteps.tsv lists every
+# CI check with the tier that runs it, or why none can.
+#
+# full runs push, then the release gate on the working tree (what it skips:
+# docs/USAGE.md section 10):
 #   0. the name check (length table, exceptions, lexicon)
 #   1. cargo build (release), then the PyO3 extension (.so) the tests load
 #   2. cargo test/clippy/fmt (release profile), the 639-line guard
@@ -20,7 +35,7 @@
 # changing any of them, run with URNA_FRESH=1.
 #
 # A test that lacks an external resource names the need it lacks
-# (tool/tests/testneeds.tsv). The needs this gate provides itself
+# (tool/tests/testneeds.tsv). The needs a tier provides itself
 # (REQUIRED_NEEDS below) are required: lacking one fails the run. The
 # others are optional: each skip goes to target/fullcheck/skips.log, a
 # step that skipped is not remembered as passed, and the run ends with the
@@ -39,11 +54,15 @@
 #   URNA_FRESH     - 1 runs every step, ignoring what passed before (default: 0)
 #   URNA_CARDS_CORPUS - the cards corpus the tokenizer and av1 parity compare on
 #                    (default: unset, the parity step is reported skipped)
+#   URNA_GATE_REV  - the commit the push tier checks (default: HEAD)
+#   URNA_SEMVER_BASE - the baseline of cargo-semver-checks in the push tier
+#                    (default: where HEAD left origin/main)
 #
 # Before any step: exit 3 when the default corpus is not cached and downloads
 # were not confirmed (6 when the cached file is not the pinned one), exit 9
 # when URNA_BASELINE names no usable baseline, exit 10 when the baseline was
-# measured on another corpus (tool/tasks/benchdata.py lists every code).
+# measured on another corpus (tool/tasks/benchdata.py lists every code); the
+# full tier only. Exit 2 on a usage error.
 
 set -euo pipefail
 
@@ -55,6 +74,26 @@ abspath() { if [[ -z "$1" || "$1" == /* ]]; then printf '%s' "$1"; else printf '
 
 cd "$(dirname "$0")/../.."
 ROOT="$(pwd)"
+
+TIER=full
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --tier) TIER="${2:-}"; shift 2 || shift ;;
+    --tier=*) TIER="${1#--tier=}"; shift ;;
+    *) TIER="?$1"; break ;;
+  esac
+done
+case "$TIER" in
+  quick | push | full) ;;
+  *) printf 'usage: tool/tasks/fullcheck.sh [--tier quick|push|full]\n' >&2; exit 2 ;;
+esac
+# the push tier runs itself again inside the clean tree, with this set.
+INNER="${URNA_GATE_TREE:-0}"
+# CI's flags (gatecheck.yml's env), and the slowest tests on fewer cases;
+# set before the step keys are computed, which read them.
+if [[ "$TIER" == push ]]; then
+  export RUSTFLAGS="-D warnings" URNA_TEST_REDUCED=1
+fi
 
 # ---- knobs ----
 BASELINE="${URNA_BASELINE:-tool/bench/reference.json}"
@@ -82,13 +121,15 @@ fi
 
 # the corpus, before any step: a missing one stops the run here, with the
 # command that fetches it, not after the tests.
-if [[ -z "$CORPUS" ]]; then
-  CORPUS="$("$PY" tool/tasks/benchdata.py fetch)"
+if [[ "$TIER" == full ]]; then
+  if [[ -z "$CORPUS" ]]; then
+    CORPUS="$("$PY" tool/tasks/benchdata.py fetch)"
+  fi
+  # the same for the baseline, which benchgate reads only at the last step: it
+  # must exist (exit 9) and be measured on this corpus (exit 10), never on
+  # another one whose numbers would pass or fail this run for no reason.
+  "$PY" tool/tasks/benchdata.py match "$BASELINE" "$CORPUS"
 fi
-# the same for the baseline, which benchgate reads only at the last step: it
-# must exist (exit 9) and be measured on this corpus (exit 10), never on
-# another one whose numbers would pass or fail this run for no reason.
-"$PY" tool/tasks/benchdata.py match "$BASELINE" "$CORPUS"
 
 step() {
   printf '\n\033[1;36m== %s ==\033[0m\n' "$*" >&2
@@ -97,6 +138,10 @@ step() {
 ok() {
   printf '\033[1;32m  PASS:\033[0m %s\n' "$*" >&2
 }
+
+# the steps of the quick and push tiers, and those the full one shares.
+# shellcheck source=tool/tasks/tiersteps.sh
+. tool/tasks/tiersteps.sh
 
 # ---- step cache ----
 # the inputs of each step, as paths git sees. the rust steps read the
@@ -109,32 +154,50 @@ RUST_IN="rust Cargo.toml Cargo.lock clippy.toml rustfmt.toml"
 BENCH_IN="rust/format rust/engine rust/bridge tool/bench tool/tasks/benchdata.py Cargo.toml Cargo.lock"
 ALL_IN="."
 NEEDS_IN="rust/clitui/tests/common/needs.rs tool/tests/testneeds.tsv"
+GATE_IN=".github tool/tasks/gatesteps.tsv tool/tasks/fullcheck.sh tool/tasks/tiersteps.sh tool/tests/test_gatematch.py"
 # the toolchain also lists the packages of the $PY environment, read with
 # importlib.metadata, not pip (a uv venv has no pip).
 TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
   "$PY" -c 'import importlib.metadata as m
 print("\n".join(sorted(d.metadata["Name"] + "==" + d.version for d in m.distributions())))'
-  printf 'queries=%s k=%s corpus=%s\n' "$QUERIES" "$K" "$CORPUS"
+  printf 'queries=%s k=%s corpus=%s RUSTFLAGS=%s\n' "$QUERIES" "$K" "$CORPUS" "${RUSTFLAGS:-}"
   env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' -e '^URNA_SKIP_LOG=' | sort || true)"
 STAMPS="$ROOT/target/fullcheck"
 mkdir -p "$STAMPS"
 
+# ---- the clean tree (push, full; gate_tree in tool/tasks/tiersteps.sh) ----
+if [[ "$INNER" != 1 && "$TIER" != quick ]]; then
+  gate_tree
+  if [[ "$TIER" == push ]]; then
+    printf '\n\033[1;32m== fullcheck --tier push passed ==\033[0m\n'
+    exit 0
+  fi
+fi
+
 # ---- needs (tool/tests/testneeds.tsv) ----
-# what this gate provides itself, so a test that lacks it fails: the
-# forge python ($PY, the repo .venv), the git-lfs files, and what the
-# release build leaves in target/release (the cbinds library, the
-# binary); the release tools are the maintainer's (checklist step 8).
+# what a tier provides itself, so a test that lacks it fails. push: the
+# forge python ($PY, the repo .venv), the git-lfs files, the cbinds
+# library it builds, ruff and the cross-check targets, what CI's jobs
+# provide. full adds what the release build leaves in target/release (the
+# binary) and the release tools (checklist step 8). quick requires none.
 # the cards corpus, the avif dir, the media tools, the network, the
-# sentence-transformers and siglip2 stacks, a clean host and ruff are
-# optional: listed at the end, never failed. one list, so a tier can pick
-# its own.
-REQUIRED_NEEDS="forge lfs native binary release"
+# sentence-transformers and siglip2 stacks and a clean host are optional
+# everywhere: listed at the end, never failed.
+case "$TIER" in
+  quick) REQUIRED_NEEDS="" ;;
+  push) REQUIRED_NEEDS="forge lfs native ruff targets" ;;
+  full) REQUIRED_NEEDS="forge lfs native binary release" ;;
+esac
 for need in $REQUIRED_NEEDS; do
   export "URNA_REQUIRE_$(printf '%s' "$need" | tr '[:lower:]' '[:upper:]')=1"
 done
-# this run's skips, one `need<TAB>test<TAB>reason` per line.
+# this run's skips, one `need<TAB>test<TAB>reason` per line; a full run
+# lists the push tier's too.
 export URNA_SKIP_LOG="$STAMPS/skips.log"
 : > "$URNA_SKIP_LOG"
+if [[ "$TIER" == full ]]; then
+  cat "$ROOT/target/gate/tree/target/fullcheck/skips.log" >> "$URNA_SKIP_LOG"
+fi
 # skip NEED WHAT REASON: a skip of fullcheck's own (a step it cannot run),
 # through the same contract; a required need fails here.
 skip() { "$PY" tool/tests/testneeds.py skip "$@"; }
@@ -171,22 +234,27 @@ cached() {
     --skip-log "$URNA_SKIP_LOG" --skip-from "$from"
 }
 
-# ---- names ----
-names() {
-  step "python tool/tasks/namecheck.py"
-  "$PY" tool/tasks/namecheck.py
-  "$PY" tool/tests/test_namecheck.py
-  ok "names follow the length table and the lexicon"
+# uncached NAME -- FUNCTION: a step that runs every time (the network's
+# answer, or a check cheaper than its key).
+uncached() {
+  [[ "$2" == -- ]] || { printf 'uncached: usage: uncached NAME -- FUNCTION\n' >&2; exit 2; }
+  "$3"
 }
-cached names "$ALL_IN" -- names
 
-# ---- import contracts (pyproject [tool.layerscan], stdlib ast) ----
-layers() {
-  step "python tool/tasks/layerscan.py"
-  "$PY" tool/tasks/layerscan.py
-  "$PY" tool/tests/test_layerscan.py
-  ok "urna keeps its import contracts"
-}
+case "$TIER" in
+  quick | push)
+    "tier_$TIER"
+    step "skipped needs (python tool/tests/testneeds.py report $URNA_SKIP_LOG)"
+    "$PY" tool/tests/testneeds.py report "$URNA_SKIP_LOG"
+    [[ "$INNER" == 1 ]] || printf '\n\033[1;32m== fullcheck --tier %s passed ==\033[0m\n' "$TIER"
+    exit 0
+    ;;
+esac
+
+# ---- tier full: the release gate on the working tree ----
+# every `cached` step from here down is the full tier's own; the push
+# tier's ran above, in the clean tree.
+cached names "$ALL_IN" -- names
 cached layers "$ALL_IN" -- layers
 
 # ---- cargo build (release) ----
@@ -283,39 +351,10 @@ tone_parity() {
 }
 cached tone-parity "rust/clitui/src/cmd/tone.rs rust/clitui/parity" -- tone_parity
 
-# ---- cargo clippy ----
-cargo_clippy() {
-  step "cargo clippy --workspace --all-targets -- -D warnings"
-  cargo clippy --workspace --all-targets -- -D warnings >/dev/null 2>&1
-  # the engine-only cli, as gatecheck.yml checks it: code only the terminal
-  # ui reads is dead there.
-  step "cargo clippy -p urna --no-default-features --all-targets -- -D warnings"
-  cargo clippy -p urna --no-default-features --all-targets -- -D warnings >/dev/null 2>&1
-  ok "clippy clean"
-}
+# ---- cargo clippy, cargo fmt, the 639-line guard (tool/tasks/tiersteps.sh) ----
 cached cargo-clippy "$RUST_IN" -- cargo_clippy
-
-# ---- cargo fmt ----
-cargo_fmt() {
-  step "cargo fmt --all --check"
-  cargo fmt --all --check
-  ok "rustfmt clean"
-}
 cached cargo-fmt "$RUST_IN" -- cargo_fmt
-
-# ---- 639-line guard ----
-# rust/av1dec is the rav1d fork, vendored whole: its files keep upstream's
-# shape so the diff against upstream stays readable, and the guard skips it.
-step "no Rust file in rust/**/src exceeds 639 lines"
-overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path '*/target/*' -not -path 'rust/av1dec/*' \
-  | xargs wc -l \
-  | awk '$1 > 639 {print}' \
-  | grep -v 'total$' || true)"
-if [[ -n "$overlong" ]]; then
-  printf '\033[1;31m  FAIL:\033[0m\n%s\n' "$overlong" >&2
-  exit 1
-fi
-ok "all source files ≤ 639 lines"
+uncached guard639 -- guard639
 
 # ---- python tests ----
 python_tests() {
@@ -527,18 +566,8 @@ python_tests() {
 }
 cached python-tests "$ALL_IN" -- python_tests
 
-# ---- ruff (best-effort) ----
-# the file list lives in tool/tasks/ruffcheck.sh so gatecheck.yml and this gate stay
-# in lockstep; ruff missing from $PY is a skip here, a failure in ci.
-ruff() {
-  if "$PY" -c "import ruff" 2>/dev/null || "$PY" -m ruff --version 2>/dev/null | head -1 >/dev/null; then
-    step "ruff check / format on the files we own (tool/tasks/ruffcheck.sh)"
-    URNA_PYTHON="$PY" sh tool/tasks/ruffcheck.sh
-    ok "ruff clean"
-  else
-    skip ruff "fullcheck: ruff" "ruff not importable in $PY"
-  fi
-}
+# ---- ruff (tool/tasks/tiersteps.sh) ----
+# ruff missing from $PY is a skip here, a failure in the push tier and in ci.
 cached ruff "$ALL_IN" -- ruff
 
 # ---- cleanhost ----

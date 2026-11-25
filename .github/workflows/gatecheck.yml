@@ -1,8 +1,10 @@
 # continuous integration for the rust workspace and the python surface.
 #
-# the release workflows run on tags; this is the pull-request gate, the
-# one `tool/tasks/fullcheck.sh` runs locally, minus the LFS corpus
-# measurement (no LFS budget in CI): fmt, clippy with the
+# the release workflows run on tags; this is the pull-request gate. the
+# push tier of `tool/tasks/fullcheck.sh` runs its commands locally, and
+# tool/tasks/gatesteps.tsv maps each step to its local one or says why it
+# has none (tool/tests/test_gatematch.py, below, fails a step without a
+# line). CI runs no LFS corpus measurement (no LFS budget): fmt, clippy with the
 # workspace deny lints (`unwrap_used`, `undocumented_unsafe_blocks`), the
 # whole test suite on linux + macos (the aarch64 macos runner exercises the
 # NEON kernels, the x86_64 linux runner the AVX2 ones), the 639-line guard,
@@ -139,8 +141,9 @@ jobs:
             exit 1
           fi
       # cargo-nextest runs each test in a process of its own and every test
-      # binary in parallel (.config/nextest.toml). nextest runs no doctest,
-      # so `cargo test --doc` follows it.
+      # binary in parallel (.config/nextest.toml); the local push tier runs
+      # the same profile. nextest runs no doctest, so `cargo test --doc`
+      # follows it.
       - name: install cargo-nextest (pinned release, checksum verified)
         env:
           NEXTEST_VERSION: "0.9.148"
@@ -178,7 +181,7 @@ jobs:
       - name: 639-line guard (rust/**/src)
         run: |
           # rust/av1dec is the rav1d fork vendored whole; its files keep upstream's shape
-          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path 'rust/av1dec/*' \
+          overlong="$(find rust -name '*.rs' -path '*/src/*' -not -path '*/tests/*' -not -path '*/target/*' -not -path 'rust/av1dec/*' \
             -exec wc -l {} + | awk '$1 > 639 {print}' | grep -v 'total$' || true)"
           if [ -n "$overlong" ]; then echo "$overlong"; exit 1; fi
       - name: rust/ingest (separate workspace)
@@ -651,6 +654,10 @@ jobs:
           python -m pip install pyyaml
           python tool/tasks/rehearsal.py generate --check
           python tool/tests/test_rehearsal.py
+      - name: every check CI runs has its local step or the reason it has none
+        # tool/tasks/gatesteps.tsv against this workflow, lintworks.yml and
+        # the tiers of tool/tasks/fullcheck.sh (pyyaml, installed above).
+        run: python tool/tests/test_gatematch.py
       - name: the release waits for and reports the exact version
         # against a local http server: the registry waits, the crates
         # publisher's outage handling, the report of a failed release.
