@@ -32,6 +32,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = "tool/tasks/releasepr.sh"
 PINNED = re.search(r"^CARGO_RELEASE_VERSION=(\S+)$", (REPO / SCRIPT).read_text(), re.M).group(1)
@@ -222,13 +224,13 @@ def case_no_news(repo: Path, tmp: Path):
 def main():
     found = run(["cargo", "release", "--version"], REPO, check=False).stdout.split()
     if found[1:2] != [PINNED]:
-        print(f"releasepr: skipped, cargo-release {PINNED} is not installed")
+        testneeds.skip("release", "test_releasepr", f"cargo-release {PINNED} is not installed")
         return
     found = []
     if shutil.which("towncrier"):
         found = run(["towncrier", "--version"], REPO, check=False).stdout.split()
     if found[2:3] != [TOWNCRIER]:
-        print(f"releasepr: skipped, towncrier {TOWNCRIER} is not installed")
+        testneeds.skip("release", "test_releasepr", f"towncrier {TOWNCRIER} is not installed")
         return
     with tempfile.TemporaryDirectory() as d:
         tmp = Path(d)

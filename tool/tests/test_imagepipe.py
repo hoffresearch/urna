@@ -10,8 +10,10 @@ portability, the model_hash gate), and none of them need 600 MB of
 checkpoint to prove. A stub embedder that reduces pixels to a small
 deterministic vector exercises every one of them.
 
-Needs ffmpeg with libsvtav1 for the compressed cases; those skip cleanly
-when it is absent. Run: python tool/tests/test_imagepipe.py
+Needs ffmpeg with libsvtav1 for the compressed cases; without it, or
+avifenc, Pillow or PyMuPDF, a case is a skip of the `media` need
+(testneeds.py), a failure where the run requires it.
+Run: python tool/tests/test_imagepipe.py
 """
 
 from __future__ import annotations
@@ -25,6 +27,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+import testneeds
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "rust", "bridge", "python"))
 
@@ -115,7 +119,7 @@ class ImageCorpusTest(unittest.TestCase):
         try:
             import PIL  # noqa: F401
         except ImportError:
-            self.skipTest("Pillow not available")
+            testneeds.skip_case(self, "media", "Pillow not available")
         self.tmp = Path(tempfile.mkdtemp(prefix="urna-image-test-"))
         self.src = make_dataset(self.tmp / "src")
 
@@ -169,7 +173,7 @@ class ImageCorpusTest(unittest.TestCase):
 
     def test_compressed_frames_align_with_items(self):
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         import urna
 
         result = self._build("aligned", compress=True)
@@ -193,7 +197,7 @@ class ImageCorpusTest(unittest.TestCase):
         frame.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         import urna
 
         result = self._build("intra", compress=True, all_intra=True)
@@ -206,7 +210,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_probe_counts_every_encoded_frame(self):
         """The alignment guard leans on this count, so it is checked directly."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes, encstream, mediabase
 
         paths = sorted(self.src.glob("*.png"))
@@ -227,7 +231,7 @@ class ImageCorpusTest(unittest.TestCase):
         worse, someone else's frame.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import mediabase
 
         result = self._build("sampled", compress=True, sample=6)
@@ -300,7 +304,7 @@ class ImageCorpusTest(unittest.TestCase):
 
     def test_corpus_is_relocatable(self):
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes, mediabase
 
         result = self._build("portable", compress=True)
@@ -352,7 +356,7 @@ class ImageCorpusTest(unittest.TestCase):
         try:
             import fitz
         except ImportError:
-            self.skipTest("PyMuPDF not available")
+            testneeds.skip_case(self, "media", "PyMuPDF not available")
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bench"))
         import imageeval as ev
 
@@ -478,7 +482,7 @@ class ImageCorpusTest(unittest.TestCase):
         is only worth having if that identity holds, so it is the assertion.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes
 
         for name, intra in (("seekgop", False), ("seekintra", True)):
@@ -496,7 +500,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_decode_frames_at_returns_the_requested_frames(self):
         """One invocation resolves k ordinals, and the frames are the right ones."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes
 
         result = self._build("batch", compress=True)
@@ -525,7 +529,7 @@ class ImageCorpusTest(unittest.TestCase):
         parameter changes.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         first = self._build("prov1", compress=True)
         media = first["media"]
         self.assertIn("toolchain", media)
@@ -554,7 +558,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_frame_hashes_verify_and_detect_tampering(self):
         """Counting frames catches loss, not reordering; hashes catch both."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes, mediabase
 
         result = self._build("hashed", compress=True)
@@ -582,7 +586,7 @@ class ImageCorpusTest(unittest.TestCase):
         lie. The encoder output is probed and the lie raises.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import encstream, mediabase
 
         paths = sorted(self.src.glob("*.png"))
@@ -593,7 +597,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_444_preserves_more_chroma_than_420(self):
         """Red edge on black: chroma subsampling blurs it, 444 blurs less."""
         if not have_avif():
-            self.skipTest("avifenc/avifdec not available")
+            testneeds.skip_case(self, "media", "avifenc/avifdec not available")
         from PIL import Image
 
         from urna.image import decframes, encstills
@@ -632,7 +636,7 @@ class ImageCorpusTest(unittest.TestCase):
         pins `-j`, records it, and its bytes equal a direct `-j 2` encode.
         """
         if not have_avif():
-            self.skipTest("avifenc/avifdec not available")
+            testneeds.skip_case(self, "media", "avifenc/avifdec not available")
         from PIL import Image
 
         from urna.image import encstills
@@ -662,7 +666,7 @@ class ImageCorpusTest(unittest.TestCase):
         input sum.
         """
         if not have_avif():
-            self.skipTest("avifenc/avifdec not available")
+            testneeds.skip_case(self, "media", "avifenc/avifdec not available")
         from urna.image import encstills
 
         pattern = sorted(self.src.glob("*.png"))[0]
@@ -684,7 +688,7 @@ class ImageCorpusTest(unittest.TestCase):
 
     def test_avif_backend_roundtrip_and_relocates(self):
         if not have_avif():
-            self.skipTest("avifenc/avifdec not available")
+            testneeds.skip_case(self, "media", "avifenc/avifdec not available")
         import urna
 
         result = self._build("avicorpus", compress=True, backend="avif", speed=9)
@@ -729,7 +733,11 @@ class ImageCorpusTest(unittest.TestCase):
         flag, and the index it emits must describe exactly those pixels.
         """
         if not have_ffmpeg():
-            self.skipTest("PIL decode only, but keep the skip symmetric")
+            testneeds.skip_case(
+                self,
+                "media",
+                "ffmpeg with libsvtav1 not available (kept symmetric with the encode cases)",
+            )
         import urna
         from urna.image import mediabase
 
@@ -785,7 +793,7 @@ class ImageCorpusTest(unittest.TestCase):
         and measured on real corpora in fase 6.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import encstream
 
         result = self._build("gopauto", compress=True)
@@ -802,7 +810,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_auto_gop_policy_finds_redundancy(self):
         """Near-identical frames: inter wins, and the probe must say so."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from PIL import Image, ImageDraw
 
         src = self.tmp / "redundant"
@@ -826,7 +834,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_gop_policy_inter_forces_the_default_gop(self):
         """`inter` is the lever for material the probe has not seen."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import encstream
 
         result = self._build("gopinter", compress=True, gop_policy="inter")
@@ -844,7 +852,7 @@ class ImageCorpusTest(unittest.TestCase):
         recorded for THAT item.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes, mediabase
 
         result = self._build("ordered", compress=True, order_similarity=True)
@@ -871,7 +879,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_sharding_splits_the_stream_and_every_uri_resolves(self):
         """Segments of ~`shard_size` frames, indexed in the manifest."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         import urna
         from urna.image import decframes, mediabase
 
@@ -902,7 +910,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_order_and_sharding_compose(self):
         """Both levers together: the mapping contract must still hold."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import decframes, mediabase
 
         result = self._build("both", compress=True, shard_size=5, order_similarity=True)
@@ -933,7 +941,7 @@ class ImageCorpusTest(unittest.TestCase):
         and its encoded keyint obeys it.
         """
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import encstream
 
         result = self._build("gopseg", compress=True, shard_size=5)
@@ -957,7 +965,7 @@ class ImageCorpusTest(unittest.TestCase):
         """SVT's IQ tune is all-intra only: an inter segment must drop it
         (recorded as tune_resolved=None), never hard-error the encode."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from urna.image import encstream
 
         paths = sorted(self.src.glob("*.png"))[:4]
@@ -986,7 +994,7 @@ class ImageCorpusTest(unittest.TestCase):
         an evenly-spaced probe would erase the signal the ordering created,
         so the probe must record contiguous-window sampling there."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         result = self._build("contigprobe", compress=True, shard_size=5, order_similarity=True)
         gop = result["media"]["gop"]
         self.assertTrue(gop["per_segment"])
@@ -996,7 +1004,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_per_segment_probe_finds_redundancy_in_every_shard(self):
         """Near-identical frames in every shard: each probe must say inter."""
         if not have_ffmpeg():
-            self.skipTest("ffmpeg with libsvtav1 not available")
+            testneeds.skip_case(self, "media", "ffmpeg with libsvtav1 not available")
         from PIL import Image, ImageDraw
 
         src = self.tmp / "redundantsharded"
@@ -1106,7 +1114,7 @@ class ImageCorpusTest(unittest.TestCase):
     def test_sweep_runs_end_to_end_on_a_tiny_corpus(self):
         """One model load, a control and two variants, the full battery out."""
         if not have_avif() or not have_ffmpeg():
-            self.skipTest("sweep needs ffmpeg+libsvtav1 and avifenc/avifdec")
+            testneeds.skip_case(self, "media", "sweep needs ffmpeg+libsvtav1 and avifenc/avifdec")
         sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "bench"))
         import argparse
 

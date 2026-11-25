@@ -38,7 +38,9 @@ def test_an_optional_need_logs_the_skip(tmp: Path) -> None:
     with contextlib.redirect_stderr(err):
         testneeds.skip("cards", "t1", "URNA_CARDS_CORPUS unset", env={"URNA_SKIP_LOG": str(log)})
         testneeds.skip("media", "t2", "no ffmpeg", env={"URNA_SKIP_LOG": str(log)})
-    assert err.getvalue() == "skip: cards: t1: URNA_CARDS_CORPUS unset\nskip: media: t2: no ffmpeg\n"
+    assert (
+        err.getvalue() == "skip: cards: t1: URNA_CARDS_CORPUS unset\nskip: media: t2: no ffmpeg\n"
+    )
     assert log.read_text() == "cards\tt1\tURNA_CARDS_CORPUS unset\nmedia\tt2\tno ffmpeg\n"
     with contextlib.redirect_stderr(io.StringIO()):
         testneeds.skip("cards", "t3", "no log named", env={})
@@ -88,7 +90,9 @@ def test_the_report_fails_on_a_required_or_unknown_need(tmp: Path) -> None:
     script = Path(testneeds.__file__)
     log.write_text("forge\tpotion\tno numpy\n")
     env = {"PATH": "/usr/bin:/bin", "URNA_REQUIRE_FORGE": "1"}
-    p = subprocess.run([sys.executable, script, "report", log], capture_output=True, text=True, env=env)
+    p = subprocess.run(
+        [sys.executable, script, "report", log], capture_output=True, text=True, env=env
+    )
     assert p.returncode == 1 and "FAIL: forge skipped: potion" in p.stderr, (p.returncode, p.stderr)
     print("error (the report exits 1 on a required or an unknown need): OK")
 
@@ -115,7 +119,9 @@ def test_every_required_variable_names_a_need() -> None:
         if rel.startswith(("docs/CHANGELOG", "docs/news/")):
             continue  # history may name a variable that is gone
         if path.suffix in {".py", ".rs", ".sh", ".yml", ".md", ".toml"} and path.is_file():
-            named |= set(re.findall(r"URNA_REQUIRE_([A-Z0-9_]+[A-Z0-9])", path.read_text(errors="replace")))
+            named |= set(
+                re.findall(r"URNA_REQUIRE_([A-Z0-9_]+[A-Z0-9])", path.read_text(errors="replace"))
+            )
     stale = sorted(n for n in named - {"ALL"} if n.lower() not in table)
     assert not stale, f"URNA_REQUIRE_* naming no need of testneeds.tsv: {stale}"
     print(f"edge (the {len(named)} URNA_REQUIRE_* the tree names are needs of the table): OK")

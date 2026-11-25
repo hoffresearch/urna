@@ -26,6 +26,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import testneeds
+
 PYTHON = Path(__file__).resolve().parents[2] / "rust" / "bridge" / "python"
 sys.path.insert(0, str(PYTHON))
 
@@ -82,7 +84,7 @@ def main() -> None:
     real = _real_snapshot()
     if missing or real is None:
         why = f"missing {', '.join(missing)}" if missing else "pinned snapshot not cached"
-        print(f"test_clipsnaps: SKIP ({why})")
+        testneeds.skip("clip", "test_clipsnaps", why)
         return
 
     with tempfile.TemporaryDirectory() as tmp:

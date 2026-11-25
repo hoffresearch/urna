@@ -26,6 +26,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "rust" / "bridge" / "python"))
 os.environ["URNA_ENABLE_FAKE_PRESET"] = "1"
@@ -460,7 +462,7 @@ dir = "{d / "out"}"
 
 def test_e2e_fake(base: Path) -> None:
     if not HAVE_FFMPEG:
-        print("test_e2e_fake: SKIP (no ffmpeg)")
+        testneeds.skip("media", "test_e2e_fake", "no ffmpeg on PATH")
         return
     d = base / "e2e"
     d.mkdir()
@@ -499,7 +501,7 @@ def test_provenance_minimal(base: Path) -> None:
     the .urna is byte-for-byte the standard build's (the manifest is a
     sidecar, never part of the file)."""
     if not HAVE_FFMPEG:
-        print("test_provenance_minimal: SKIP (no ffmpeg)")
+        testneeds.skip("media", "test_provenance_minimal", "no ffmpeg on PATH")
         return
     from urna.pipes.manifests import frame_resolver, manifest_items
 
@@ -575,7 +577,7 @@ def test_provenance_minimal(base: Path) -> None:
 
 def test_embed_media(base: Path) -> None:
     if not HAVE_FFMPEG:
-        print("test_embed_media: SKIP (no ffmpeg)")
+        testneeds.skip("media", "test_embed_media", "no ffmpeg on PATH")
         return
     d = base / "embed"
     d.mkdir()
@@ -697,7 +699,7 @@ def test_cache_shared_across_specs(base: Path) -> None:
     dirs read one potion table; a media knob change adds a clip-side entry
     instead of overwriting; the spec's cache_dir beats URNA_CACHE_DIR."""
     if not HAVE_FFMPEG:
-        print("test_cache_shared_across_specs: SKIP (no ffmpeg)")
+        testneeds.skip("media", "test_cache_shared_across_specs", "no ffmpeg on PATH")
         return
     potion = CACHE_ROOT / "embed" / "potion"
     fake = CACHE_ROOT / "embed" / "fake-test"
