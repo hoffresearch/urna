@@ -191,13 +191,14 @@ esac
 for need in $REQUIRED_NEEDS; do
   export "URNA_REQUIRE_$(printf '%s' "$need" | tr '[:lower:]' '[:upper:]')=1"
 done
-# this run's skips, one `need<TAB>test<TAB>reason` per line; a full run
-# lists the push tier's too.
+# this run's skips, one `need<TAB>test<TAB>reason` per line. a full run
+# starts with the push tier, whose own run already judged its skips by
+# push's required needs: they are listed at the end but not judged again
+# by full's, which would fail push's debug tree for lacking the release
+# binary that only full builds.
 export URNA_SKIP_LOG="$STAMPS/skips.log"
 : > "$URNA_SKIP_LOG"
-if [[ "$TIER" == full ]]; then
-  cat "$ROOT/target/gate/tree/target/fullcheck/skips.log" >> "$URNA_SKIP_LOG"
-fi
+PUSH_SKIPS="$ROOT/target/gate/tree/target/fullcheck/skips.log"
 # skip NEED WHAT REASON: a skip of fullcheck's own (a step it cannot run),
 # through the same contract; a required need fails here.
 skip() { "$PY" tool/tests/testneeds.py skip "$@"; }
@@ -627,6 +628,14 @@ cp "$PRESETS" "$OUT"
 # ---- what did not run ----
 # every skip of this run, by need; a required one fails the run here too
 # (its test failed already, unless something skipped without asking).
+if [[ -s "$PUSH_SKIPS" ]]; then
+  step "skipped needs of the push tier (judged by its own run, listed here)"
+  # without this run's URNA_REQUIRE_*: the list, not a second verdict.
+  drop=()
+  while IFS= read -r var; do drop+=(-u "$var"); done \
+    < <(env | sed -n 's/^\(URNA_REQUIRE_[A-Z_]*\)=.*/\1/p')
+  env ${drop[@]+"${drop[@]}"} "$PY" tool/tests/testneeds.py report "$PUSH_SKIPS"
+fi
 step "skipped needs (python tool/tests/testneeds.py report $URNA_SKIP_LOG)"
 "$PY" tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
