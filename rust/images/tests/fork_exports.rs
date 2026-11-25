@@ -85,5 +85,8 @@ fn an_export_in_a_source_file_is_found() {
     std::fs::remove_dir_all(&dir).expect("the scratch directory goes");
     assert_eq!(found.len(), 2, "{found:?}");
     assert!(found[0].ends_with(":2: #[no_mangle]"), "{found:?}");
-    assert!(found[1].contains(":4: ") && found[1].contains("dav1d_c"), "{found:?}");
+    assert!(
+        found[1].contains(":4: ") && found[1].contains("dav1d_c"),
+        "{found:?}"
+    );
 }
