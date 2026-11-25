@@ -481,6 +481,12 @@ jobs:
           python tool/tests/test_layerscan.py
       - name: the atlas summary is the current state, not history
         run: python tool/tests/test_atlasdocs.py
+      - name: a test that lacks a need fails where it is required, else logs the skip
+        # tool/tests/testneeds.py, which the suites that can lack a resource
+        # call; and the lexical floor embedder, stdlib only.
+        run: |
+          python tool/tests/test_testneeds.py
+          python tool/tests/test_lexifloor.py
       - name: rust/ingest keeps the root's lints and rust-version
         run: python tool/tests/test_lintmatch.py
       - name: the registry imports and the model catalog is current

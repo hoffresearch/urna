@@ -439,6 +439,42 @@ python_tests() {
   "$PY" tool/tests/test_aptserver.py
   ok "aptserver (3 cases)"
 
+  # a test that lacks an external resource fails where the run requires
+  # the need, and otherwise logs its skip (tool/tests/testneeds.tsv).
+  step "python tool/tests/test_testneeds.py"
+  "$PY" tool/tests/test_testneeds.py
+  ok "testneeds (5 cases)"
+
+  # the embedders' own self-tests: the stdlib lexical floor, the model
+  # registry, the potion table through the C ABI against numpy + tokenizers
+  # (the release build left the library in target/release), the offline
+  # retrieve demo, and the siglip2 query path (the clip need: its packages
+  # and pinned snapshot are optional here).
+  step "python tool/tests/test_lexifloor.py"
+  "$PY" tool/tests/test_lexifloor.py
+  ok "lexifloor: the stdlib static embedder"
+  step "python tool/tests/test_presetmap.py"
+  "$PY" tool/tests/test_presetmap.py
+  ok "presetmap: the model registry (12 cases)"
+  step "python tool/tests/test_potiontab.py"
+  "$PY" tool/tests/test_potiontab.py
+  ok "potiontab: the potion embedder, native and reference (8 cases)"
+  step "python tool/tests/test_retrieval.py"
+  "$PY" tool/tests/test_retrieval.py
+  ok "retrieval: the offline retrieve demo (3 cases)"
+  step "python tool/tests/test_clipsnaps.py"
+  "$PY" tool/tests/test_clipsnaps.py
+  ok "clipsnaps: the siglip2 query path (2 cases)"
+
+  # the bridge's media blob pair and multimodal space bands, on files built
+  # through urna.build.
+  step "python tool/tests/test_mediablob.py"
+  "$PY" tool/tests/test_mediablob.py
+  ok "mediablob: the blob pair (5 cases)"
+  step "python tool/tests/test_spaceband.py"
+  "$PY" tool/tests/test_spaceband.py
+  ok "spaceband: the space bands (5 cases)"
+
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and
   # CITATION.cff; skips without the pinned cargo-release.
