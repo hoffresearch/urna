@@ -17,7 +17,7 @@
 set -eu
 
 SECONDS_PER_TARGET="${1:-3600}"
-TARGETS="${URNA_FUZZ_TARGETS:-urna-view section-decoders runtime-indexes mmap-open-search}"
+TARGETS="${URNA_FUZZ_TARGETS:-urna-view section-decoders runtime-indexes mmap-open-search zstd-decoder}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 NIGHTLY="${NIGHTLY:-$(sed -n 's/^  NIGHTLY: //p' "$ROOT/.github/workflows/gatecheck.yml")}"
 if [ -z "$NIGHTLY" ]; then
