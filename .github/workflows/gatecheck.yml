@@ -47,6 +47,12 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest]
+    # the needs this job provides (tool/tests/testneeds.tsv): the potion
+    # table (getpotion.sh) and the forge's python with the _urna extension,
+    # both set up before the test step; lacking either fails the test.
+    env:
+      URNA_REQUIRE_LFS: "1"
+      URNA_REQUIRE_FORGE: "1"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -54,6 +60,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      # tool/tests/testneeds.py: each test that lacks a need logs it here,
+      # and the last step lists them (a required one fails the job).
+      - name: the skip log
+        shell: bash
+        run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
       - name: toolchain
         run: rustup toolchain install stable --profile minimal --component clippy,rustfmt && rustup default stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -92,6 +103,27 @@ jobs:
       - name: fetch the potion table (embedder payload), verified against its lfs pointer
         run: sh tool/tasks/getpotion.sh
         shell: bash
+      # the forge need: cli_e2e's ask and retrieve build their demo corpus
+      # through the urna package (the _urna extension) with the potion
+      # embedder's numpy + tokenizers (pyproject's forge group), and the
+      # potion parity runs the reference script; the setup-python python3
+      # is the first one they find on PATH.
+      - name: the forge's python and the _urna extension
+        run: |
+          python -m pip install "numpy>=1.26" "tokenizers>=0.20"
+          PYO3_PYTHON="$(command -v python)" cargo build -p urna-bridge --features pyo3/extension-module
+          case "$(uname)" in
+            Darwin) cp target/debug/lib_urna.dylib rust/bridge/python/urna/_urna.so ;;
+            *) cp target/debug/lib_urna.so rust/bridge/python/urna/_urna.so ;;
+          esac
+      # hnsw_recall's graph_bytes_are_pinned prints the digests and asserts
+      # nothing while PIN_HNSW_DIGESTS is set (the re-pin mode).
+      - name: the hnsw digest re-pin mode is off
+        run: |
+          if [ -n "${PIN_HNSW_DIGESTS+set}" ]; then
+            echo "PIN_HNSW_DIGESTS is set: graph_bytes_are_pinned would check nothing" >&2
+            exit 1
+          fi
       - name: test
         run: cargo test --workspace
       # rust/clitui/parity is a workspace of its own: coolor, the crate the
@@ -119,6 +151,10 @@ jobs:
           cargo test --manifest-path rust/ingest/Cargo.toml
       - name: fuzz/ lints (separate workspace; the targets run on nightly below)
         run: cargo clippy --manifest-path fuzz/Cargo.toml --all-targets -- -D warnings
+      - name: what did not run (tool/tests/testneeds.py report)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
   # the terminal ui (`urna setup`, `urna tui`) ships in the windows
   # release archive too, and the rust job above never compiles for windows:
@@ -129,10 +165,19 @@ jobs:
     name: cli windows (setup + tui)
     if: github.event_name != 'schedule'
     runs-on: windows-latest
+    # the potion table comes from getpotion.sh; no forge python here, so the
+    # potion parity in --bins is a logged skip of the forge need.
+    env:
+      URNA_REQUIRE_LFS: "1"
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+      # tool/tests/testneeds.py: each test that lacks a need logs it here,
+      # and the last step lists them (a required one fails the job).
+      - name: the skip log
+        shell: bash
+        run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
       - name: toolchain
         run: rustup toolchain install stable --profile minimal --component clippy && rustup default stable
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
@@ -146,6 +191,10 @@ jobs:
         shell: bash
       - name: test (unit + setup end to end)
         run: cargo test -p urna --bins --test setup_e2e
+      - name: what did not run (tool/tests/testneeds.py report)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
   # the forge's potion embedder runs in Rust through the urna-cbinds C ABI
   # (urna/_cabi.py, ctypes; #643) and keeps numpy + tokenizers only as its
@@ -171,9 +220,12 @@ jobs:
         run: cargo build --release -p urna-cbinds
       - name: the reference side
         run: python -m pip install numpy tokenizers
+      # the library (native) and numpy + tokenizers (forge) are both
+      # installed above: the parity may skip neither.
       - name: native and reference agree
         env:
           URNA_REQUIRE_NATIVE: "1"
+          URNA_REQUIRE_FORGE: "1"
         run: |
           URNA_CBINDS="$PWD/target/release/liburna_cbinds.so" python tool/tests/test_potiontab.py
 
@@ -242,6 +294,8 @@ jobs:
           done
           ls -l "$dir"/*.avif
       - name: every plane of every input matches the crates.io rav1d
+        env:
+          URNA_REQUIRE_AVIF: "1"
         run: |
           URNA_AVIF_DIR="$RUNNER_TEMP/avif" cargo test --release \
             --manifest-path rust/images/parity/Cargo.toml --test planes -- --nocapture
@@ -269,8 +323,19 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           workspaces: rust/format/parity
+      # tool/tests/testneeds.py: each test that lacks a need logs it here,
+      # and the last step lists them (a required one fails the job).
+      - name: the skip log
+        shell: bash
+        run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
+      # no lfs here: a .urna tracked through git-lfs is a logged skip of
+      # the lfs need (the fixtures are plain git).
       - name: f16, sha-256 and the zstd decoder against the crates they replaced
         run: cargo test --release --manifest-path rust/format/parity/Cargo.toml
+      - name: what did not run (tool/tests/testneeds.py report)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python3 tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
   fuzz:
     name: cargo-fuzz smoke
@@ -462,6 +527,11 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      # tool/tests/testneeds.py: each test that lacks a need logs it here,
+      # and the last step lists them (a required one fails the job).
+      - name: the skip log
+        shell: bash
+        run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
       - name: ruff (same file list as fullcheck.sh)
         run: |
           python -m pip install ruff
@@ -481,6 +551,12 @@ jobs:
           python tool/tests/test_layerscan.py
       - name: the atlas summary is the current state, not history
         run: python tool/tests/test_atlasdocs.py
+      - name: a test that lacks a need fails where it is required, else logs the skip
+        # tool/tests/testneeds.py, which the suites that can lack a resource
+        # call; and the lexical floor embedder, stdlib only.
+        run: |
+          python tool/tests/test_testneeds.py
+          python tool/tests/test_lexifloor.py
       - name: rust/ingest keeps the root's lints and rust-version
         run: python tool/tests/test_lintmatch.py
       - name: the registry imports and the model catalog is current
@@ -548,6 +624,10 @@ jobs:
         # against a recorder for the Cloudflare API: created once, kept on a
         # second run, a wider or taken route refused, worker.js uploaded as is.
         run: python tool/tests/test_aptserver.py
+      - name: what did not run (tool/tests/testneeds.py report)
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: python tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
   payload-py310:
     name: payload staged under python 3.10

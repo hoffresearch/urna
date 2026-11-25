@@ -33,6 +33,7 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+import testneeds
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
@@ -271,7 +272,9 @@ def test_the_artifacts_a_release_uploads() -> None:
 def test_a_real_binary_against_the_golden_fixture() -> None:
     binary = REPO / "target" / "release" / "urna"
     if not binary.is_file():
-        print("binary case skipped: no target/release/urna (cargo build --release)")
+        testneeds.skip(
+            "binary", "test_a_real_binary_against_the_golden_fixture", "no target/release/urna"
+        )
         return
     golden = REPO / "rust/format/tests/fixtures/golden_v1_minimal.urna"
     with tempfile.TemporaryDirectory() as tmp:

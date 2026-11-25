@@ -33,6 +33,8 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
+import testneeds
+
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "rust" / "bridge" / "python" / "urna" / "model" / "installer.py"
 
@@ -257,7 +259,9 @@ def main() -> None:
     test_progress_never_goes_back_and_stops_at_the_size()
     test_the_fetch_checks_what_the_hub_states()
     if not _hub_up():
-        print("download cases skipped: huggingface.co is unreachable")
+        testneeds.skip(
+            "network", "test_fetch_lays_down_the_pinned_files", "huggingface.co is unreachable"
+        )
     else:
         with tempfile.TemporaryDirectory(prefix="urna-install-") as tmp:
             test_fetch_lays_down_the_pinned_files(Path(tmp))

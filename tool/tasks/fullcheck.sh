@@ -19,6 +19,13 @@
 # (ffmpeg, cjxl, ssimulacra2) and the network are not in the key: after
 # changing any of them, run with URNA_FRESH=1.
 #
+# A test that lacks an external resource names the need it lacks
+# (tool/tests/testneeds.tsv). The needs this gate provides itself
+# (REQUIRED_NEEDS below) are required: lacking one fails the run. The
+# others are optional: each skip goes to target/fullcheck/skips.log, a
+# step that skipped is not remembered as passed, and the run ends with the
+# table of what it skipped.
+#
 # Override knobs (env vars):
 #   URNA_BASELINE  - baseline JSON to compare against (default: tool/bench/reference.json,
 #                    measured on the default corpus; another corpus needs its own)
@@ -57,6 +64,14 @@ OUT="${URNA_OUT:-/tmp/fullcheck_post.json}"
 CORPUS="${URNA_CORPUS:-}"
 FRESH="${URNA_FRESH:-0}"
 
+# hnsw_recall's graph_bytes_are_pinned prints the digests and asserts
+# nothing while PIN_HNSW_DIGESTS is set: a mode for re-pinning them, which
+# a gate must not pass on.
+if [[ -n "${PIN_HNSW_DIGESTS+set}" ]]; then
+  printf 'fullcheck: PIN_HNSW_DIGESTS is set (the hnsw digest re-pin mode); unset it to run the gate\n' >&2
+  exit 2
+fi
+
 if [[ -n "${URNA_PYTHON:-}" ]]; then
   PY="$URNA_PYTHON"
 elif [[ -x "$ROOT/.venv/bin/python" ]]; then
@@ -86,22 +101,46 @@ ok() {
 # ---- step cache ----
 # the inputs of each step, as paths git sees. the rust steps read the
 # workspace; presetrun reads the crates that build and search a file, the
-# python package that calls them, the bench and the corpus (#489); the test
-# steps read the whole tree.
+# python package that calls them, the bench, benchdata.py (which presetrun
+# imports) and the corpus (#489); the test steps read the whole tree. the
+# parity workspaces build their path dependencies against the root
+# Cargo.toml (`workspace = true`) and include the needs helper and table.
 RUST_IN="rust Cargo.toml Cargo.lock clippy.toml rustfmt.toml"
-BENCH_IN="rust/format rust/engine rust/bridge tool/bench Cargo.toml Cargo.lock"
+BENCH_IN="rust/format rust/engine rust/bridge tool/bench tool/tasks/benchdata.py Cargo.toml Cargo.lock"
 ALL_IN="."
+NEEDS_IN="rust/clitui/tests/common/needs.rs tool/tests/testneeds.tsv"
 # the toolchain also lists the packages of the $PY environment, read with
 # importlib.metadata, not pip (a uv venv has no pip).
 TOOLCHAIN="$(rustc -vV; cargo -V; "$PY" -VV; uname -sm
   "$PY" -c 'import importlib.metadata as m
 print("\n".join(sorted(d.metadata["Name"] + "==" + d.version for d in m.distributions())))'
   printf 'queries=%s k=%s corpus=%s\n' "$QUERIES" "$K" "$CORPUS"
-  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' | sort || true)"
+  env | grep '^URNA_' | grep -v -e '^URNA_OUT=' -e '^URNA_FRESH=' -e '^URNA_CLEANHOST=' -e '^URNA_CARDS_CORPUS=' -e '^URNA_SKIP_LOG=' | sort || true)"
 STAMPS="$ROOT/target/fullcheck"
 mkdir -p "$STAMPS"
 
-# cached NAME INPUTS [--file PATH]... [--output PATH]... -- FUNCTION
+# ---- needs (tool/tests/testneeds.tsv) ----
+# what this gate provides itself, so a test that lacks it fails: the
+# forge python ($PY, the repo .venv), the git-lfs files, and what the
+# release build leaves in target/release (the cbinds library, the
+# binary); the release tools are the maintainer's (checklist step 8).
+# the cards corpus, the avif dir, the media tools, the network, the
+# sentence-transformers and siglip2 stacks, a clean host and ruff are
+# optional: listed at the end, never failed. one list, so a tier can pick
+# its own.
+REQUIRED_NEEDS="forge lfs native binary release"
+for need in $REQUIRED_NEEDS; do
+  export "URNA_REQUIRE_$(printf '%s' "$need" | tr '[:lower:]' '[:upper:]')=1"
+done
+# this run's skips, one `need<TAB>test<TAB>reason` per line.
+export URNA_SKIP_LOG="$STAMPS/skips.log"
+: > "$URNA_SKIP_LOG"
+# skip NEED WHAT REASON: a skip of fullcheck's own (a step it cannot run),
+# through the same contract; a required need fails here.
+skip() { "$PY" tool/tests/testneeds.py skip "$@"; }
+skipped_bytes() { wc -c < "$URNA_SKIP_LOG" | tr -d ' '; }
+
+# cached NAME INPUTS [--file PATH]... [--extra TEXT]... [--output PATH]... -- FUNCTION
 # runs FUNCTION unless NAME passed before with the same key and outputs.
 cached() {
   local name="$1" inputs="$2" keyargs=() outs=()
@@ -109,12 +148,13 @@ cached() {
   while [[ "$1" != -- ]]; do
     case "$1" in
       --file) keyargs+=(--file "$2") ;;
+      --extra) keyargs+=(--extra "$2") ;;
       --output) outs+=(--output "$2") ;;
       *) printf 'cached: unknown flag %s\n' "$1" >&2; exit 2 ;;
     esac
     shift 2
   done
-  local fn="$2" key
+  local fn="$2" key from
   # shellcheck disable=SC2086 # INPUTS is a space-separated list of paths
   key="$("$PY" tool/tasks/stepcache.py key ${keyargs[@]+"${keyargs[@]}"} \
     --extra "$TOOLCHAIN" --extra "$(declare -f "$fn")" $inputs)"
@@ -124,8 +164,11 @@ cached() {
     printf '\033[1;33m  SKIP:\033[0m same inputs as its last pass\n' >&2
     return 0
   fi
+  from="$(skipped_bytes)"
   "$fn"
-  "$PY" tool/tasks/stepcache.py mark "$name" "$key" ${outs[@]+"${outs[@]}"}
+  # a run that skipped a test for a missing need is not stamped.
+  "$PY" tool/tasks/stepcache.py mark "$name" "$key" ${outs[@]+"${outs[@]}"} \
+    --skip-log "$URNA_SKIP_LOG" --skip-from "$from"
 }
 
 # ---- names ----
@@ -187,7 +230,7 @@ cached bridge-so "$RUST_IN" --output rust/bridge/python/urna/_urna.so -- bridge_
 # ---- cargo test (release) ----
 cargo_test() {
   step "cargo test --release --workspace"
-  URNA_REQUIRE_PARITY=1 cargo test --release --workspace 2>&1 \
+  cargo test --release --workspace 2>&1 \
     | grep -E "^(test result|running [0-9]+ tests)" \
     | awk '/^test result/ { passed += $4; failed += $6; ignored += $8 } END { printf "  passed=%d failed=%d ignored=%d\n", passed, failed, ignored; if (failed > 0) exit 1 }'
   ok "all tests"
@@ -198,7 +241,7 @@ cached cargo-test "$ALL_IN" -- cargo_test
 # rust/neural/parity and rust/images/parity are workspaces of their own (the
 # reference crates stay out of urna's lock and cargo-deny), so the workspace
 # test above never runs them. their corpus pass reads the cards corpus named
-# by URNA_CARDS_CORPUS; without it the step says so and is not marked passed.
+# by URNA_CARDS_CORPUS; without it the step is a skip of the cards need.
 parity() {
   step "cargo test --release in rust/neural/parity and rust/images/parity"
   URNA_PARITY_LIMIT="${URNA_PARITY_LIMIT:-2000}" cargo test --release \
@@ -210,11 +253,11 @@ parity() {
   ok "tokenizer and av1 parity on $URNA_CARDS_CORPUS"
 }
 if [[ -n "${URNA_CARDS_CORPUS:-}" ]]; then
-  cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format" \
+  cached parity "rust/neural rust/images rust/av1dec rust/engine rust/format Cargo.toml $NEEDS_IN" \
     --file "$URNA_CARDS_CORPUS" -- parity
 else
   step "parity"
-  printf '\033[1;33m  SKIP:\033[0m URNA_CARDS_CORPUS unset: no cards corpus to compare on\n' >&2
+  skip cards "fullcheck: tokenizer and av1 parity" "URNA_CARDS_CORPUS unset"
 fi
 
 # ---- parity of urna-format's own f16, SHA-256 and zstd decoder ----
@@ -227,7 +270,7 @@ format_parity() {
     | grep -E "^test result|panicked|FAILED"
   ok "f16, sha-256 and zstd decoder parity"
 }
-cached format-parity "rust/format rust/engine" -- format_parity
+cached format-parity "rust/format rust/engine Cargo.toml $NEEDS_IN" -- format_parity
 
 # ---- parity of the cli's color fold ----
 # rust/clitui/parity is a workspace of its own (coolor, the crate the fold
@@ -280,7 +323,7 @@ python_tests() {
   # an ignored file, and a hit needs the outputs it recorded.
   step "python tool/tests/test_stepcache.py"
   "$PY" tool/tests/test_stepcache.py
-  ok "stepcache (8 cases)"
+  ok "stepcache (10 cases)"
 
   # the corpus of step 4: fetched only with consent, measured only if pinned.
   step "python tool/tests/test_benchdata.py"
@@ -439,6 +482,42 @@ python_tests() {
   "$PY" tool/tests/test_aptserver.py
   ok "aptserver (3 cases)"
 
+  # a test that lacks an external resource fails where the run requires
+  # the need, and otherwise logs its skip (tool/tests/testneeds.tsv).
+  step "python tool/tests/test_testneeds.py"
+  "$PY" tool/tests/test_testneeds.py
+  ok "testneeds (5 cases)"
+
+  # the embedders' own self-tests: the stdlib lexical floor, the model
+  # registry, the potion table through the C ABI against numpy + tokenizers
+  # (the release build left the library in target/release), the offline
+  # retrieve demo, and the siglip2 query path (the clip need: its packages
+  # and pinned snapshot are optional here).
+  step "python tool/tests/test_lexifloor.py"
+  "$PY" tool/tests/test_lexifloor.py
+  ok "lexifloor: the stdlib static embedder"
+  step "python tool/tests/test_presetmap.py"
+  "$PY" tool/tests/test_presetmap.py
+  ok "presetmap: the model registry (12 cases)"
+  step "python tool/tests/test_potiontab.py"
+  "$PY" tool/tests/test_potiontab.py
+  ok "potiontab: the potion embedder, native and reference (8 cases)"
+  step "python tool/tests/test_retrieval.py"
+  "$PY" tool/tests/test_retrieval.py
+  ok "retrieval: the offline retrieve demo (3 cases)"
+  step "python tool/tests/test_clipsnaps.py"
+  "$PY" tool/tests/test_clipsnaps.py
+  ok "clipsnaps: the siglip2 query path (2 cases)"
+
+  # the bridge's media blob pair and multimodal space bands, on files built
+  # through urna.build.
+  step "python tool/tests/test_mediablob.py"
+  "$PY" tool/tests/test_mediablob.py
+  ok "mediablob: the blob pair (5 cases)"
+  step "python tool/tests/test_spaceband.py"
+  "$PY" tool/tests/test_spaceband.py
+  ok "spaceband: the space bands (5 cases)"
+
   # the release pull request is prepared by cargo-release in its own worktree,
   # signed, and touches only the version, the lockfile, the changelog and
   # CITATION.cff; skips without the pinned cargo-release.
@@ -457,7 +536,7 @@ ruff() {
     URNA_PYTHON="$PY" sh tool/tasks/ruffcheck.sh
     ok "ruff clean"
   else
-    printf '  skip: ruff not importable in %s\n' "$PY" >&2
+    skip ruff "fullcheck: ruff" "ruff not importable in $PY"
   fi
 }
 cached ruff "$ALL_IN" -- ruff
@@ -468,6 +547,11 @@ cached ruff "$ALL_IN" -- ruff
 # docker or podman linux container. without either it says so and runs
 # nothing, as URNA_CLEANHOST=0 does; neither marks the step passed.
 CLEANHOST_IN="$(sed -n 's/^      - "\(.*\)"$/\1/p' .github/workflows/cleanhost.yml | tr '\n' ' ')"
+# an empty list would key no file, and the step would skip forever.
+if [[ -z "${CLEANHOST_IN// /}" ]]; then
+  printf 'fullcheck: read no path filter from .github/workflows/cleanhost.yml (its format changed?)\n' >&2
+  exit 2
+fi
 CLEANHOST_MODE=""
 if command -v "${TART:-tart}" >/dev/null 2>&1 && [[ "$(uname -sm)" == "Darwin arm64" ]]; then
   CLEANHOST_MODE=macos
@@ -484,10 +568,11 @@ CLEANHOST_SKIP=""
 [[ "${URNA_CLEANHOST:-1}" == 0 ]] && CLEANHOST_SKIP="URNA_CLEANHOST=0"
 if [[ -n "$CLEANHOST_SKIP" ]]; then
   step "cleanhost"
-  printf '\033[1;33m  SKIP:\033[0m %s; CI runs it when these change: %s\n' \
-    "$CLEANHOST_SKIP" "$CLEANHOST_IN" >&2
+  skip cleanhost "fullcheck: cleanhost (CI runs it when these change: $CLEANHOST_IN)" \
+    "$CLEANHOST_SKIP"
 else
-  cached cleanhost "$CLEANHOST_IN" -- cleanhost
+  # the mode is in the key: a pass in a linux container is not the macOS VM's.
+  cached cleanhost "$CLEANHOST_IN" --extra "cleanhost mode: $CLEANHOST_MODE" -- cleanhost
 fi
 
 # ---- presetrun + compare ----
@@ -509,6 +594,12 @@ bench() {
 }
 cached bench "$BENCH_IN" --file "$CORPUS" --file "$BASELINE" --output "$PRESETS" -- bench
 cp "$PRESETS" "$OUT"
+
+# ---- what did not run ----
+# every skip of this run, by need; a required one fails the run here too
+# (its test failed already, unless something skipped without asking).
+step "skipped needs (python tool/tests/testneeds.py report $URNA_SKIP_LOG)"
+"$PY" tool/tests/testneeds.py report "$URNA_SKIP_LOG"
 
 # ---- summary ----
 printf '\n\033[1;32m== fullcheck passed ==\033[0m\n'

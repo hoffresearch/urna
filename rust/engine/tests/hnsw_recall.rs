@@ -199,7 +199,8 @@ fn graph_digest(idx: &HnswIndex) -> String {
 /// digests or change them on purpose, in the same commit, with the reason.
 /// `PIN_HNSW_DIGESTS=1 cargo test --release -p urna-engine --test
 /// hnsw_recall graph_bytes_are_pinned -- --nocapture` prints the current
-/// values to paste below.
+/// values to paste below; it asserts nothing then, so fullcheck.sh and
+/// gatecheck.yml refuse to run with the variable set.
 #[test]
 fn graph_bytes_are_pinned() {
     const CASES: [(usize, usize, u64, u64, usize, usize, &str); 2] = [

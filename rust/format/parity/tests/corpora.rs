@@ -1,5 +1,5 @@
 //! Every zstd-compressed section of real `.urna` files, decoded by both
-//! decoders: the fixtures tracked in the tree, and corpora built here with
+//! decoders: the fixtures git sees in the tree, and corpora built here with
 //! the writer under a compressed preset (single-frame zstd, txt_streams,
 //! and a dictionary-framed text section put in place with add_sections).
 //! The dictionary-framed corpus is then opened by the engine and must
@@ -12,6 +12,10 @@
 )]
 
 use std::path::{Path, PathBuf};
+use std::process::Command;
+
+#[path = "../../../clitui/tests/common/needs.rs"]
+mod needs;
 
 use urna_engine::MmapUrnaFile;
 use urna_format::encoding::{encode_txt_streams, encode_zstd_dict, train_dict};
@@ -58,39 +62,59 @@ fn check_file(name: &str, file: &[u8]) -> usize {
     frames
 }
 
-fn walk(dir: &Path, found: &mut Vec<PathBuf>) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for e in entries.flatten() {
-        let p = e.path();
-        let name = e.file_name();
-        if p.is_dir() {
-            if name != "target" && name != ".git" && name != "node_modules" {
-                walk(&p, found);
-            }
-        } else if p.extension().is_some_and(|x| x == "urna" || x == "nest") {
-            found.push(p);
-        }
-    }
+/// The `.urna` and `.nest` files git sees (tracked, or untracked and not
+/// ignored): the ones fullcheck's step cache hashes, so a new or edited
+/// fixture reruns this test. An ignored local corpus is not a fixture.
+fn fixtures(root: &Path) -> Vec<PathBuf> {
+    let out = Command::new("git")
+        .args([
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ])
+        .args(["--", "*.urna", "*.nest"])
+        .current_dir(root)
+        .output()
+        .expect("git runs: the fixtures are the files git sees");
+    assert!(
+        out.status.success(),
+        "git ls-files: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let mut files: Vec<PathBuf> = String::from_utf8_lossy(&out.stdout)
+        .split('\0')
+        .filter(|p| !p.is_empty())
+        .map(|p| root.join(p))
+        .filter(|p| p.is_file())
+        .collect();
+    files.sort();
+    files
 }
 
+/// Every fixture git sees, decoded by both decoders. A git-lfs pointer is
+/// the `lfs` need (rust/clitui/tests/common/needs.rs); a fixture that does
+/// not open is a failure, never a skip.
 #[test]
 fn tracked_fixtures() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
-    let mut files = Vec::new();
-    walk(&root, &mut files);
+    let files = fixtures(&root);
     let mut frames = 0;
     let mut opened = 0;
     for path in &files {
         let bytes = std::fs::read(path).unwrap();
-        // a git-lfs pointer (the demo corpora when lfs is not fetched).
-        if bytes.starts_with(b"version https://git-lfs") || UrnaView::from_bytes(&bytes).is_err() {
-            println!("skip {}", path.display());
+        let name = path
+            .strip_prefix(&root)
+            .unwrap_or(path)
+            .display()
+            .to_string();
+        if bytes.starts_with(b"version https://git-lfs") {
+            needs::lack("lfs", &format!("{name} is a git-lfs pointer"));
             continue;
         }
         opened += 1;
-        frames += check_file(&path.display().to_string(), &bytes);
+        frames += check_file(&name, &bytes);
     }
     println!(
         "{opened} of {} .urna files, {frames} zstd frames compared",

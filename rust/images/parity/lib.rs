@@ -13,7 +13,7 @@ use std::path::Path;
 /// directory named by `URNA_AVIF_DIR` (what CI encodes, see
 /// `.github/workflows/gatecheck.yml`), else every inlined AVIF blob of the
 /// corpus named by `URNA_CARDS_CORPUS`, at most `URNA_PARITY_LIMIT` of
-/// them. `None` when neither is set: the test says so and passes.
+/// them. `None` when neither is set: the test reports its `avif` need.
 pub fn avif_inputs() -> Option<Vec<(String, Vec<u8>)>> {
     let limit: usize = std::env::var("URNA_PARITY_LIMIT")
         .ok()

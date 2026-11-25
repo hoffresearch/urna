@@ -141,13 +141,13 @@ mod tests {
     }
 
     #[test]
+    #[cfg_attr(
+        windows,
+        ignore = "builds a unix .tar.gz whose uv is a shell script; windows takes a .zip of uv.exe"
+    )]
     fn installs_the_checked_archive_and_refuses_other_bytes() {
-        if cfg!(windows) {
-            return;
-        }
-        let Some(curl) = crate::cmd::paths::which("curl") else {
-            return;
-        };
+        // curl is on every dev machine and ci runner: no skip without it.
+        let curl = crate::cmd::paths::which("curl").expect("curl on PATH");
         let d = std::env::temp_dir().join(format!("urna_uv_{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();

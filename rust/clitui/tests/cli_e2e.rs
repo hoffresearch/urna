@@ -6,6 +6,9 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+#[path = "common/needs.rs"]
+mod needs;
+
 use urna_format::ChunkInput;
 use urna_format::manifest::Manifest;
 use urna_format::writer::UrnaFileBuilder;
@@ -161,11 +164,13 @@ fn cli_cite_resolves_citation() {
 // flagship verbs: ask + retrieve. these embed the query OFFLINE with the
 // default potion static table, so they need a python carrying numpy +
 // tokenizers + the vendored potion table (git-lfs). when that toolchain is
-// absent (a minimal CI runner, a clone without `git lfs pull`), the probe
-// below returns None and the test skips with a printed note - the pure-rust
-// suite above is unconditional. once the toolchain is there, a failing demo
-// build is a failing test, never a skip. set URNA_PYTHON to point at the
-// venv that has the deps.
+// absent (a clone without `git lfs pull`, a python without the forge
+// group), the probe below reports the `lfs` or `forge` need missing
+// (common/needs.rs): a skip with a line in URNA_SKIP_LOG, a failure where
+// the run requires it (fullcheck.sh, gatecheck.yml). the pure-rust suite
+// above is unconditional. once the toolchain is there, a failing demo build
+// is a failing test, never a skip. set URNA_PYTHON to point at the venv
+// that has the deps.
 // ---------------------------------------------------------------------------
 
 /// the vendored potion table is real bytes, not the git-lfs pointer a clone
@@ -177,7 +182,7 @@ fn potion_table_present(root: &std::path::Path) -> bool {
 
 /// resolve a python interpreter that can import urna.embed.potiontab (numpy +
 /// tokenizers + the vendored table). prefers $URNA_PYTHON, then .venv at the
-/// repo root, then `python3`. returns None, with the reason printed, when
+/// repo root, then `python3`. returns None, with the need reported, when
 /// the toolchain to build the demo is absent.
 fn embed_python() -> Option<(String, PathBuf)> {
     // repo root: this test file is rust/clitui/tests/, go up three.
@@ -186,9 +191,7 @@ fn embed_python() -> Option<(String, PathBuf)> {
         .and_then(|p| p.parent())
         .map(PathBuf::from)?;
     if !potion_table_present(&root) {
-        eprintln!(
-            "the potion table is an lfs pointer: run `git lfs pull` or tool/tasks/getpotion.sh"
-        );
+        needs::lack("lfs", "the potion table is missing or a git-lfs pointer");
         return None;
     }
     let mut candidates: Vec<String> = Vec::new();
@@ -207,6 +210,7 @@ fn embed_python() -> Option<(String, PathBuf)> {
             return Some((py, root));
         }
     }
+    needs::lack("forge", "no python with numpy and tokenizers");
     None
 }
 
@@ -239,7 +243,6 @@ fn build_intro_corpus(py: &str, root: &std::path::Path, path: &std::path::Path) 
 #[test]
 fn cli_ask_answer_is_cited_text_only_and_explain_adds_honesty_line() {
     let Some((py, root)) = embed_python() else {
-        eprintln!("skip cli_ask: no python with numpy+tokenizers+potion table");
         return;
     };
     let path = tmp_path("cli_ask_demo.urna");
@@ -308,7 +311,6 @@ fn cli_ask_answer_is_cited_text_only_and_explain_adds_honesty_line() {
 #[test]
 fn cli_retrieve_answer_pack_score_equals_search_and_cite_round_trips() {
     let Some((py, root)) = embed_python() else {
-        eprintln!("skip cli_retrieve: no python with the embed deps");
         return;
     };
     let path = tmp_path("cli_retrieve_demo.urna");
@@ -418,7 +420,7 @@ fn cli_inspect_shows_section_names() {
 
 // ---------------------------------------------------------------------------
 // the query path needs no python (#205): the corpus is built with the
-// toolchain (skipped without it, like the tests above), then `ask` and
+// toolchain (its needs, like the tests above), then `ask` and
 // `retrieve` run with every python off PATH, URNA_PYTHON unset and the
 // working directory away from any `.venv`.
 // ---------------------------------------------------------------------------
@@ -426,7 +428,6 @@ fn cli_inspect_shows_section_names() {
 #[test]
 fn cli_ask_and_retrieve_answer_with_no_python_on_path() {
     let Some((py, root)) = embed_python() else {
-        eprintln!("skip cli_no_python: no toolchain to build the demo corpus");
         return;
     };
     let path = tmp_path("cli_no_python_demo.urna");

@@ -2,7 +2,7 @@
 //! built here (a payload tarball and its `.sha256`, the layout the release
 //! workflow publishes), so the download, the checksum, the unpack and the
 //! typed exit codes run exactly as they do against github. needs `curl` on
-//! PATH (every ci runner has it); skips cleanly without it.
+//! PATH (every dev machine and ci runner has it); fails without it.
 #![cfg(feature = "tui")]
 #![allow(
     clippy::unwrap_used,
@@ -29,8 +29,13 @@ fn file_url(p: &Path) -> String {
     }
 }
 
-fn has_curl() -> bool {
-    Command::new("curl").arg("--version").output().is_ok()
+/// curl is on every dev machine and CI runner (Windows ships it since 10):
+/// without it the test fails, never passes doing nothing.
+fn need_curl() {
+    assert!(
+        Command::new("curl").arg("--version").output().is_ok(),
+        "no curl on PATH: setup downloads with it, install it"
+    );
 }
 
 fn scratch(tag: &str) -> PathBuf {
@@ -168,10 +173,7 @@ fn text(o: &Output) -> String {
 
 #[test]
 fn setup_yes_installs_the_payload_from_the_release() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("ok");
     let rel = release(&d, None);
     // a venv from an earlier setup: the payload step must leave it alone.
@@ -199,10 +201,7 @@ fn setup_yes_installs_the_payload_from_the_release() {
 
 #[test]
 fn an_upgraded_binary_replaces_an_older_payload_and_keeps_the_venv() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("upgrade");
     // an older payload without the stamp (0.5.1's had none), and a venv.
     let embed = d.join("data/urna/python/urna/embed");
@@ -237,10 +236,7 @@ fn an_upgraded_binary_replaces_an_older_payload_and_keeps_the_venv() {
 
 #[test]
 fn setup_repairs_a_payload_missing_a_required_file() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("repair");
     let rel = release(&d, None);
     urna(&d, &rel, &["setup", "--yes", "--no-python"]);
@@ -265,10 +261,7 @@ fn setup_repairs_a_payload_missing_a_required_file() {
 
 #[test]
 fn an_incomplete_release_fails_and_keeps_the_installed_payload() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("halfrel");
     let old = release_at(&d, "old", None, "0.0.1", None);
     urna(
@@ -298,10 +291,7 @@ fn an_incomplete_release_fails_and_keeps_the_installed_payload() {
 
 #[test]
 fn a_tampered_checksum_exits_11_and_installs_nothing() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("sha");
     let rel = release(&d, Some(&"0".repeat(64)));
     let out = urna(&d, &rel, &["setup", "--yes", "--force", "--no-python"]);
@@ -312,10 +302,7 @@ fn a_tampered_checksum_exits_11_and_installs_nothing() {
 
 #[test]
 fn a_missing_release_exits_10() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("gone");
     let out = urna(
         &d,
@@ -327,10 +314,7 @@ fn a_missing_release_exits_10() {
 
 #[test]
 fn uninstall_removes_the_payload_and_keeps_the_binary() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("rm");
     let rel = release(&d, None);
     urna(&d, &rel, &["setup", "--yes", "--force", "--no-python"]);
@@ -371,10 +355,7 @@ fn lay_down_legacy(home: &Path) {
 
 #[test]
 fn setup_over_the_old_layout_removes_it() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("legacy");
     let home = d.join("data/urna");
     lay_down_legacy(&home);
@@ -471,10 +452,7 @@ fn doctor_through_a_pipe_has_no_escapes_and_names_setup() {
 /// not separately allowed, and packages for an env other than its own.
 #[test]
 fn setup_refuses_models_the_catalog_or_the_consent_does_not_cover() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("models");
     let rel = release(&d, None);
     // every other data root (and the checkout) out of reach: setup must
@@ -644,10 +622,7 @@ fn bare_machine(dir: &Path, rel: &Path, args: &[&str]) -> Command {
 #[cfg(unix)]
 #[test]
 fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("uvfetch");
     let rel = release(&d, None);
     let data = d.join("data");
@@ -707,10 +682,7 @@ fn a_machine_without_uv_or_python_gets_the_catalogues_uv_and_range() {
 
 #[test]
 fn the_sample_is_saved_checked_and_other_bytes_are_refused() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("sample");
     let rel = release(&d, None);
     let s = text(&urna(&d, &rel, &["setup", "--yes", "--no-python"]));
@@ -736,10 +708,7 @@ fn the_sample_is_saved_checked_and_other_bytes_are_refused() {
 
 #[test]
 fn no_sample_skips_the_step() {
-    if !has_curl() {
-        eprintln!("skip: no curl on PATH");
-        return;
-    }
+    need_curl();
     let d = scratch("no_sample");
     let rel = release(&d, None);
     let s = text(&urna(
