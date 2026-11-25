@@ -35,7 +35,6 @@ Three rules keep the lexicon useful:
 | `crf` | constant rate factor, the video encoder's quality knob | `crfpicker.py` |
 | `dbs` | databases | `vectordbs.py` |
 | `dec` | decode | `av1dec/`, `decframes.py` |
-| `dev` | development | `.devops/` |
 | `docs` | documentation | `docs/` |
 | `emb` | embedding | `visionemb.py` |
 | `enc` | encode | `encstills.py`, `encstream.py` |
@@ -45,14 +44,13 @@ Three rules keep the lexicon useful:
 | `intro` | introduction | `demo/corpora/intro/` |
 | `lexi` | lexical | `lexifloor.py` |
 | `medic` | medical | `demo/corpora/medic/` |
-| `ops` | operations | `.devops/`, `.secops/`, `aiops/` |
+| `ops` | operations | `demo/corpora/aiops/` |
 | `osint` | open-source intelligence | `demo/corpora/osint/` |
 | `pkgs` | packages, the distribution channels | `pkgs/` |
 | `pr` | pull request | `releasepr.sh` |
 | `prep` | prepare | `buildprep.yml`, `wheelprep.py` |
 | `py` | Python | `flaskpy/` |
 | `qry` | query | `potionqry.py`, `presetqry.py` |
-| `sec` | security | `.secops/` |
 | `snaps` | snapshots | `test_clipsnaps.py` |
 | `spec` | specification, the declarative build spec | `specs/`, `specbuild.py`, `specparse.py`, `specpaths.py`, `specrules.py` |
 | `st` | sentence-transformers | `stbackend.py`, `stprocess.py` |
