@@ -1,8 +1,9 @@
 //! A C program against the header and the static library: open a corpus
 //! built here from `demo/starter/docs.jsonl` with the potion table, ask it, read the hits, take an image, read the
-//! schema, close, and the error path on a file that is not there. Runs
-//! under `leaks` on macOS when it is available. Skipped, with a note,
-//! without a C compiler.
+//! schema, close, and the error path on a file that is not there; and on
+//! macOS the same run under `leaks`. A missing C compiler fails; a potion
+//! table that is a git-lfs pointer is the `lfs` need
+//! (rust/clitui/tests/common/needs.rs).
 
 #![allow(
     clippy::unwrap_used,
@@ -12,6 +13,9 @@
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+#[path = "../../clitui/tests/common/needs.rs"]
+mod needs;
 
 const PROGRAM: &str = r#"
 #include <stdio.h>
@@ -166,58 +170,92 @@ fn build_corpus(table: &Path, out: &Path) {
         .unwrap();
 }
 
-#[test]
-fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
-    if !have("cc") {
-        eprintln!("skip: no C compiler");
-        return;
+/// The C program, compiled against this checkout's library, and what it
+/// runs on: `None` when the potion table is a git-lfs pointer (the `lfs`
+/// need, reported). A missing `cc` fails: every dev machine and CI runner
+/// has one.
+struct Built {
+    dir: PathBuf,
+    exe: PathBuf,
+    corpus: PathBuf,
+    table: PathBuf,
+}
+
+impl Built {
+    fn new(name: &str) -> Option<Built> {
+        assert!(
+            have("cc"),
+            "no C compiler (cc) on PATH: install the platform's build tools"
+        );
+        let table = root().join("rust/bridge/python/urna/model/potionb8m");
+        let pointer = std::fs::read(table.join("model.safetensors"))
+            .is_ok_and(|b| b.starts_with(b"version https://git-lfs"));
+        if pointer {
+            needs::lack("lfs", "the potion table is a git-lfs pointer");
+            return None;
+        }
+        let dir = std::env::temp_dir().join(format!("urna-cbinds-{name}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let corpus = dir.join("starter.urna");
+        build_corpus(&table, &corpus);
+        let src = dir.join("main.c");
+        std::fs::write(&src, PROGRAM).unwrap();
+        let exe = dir.join("main");
+        let lib = staticlib();
+        let mut cc = Command::new("cc");
+        cc.arg("-std=c11")
+            .arg("-Wall")
+            .arg("-Werror")
+            .arg("-I")
+            .arg(root().join("rust/cbinds/include"))
+            .arg(&src)
+            .arg(&lib)
+            .arg("-o")
+            .arg(&exe);
+        if cfg!(target_os = "linux") {
+            cc.args(["-lpthread", "-ldl", "-lm"]);
+        }
+        let out = cc.output().expect("cc runs");
+        assert!(
+            out.status.success(),
+            "cc failed:\n{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        Some(Built {
+            dir,
+            exe,
+            corpus,
+            table,
+        })
     }
-    let table = root().join("rust/bridge/python/urna/model/potionb8m");
-    let pointer = std::fs::read(table.join("model.safetensors"))
-        .is_ok_and(|b| b.starts_with(b"version https://git-lfs"));
-    if pointer {
-        eprintln!("skip: the potion table is a git-lfs pointer");
-        return;
-    }
-    let dir = std::env::temp_dir().join(format!("urna-cbinds-c-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let corpus = dir.join("starter.urna");
-    build_corpus(&table, &corpus);
-    let src = dir.join("main.c");
-    std::fs::write(&src, PROGRAM).unwrap();
-    let exe = dir.join("main");
-    let lib = staticlib();
-    let mut cc = Command::new("cc");
-    cc.arg("-std=c11")
-        .arg("-Wall")
-        .arg("-Werror")
-        .arg("-I")
-        .arg(root().join("rust/cbinds/include"))
-        .arg(&src)
-        .arg(&lib)
-        .arg("-o")
-        .arg(&exe);
-    if cfg!(target_os = "linux") {
-        cc.args(["-lpthread", "-ldl", "-lm"]);
-    }
-    let out = cc.output().expect("cc runs");
-    assert!(
-        out.status.success(),
-        "cc failed:\n{}",
-        String::from_utf8_lossy(&out.stderr)
-    );
-    let run = |leaks: bool| {
-        let mut cmd = if leaks {
-            let mut c = Command::new("leaks");
-            c.args(["--atExit", "--"]).arg(&exe);
-            c
-        } else {
-            Command::new(&exe)
+
+    /// The program on the corpus, under `wrapper` (`leaks`) when given.
+    fn run(&self, wrapper: Option<&[&str]>) -> std::process::Output {
+        let mut cmd = match wrapper {
+            Some([tool, args @ ..]) => {
+                let mut c = Command::new(tool);
+                c.args(args).arg(&self.exe);
+                c
+            }
+            _ => Command::new(&self.exe),
         };
-        cmd.arg(&corpus).arg(&table).arg("what is urna");
+        cmd.arg(&self.corpus).arg(&self.table).arg("what is urna");
         cmd.output().expect("program runs")
+    }
+}
+
+impl Drop for Built {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+#[test]
+fn a_c_program_opens_asks_reads_and_closes() {
+    let Some(built) = Built::new("c") else {
+        return;
     };
-    let out = run(false);
+    let out = built.run(None);
     let stdout = String::from_utf8_lossy(&out.stdout);
     eprintln!("{stdout}");
     assert!(
@@ -232,21 +270,30 @@ fn a_c_program_opens_asks_reads_and_closes_without_leaks() {
         "{stdout}"
     );
     assert!(stdout.trim_end().ends_with("ok"), "{stdout}");
-    if cfg!(target_os = "macos") && Path::new("/usr/bin/leaks").is_file() {
-        let out = run(true);
-        let text = format!(
-            "{}{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        );
-        if text.contains("leaks Report Version") {
-            assert!(text.contains("0 leaks for 0 total leaked bytes"), "{text}");
-        } else {
-            eprintln!(
-                "note: leaks did not run ({})",
-                text.lines().last().unwrap_or("")
-            );
-        }
-    }
-    let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// The same program under macOS's `leaks --atExit`, which must report
+/// zero leaks. Ignored elsewhere, so it never counts as a pass where it
+/// cannot run; on macOS a `leaks` that is missing or reports nothing fails.
+#[test]
+#[cfg_attr(not(target_os = "macos"), ignore = "leaks is macOS only")]
+fn the_c_program_leaks_nothing() {
+    let Some(built) = Built::new("leaks") else {
+        return;
+    };
+    assert!(
+        Path::new("/usr/bin/leaks").is_file(),
+        "no /usr/bin/leaks: install the Xcode command line tools"
+    );
+    let out = built.run(Some(&["leaks", "--atExit", "--"]));
+    let text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(
+        text.contains("leaks Report Version"),
+        "leaks did not report:\n{text}"
+    );
+    assert!(text.contains("0 leaks for 0 total leaked bytes"), "{text}");
 }
