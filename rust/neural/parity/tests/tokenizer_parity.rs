@@ -1,6 +1,7 @@
 //! Our WordPiece tokenizer against the reference library on the potion's
 //! own `tokenizer.json`: a fixed set that walks every rule, and every
-//! card name of the corpus when `URNA_CARDS_CORPUS` names one. The
+//! card name of the corpus `URNA_CARDS_CORPUS` names (the `cards` need,
+//! rust/clitui/tests/common/needs.rs). The
 //! reference crate is a dev-dependency only; it never enters the build.
 
 #![allow(
@@ -10,6 +11,9 @@
 )]
 
 use std::path::PathBuf;
+
+#[path = "../../../clitui/tests/common/needs.rs"]
+mod needs;
 
 fn potion_tokenizer() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -62,7 +66,7 @@ fn the_fixed_set_matches_the_reference_id_for_id() {
 #[test]
 fn every_card_name_of_the_corpus_matches_the_reference() {
     let Some(corpus) = std::env::var_os("URNA_CARDS_CORPUS") else {
-        eprintln!("URNA_CARDS_CORPUS unset: skipping the corpus parity");
+        needs::lack("cards", "URNA_CARDS_CORPUS unset");
         return;
     };
     let file =

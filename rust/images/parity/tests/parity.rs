@@ -2,7 +2,8 @@
 //! decoder the explorer used before), pixel against pixel. The inputs are
 //! the `.avif` files of `URNA_AVIF_DIR` or the blobs of the card corpus
 //! named by `URNA_CARDS_CORPUS` (`urna_images_parity::avif_inputs`);
-//! without either the test passes doing nothing and says so.
+//! without either it is a skip of the `avif` need
+//! (rust/clitui/tests/common/needs.rs), a failure where the run requires it.
 //! `URNA_PARITY_LIMIT` caps how many are compared.
 
 #![allow(
@@ -12,6 +13,9 @@
 )]
 
 use std::time::Instant;
+
+#[path = "../../../clitui/tests/common/needs.rs"]
+mod needs;
 
 fn reference(bytes: &[u8]) -> (u32, u32, Vec<u8>) {
     let img = avif_decode::Decoder::from_avif(bytes)
@@ -66,7 +70,7 @@ fn reference(bytes: &[u8]) -> (u32, u32, Vec<u8>) {
 #[test]
 fn every_blob_of_the_corpus_decodes_like_avif_decode() {
     let Some(inputs) = urna_images_parity::avif_inputs() else {
-        eprintln!("URNA_AVIF_DIR and URNA_CARDS_CORPUS unset: parity skipped");
+        needs::lack("avif", "URNA_AVIF_DIR and URNA_CARDS_CORPUS unset");
         return;
     };
     let (mut equal, mut off_by_one, mut worse) = (0usize, 0usize, 0usize);
