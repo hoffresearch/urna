@@ -34,7 +34,14 @@ import tempfile
 from pathlib import Path
 
 import testneeds
-import yaml
+
+try:
+    import yaml
+except ImportError:
+    sys.exit(
+        "test_rehearsal: needs pyyaml, in pyproject.toml's gate group: "
+        "uv sync --group forge --group gate (pip install --group gate)"
+    )
 
 REPO = Path(__file__).resolve().parents[2]
 spec = importlib.util.spec_from_file_location("rehearsal", REPO / "tool" / "tasks" / "rehearsal.py")

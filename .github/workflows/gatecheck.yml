@@ -578,10 +578,14 @@ jobs:
       - name: the skip log
         shell: bash
         run: echo "URNA_SKIP_LOG=$RUNNER_TEMP/skips.log" >> "$GITHUB_ENV"
-      - name: ruff (same file list as fullcheck.sh)
+      # pyproject.toml's gate group: pyyaml (the workflow readers) and ruff,
+      # what the local gate's .venv holds too. pip reads --group from 25.1.
+      - name: the gate's python tooling (pyproject.toml's gate group)
         run: |
-          python -m pip install ruff
-          URNA_PYTHON=python sh tool/tasks/ruffcheck.sh
+          python -m pip install --upgrade "pip>=25.1"
+          python -m pip install --group gate
+      - name: ruff (same file list as fullcheck.sh)
+        run: URNA_PYTHON=python sh tool/tasks/ruffcheck.sh
       - name: names follow the length table and the lexicon
         # the naming rule of docs/CONTRIBUTING.md: siblings of the same kind have the same
         # length, the exceptions are listed, docs/TERMS.md holds every
@@ -651,12 +655,11 @@ jobs:
         # rehearsal.yml is generated from release.yml; a dist upgrade
         # or a hand edit that drifts fails here.
         run: |
-          python -m pip install pyyaml
           python tool/tasks/rehearsal.py generate --check
           python tool/tests/test_rehearsal.py
       - name: every check CI runs has its local step or the reason it has none
         # tool/tasks/gatesteps.tsv against this workflow, lintworks.yml and
-        # the tiers of tool/tasks/fullcheck.sh (pyyaml, installed above).
+        # the tiers of tool/tasks/fullcheck.sh (pyyaml: the gate group).
         run: python tool/tests/test_gatematch.py
       - name: the release waits for and reports the exact version
         # against a local http server: the registry waits, the crates

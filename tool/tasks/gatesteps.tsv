@@ -80,7 +80,8 @@ gatecheck.yml	miri	nightly toolchain with miri (NIGHTLY)	-	-	setup	the schedule'
 gatecheck.yml	miri	miri setup	-	-	setup	the schedule's
 gatecheck.yml	miri	urna-format under miri	-	-	none	reason: the schedule only and advisory (about 90 min); mitigation: cargo +<NIGHTLY> miri test -p urna-format, by hand
 gatecheck.yml	python	the skip log	-	-	setup	every tier sets URNA_SKIP_LOG
-gatecheck.yml	python	ruff (same file list as fullcheck.sh)	quick push full	ruff	exact	ruff from $PY (the ruff need, required in push), where CI installs the newest ruff: the version can differ
+gatecheck.yml	python	the gate's python tooling (pyproject.toml's gate group)	-	-	setup	the repo .venv holds the gate group (uv sync --group forge --group gate); test_gatematch, test_rehearsal and test_pkgrender name it in one line when pyyaml is missing
+gatecheck.yml	python	ruff (same file list as fullcheck.sh)	quick push full	ruff	exact	ruff from $PY (the ruff need, required in push), the gate group's on both sides; each resolves the newest ruff >= 0.17 when installed, so the versions can differ
 gatecheck.yml	python	names follow the length table and the lexicon	quick push full	names	exact	
 gatecheck.yml	python	urna keeps its import contracts	quick push full	layers	exact	
 gatecheck.yml	python	the atlas summary is the current state, not history	push full	python-job	exact	

@@ -24,7 +24,13 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
+try:
+    import yaml
+except ImportError:
+    sys.exit(
+        "test_gatematch: needs pyyaml, in pyproject.toml's gate group: "
+        "uv sync --group forge --group gate (pip install --group gate)"
+    )
 
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / ".github" / "workflows"

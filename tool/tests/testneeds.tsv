@@ -3,7 +3,7 @@
 # into a failure. read by tool/tests/testneeds.py and, through include_str!,
 # by rust/clitui/tests/common/needs.rs; docs/USAGE.md explains the contract.
 # need	how to provide it
-forge	a python with numpy and tokenizers: URNA_PYTHON, or the repo .venv (uv sync --group forge)
+forge	a python with numpy and tokenizers: URNA_PYTHON, or the repo .venv (uv sync --group forge --group gate)
 lfs	the git-lfs files, not their pointers: git lfs pull (the potion table alone: sh tool/tasks/getpotion.sh)
 native	the urna-cbinds library: cargo build --release -p urna-cbinds (or URNA_CBINDS naming it)
 binary	the release binary: cargo build --release (target/release/urna)
@@ -15,5 +15,5 @@ network	huggingface.co reachable
 stmodel	URNA_ST_PYTHON naming a python with sentence-transformers, and its model in the hugging face cache
 clip	the siglip2 preset's packages (torch, open_clip) and its pinned snapshot in the hugging face cache
 cleanhost	a tart macOS VM (TART=<path>) or docker or podman; URNA_CLEANHOST=0 skips on purpose
-ruff	ruff importable from the python fullcheck runs (URNA_PYTHON)
+ruff	ruff importable from the python fullcheck runs (URNA_PYTHON): uv sync --group forge --group gate
 targets	the x86_64 linux and windows standard libraries the push tier checks against: rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-msvc

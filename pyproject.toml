@@ -20,6 +20,13 @@
 # the requirement is recorded without claiming a publishable package.
 # Install with:  uv pip install numpy tokenizers   (or: uv sync --group forge)
 # The lexical floor (urna/embed/lexifloor.py) stays stdlib-only.
+#
+# The `gate` group is the local gate's and CI's own tooling: pyyaml, which
+# reads the workflows (tool/tests/test_gatematch.py, test_rehearsal.py,
+# test_pkgrender.py, tool/tasks/rehearsal.py generate), and ruff. The repo
+# .venv the gate runs on holds both groups (uv sync is exact, so name both):
+#   uv sync --group forge --group gate
+# gatecheck.yml's python job installs the gate group with pip's --group.
 
 [dependency-groups]
 forge = [
@@ -27,6 +34,10 @@ forge = [
     "tokenizers>=0.20",
     # image paths (orchestra, visionemb, stbackend) and the forge tests.
     "pillow>=10",
+]
+gate = [
+    "pyyaml>=6",
+    "ruff>=0.17",
 ]
 
 [tool.ruff]

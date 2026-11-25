@@ -41,7 +41,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install ruff pyyaml numpy tokenizers pillow sentence-transformers pandas pyarrow
 ```
 
-`numpy` and `tokenizers` are the forge deps the potion embedder needs; `pyyaml` is for the release rehearsal generator and its tests; `pillow` is for the image tests; `sentence-transformers` only for the pt-BR corpus and `search-text`.
+`numpy` and `tokenizers` are the forge deps the potion embedder needs; `pyyaml` is for the release rehearsal generator and its tests; `pillow` is for the image tests; `sentence-transformers` only for the pt-BR corpus and `search-text`. `pyproject.toml` declares the two sets the gate needs as dependency groups: `uv sync --group forge --group gate` gives the repo `.venv` numpy, tokenizers and pillow (`forge`) and pyyaml and ruff (`gate`); name both, since `uv sync` removes what it is not asked for. CI's Python job installs the `gate` group with `pip install --group gate`.
 
 ### The toolchain
 
@@ -58,7 +58,7 @@ cp tool/tasks/precommit .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
 cp tool/tasks/pushguard .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
 
-`pushguard` replaces git-lfs's own `pre-push` and calls it after the gate (`git lfs pre-push` with the same arguments and refs), so the lfs objects still upload. It runs `./tool/tasks/fullcheck.sh --tier push` on each commit the push sends, and a commit it refuses is not pushed; `URNA_PUSHGUARD=0 git push` skips the gate once. The first push tier builds the tree from cold (about 15 minutes on an M-series Mac, 4 cargo jobs); later ones rebuild what changed, and a commit whose steps all passed before takes seconds. `--tier quick` is the loop while you work. The push tier needs, besides the setup above, `cargo install cargo-nextest cargo-deny cargo-semver-checks --locked`, the dist of `Cargo.toml`'s `cargo-dist-version`, `brew install actionlint shellcheck zizmor`, and `rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-msvc` (the `targets` need).
+`pushguard` replaces git-lfs's own `pre-push` and calls it after the gate (`git lfs pre-push` with the same arguments and refs), so the lfs objects still upload. It runs `./tool/tasks/fullcheck.sh --tier push` on each commit the push sends, and a commit it refuses is not pushed; `URNA_PUSHGUARD=0 git push` skips the gate once. The first push tier builds the tree from cold (about 15 minutes on an M-series Mac, 4 cargo jobs); later ones rebuild what changed, and a commit whose steps all passed before takes seconds. `--tier quick` is the loop while you work. The push tier needs, besides the setup above (the `forge` and `gate` groups in the `.venv`), `cargo install cargo-nextest cargo-deny cargo-semver-checks --locked`, the dist of `Cargo.toml`'s `cargo-dist-version`, `brew install actionlint shellcheck zizmor`, and `rustup target add x86_64-unknown-linux-gnu x86_64-pc-windows-msvc` (the `targets` need).
 
 Run `./tool/tasks/fullcheck.sh` (the full tier) before a change of format, runtime or performance is ready. Each check it skips prints `SKIP` with the reason; CI then runs that check first, so install what it names instead. Besides the setup above it needs:
 
